@@ -1,184 +1,144 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CarState, InputState, TuningState } from '../types';
 import {
-	CAR_CONSTANTS,
-	DEFAULT_TUNING,
-	TORQUE_CURVE,
-	CONTROLS,
-} from '../constants';
+	CarState,
+	InputState,
+	TuningState,
+	GamePhase,
+	Mission,
+	Opponent,
+	ModNode,
+} from '../types';
+import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
 import Dashboard from './Dashboard';
-import TuningPanel from './TuningPanel';
+import GameMenu from './GameMenu';
 import { AudioEngine } from './AudioEngine';
 
-const PPM = 20; // Pixels Per Meter - Visual Scale
+const PPM = 40; // Pixels Per Meter - Visual Scale
 
-const interpolateTorque = (rpm: number): number => {
+const interpolateTorque = (
+	rpm: number,
+	curve: { rpm: number; factor: number }[]
+): number => {
 	const clampedRPM = Math.max(0, rpm);
-	// Find segment
-	for (let i = 0; i < TORQUE_CURVE.length - 1; i++) {
-		const p1 = TORQUE_CURVE[i];
-		const p2 = TORQUE_CURVE[i + 1];
+	for (let i = 0; i < curve.length - 1; i++) {
+		const p1 = curve[i];
+		const p2 = curve[i + 1];
 		if (clampedRPM >= p1.rpm && clampedRPM <= p2.rpm) {
 			const t = (clampedRPM - p1.rpm) / (p2.rpm - p1.rpm);
 			return p1.factor + t * (p2.factor - p1.factor);
 		}
 	}
-	return 0.2;
+	return curve[curve.length - 1]?.factor || 0.2;
 };
 
-// Skidmark trail point
-interface TrailPoint {
-	x: number;
-	y: number;
-	alpha: number;
-	life: number;
-}
-
-interface Particle {
-	x: number;
-	y: number;
-	vx: number;
-	vy: number;
-	life: number;
-	size: number;
-}
+type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 
 const GameCanvas: React.FC = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
-	// Audio Engine
+	// Audio Refs
 	const audioRef = useRef<AudioEngine>(new AudioEngine());
+	const opponentAudioRef = useRef<AudioEngine>(new AudioEngine());
 	const audioInitializedRef = useRef(false);
 
-	// Tuning State (editable via UI)
-	const [tuning, setTuning] = useState<TuningState>(DEFAULT_TUNING);
-	const tuningRef = useRef<TuningState>(DEFAULT_TUNING);
+	// Game Persistence State
+	const [money, setMoney] = useState(500);
+	const [phase, setPhase] = useState<GamePhase>('MENU');
 
-	// Sync ref when state changes
-	useEffect(() => {
-		tuningRef.current = tuning;
+	// New Inventory System (Array of owned Mod IDs)
+	const [ownedMods, setOwnedMods] = useState<string[]>([]);
+	// Missions state to track best times
+	const [missions, setMissions] = useState<Mission[]>(MISSIONS);
 
-		// Update Audio Config real-time
-		if (audioInitializedRef.current) {
-			audioRef.current.setConfiguration(
-				tuning.cylinders,
-				tuning.exhaustOpenness,
-				tuning.backfireAggression
-			);
-		}
-	}, [tuning]);
+	// Current Tuning (Calculated from Base + Mods)
+	const [playerTuning, setPlayerTuning] = useState<TuningState>(BASE_TUNING);
+	const tuningRef = useRef<TuningState>(BASE_TUNING);
 
-	// Game State Refs
-	const carRef = useRef<CarState>({
-		x: 0,
+	// Current Mission
+	const missionRef = useRef<Mission | null>(null);
+
+	// Race Logic State
+	const [raceStatus, setRaceStatus] = useState<RaceStatus>('IDLE');
+	const raceStartTimeRef = useRef<number>(0);
+	const countdownStartRef = useRef<number>(0);
+
+	// Physics States
+	const playerRef = useRef<CarState>({
 		y: 0,
-		heading: -Math.PI / 2, // Facing Up
-		velocityX: 0,
-		velocityY: 0,
-		angularVelocity: 0,
-		speed: 0,
-		steeringAngle: 0,
-		rpm: DEFAULT_TUNING.idleRPM,
+		velocity: 0,
+		rpm: 1000,
 		gear: 0,
-		slipAngle: 0,
-		isDrifting: false,
-		gripRatio: 0,
-		pitch: 0,
-		roll: 0,
+		finished: false,
+		finishTime: 0,
+	});
+
+	const opponentRef = useRef<CarState>({
+		y: 0,
+		velocity: 0,
+		rpm: 1000,
+		gear: 0,
+		finished: false,
+		finishTime: 0,
 	});
 
 	const inputsRef = useRef<InputState>({
-		forward: false,
-		backward: false,
-		left: false,
-		right: false,
-		brake: false,
-		eBrake: false,
+		gas: false,
+		shiftUp: false,
+		shiftDown: false,
 		clutch: false,
-		gearUp: false,
-		gearDown: false,
 	});
 
-	// Track previous frame state for audio triggers
-	const prevInputsRef = useRef<InputState>({ ...inputsRef.current });
-	const prevGearRef = useRef<number>(0);
+	// Logic Refs
+	const shiftDebounce = useRef(false);
+	const lastTimeRef = useRef<number>(0);
 
-	const skidmarksLeftRef = useRef<TrailPoint[]>([]);
-	const skidmarksRightRef = useRef<TrailPoint[]>([]);
-	const particlesRef = useRef<Particle[]>([]);
-	const gearShiftDebounce = useRef(false);
+	// State for React UI
+	const [uiState, setUiState] = useState<{
+		player: CarState;
+		opponent: CarState;
+	}>({
+		player: playerRef.current,
+		opponent: opponentRef.current,
+	});
+	const [raceResult, setRaceResult] = useState<'WIN' | 'LOSS' | null>(null);
+	const [playerFinishTime, setPlayerFinishTime] = useState<number>(0);
+	const [countdownNum, setCountdownNum] = useState<number | string>('');
 
-	// Force UI update periodically
-	const [uiState, setUiState] = useState<CarState>(carRef.current);
-
-	// Input Handling
+	// --- Input Handling ---
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Init audio on first interaction
+			// Audio Init on first interaction
 			if (!audioInitializedRef.current) {
 				audioRef.current.init();
+				opponentAudioRef.current.init();
 				audioInitializedRef.current = true;
-				// Apply initial config
-				audioRef.current.setConfiguration(
-					tuningRef.current.cylinders,
-					tuningRef.current.exhaustOpenness,
-					tuningRef.current.backfireAggression
-				);
 			}
 
+			if (phase !== 'RACE') return;
+
 			switch (e.key) {
-				case CONTROLS.FORWARD:
-					inputsRef.current.forward = true;
+				case CONTROLS.GAS:
+					inputsRef.current.gas = true;
 					break;
-				case CONTROLS.LEFT:
-					inputsRef.current.left = true;
+				case CONTROLS.SHIFT_UP:
+					inputsRef.current.shiftUp = true;
 					break;
-				case CONTROLS.RIGHT:
-					inputsRef.current.right = true;
-					break;
-				case CONTROLS.BRAKE:
-					inputsRef.current.brake = true;
-					break;
-				case CONTROLS.E_BRAKE:
-					inputsRef.current.eBrake = true;
-					break;
-				case CONTROLS.CLUTCH:
-					inputsRef.current.clutch = true;
-					break;
-				case CONTROLS.GEAR_UP:
-					inputsRef.current.gearUp = true;
-					break;
-				case CONTROLS.GEAR_DOWN:
-					inputsRef.current.gearDown = true;
+				case CONTROLS.SHIFT_DOWN:
+					inputsRef.current.shiftDown = true;
 					break;
 			}
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
 			switch (e.key) {
-				case CONTROLS.FORWARD:
-					inputsRef.current.forward = false;
+				case CONTROLS.GAS:
+					inputsRef.current.gas = false;
 					break;
-				case CONTROLS.LEFT:
-					inputsRef.current.left = false;
+				case CONTROLS.SHIFT_UP:
+					inputsRef.current.shiftUp = false;
 					break;
-				case CONTROLS.RIGHT:
-					inputsRef.current.right = false;
-					break;
-				case CONTROLS.BRAKE:
-					inputsRef.current.brake = false;
-					break;
-				case CONTROLS.E_BRAKE:
-					inputsRef.current.eBrake = false;
-					break;
-				case CONTROLS.CLUTCH:
-					inputsRef.current.clutch = false;
-					break;
-				case CONTROLS.GEAR_UP:
-					inputsRef.current.gearUp = false;
-					break;
-				case CONTROLS.GEAR_DOWN:
-					inputsRef.current.gearDown = false;
+				case CONTROLS.SHIFT_DOWN:
+					inputsRef.current.shiftDown = false;
 					break;
 			}
 		};
@@ -189,557 +149,627 @@ const GameCanvas: React.FC = () => {
 			window.removeEventListener('keydown', handleKeyDown);
 			window.removeEventListener('keyup', handleKeyUp);
 		};
-	}, []);
+	}, [phase]);
 
-	// Main Loop
+	// Stop audio when leaving race phase
+	useEffect(() => {
+		if (phase !== 'RACE') {
+			audioRef.current.stop();
+			opponentAudioRef.current.stop();
+		}
+	}, [phase]);
+
+	// Sync ref
+	useEffect(() => {
+		tuningRef.current = playerTuning;
+	}, [playerTuning]);
+
+	// --- Helpers ---
+	const recalculateTuning = (currentOwnedMods: string[]) => {
+		let newTuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
+
+		// Sort mods by tree depth (rough approx) so base mods apply first?
+		// Actually, simple object spread merge usually works for this complexity level.
+		MOD_TREE.forEach((mod) => {
+			if (currentOwnedMods.includes(mod.id)) {
+				newTuning = { ...newTuning, ...mod.stats };
+				// Special handling for array overrides if needed, but strict replacement is fine for now
+			}
+		});
+		setPlayerTuning(newTuning);
+	};
+
+	const toggleMod = (mod: ModNode) => {
+		const isOwned = ownedMods.includes(mod.id);
+
+		if (!isOwned) {
+			// Buy
+			if (money >= mod.cost) {
+				setMoney((m) => m - mod.cost);
+				const newOwned = [...ownedMods, mod.id];
+				setOwnedMods(newOwned);
+				recalculateTuning(newOwned);
+			}
+		} else {
+			// Sell (Refund 50%)
+			// Check if any children are owned first
+			const hasChildOwned = MOD_TREE.some(
+				(m) => m.parentId === mod.id && ownedMods.includes(m.id)
+			);
+			if (!hasChildOwned) {
+				setMoney((m) => m + Math.floor(mod.cost * 0.5));
+				const newOwned = ownedMods.filter((id) => id !== mod.id);
+				setOwnedMods(newOwned);
+				recalculateTuning(newOwned);
+			} else {
+				alert('Cannot sell: Dependent parts installed.');
+			}
+		}
+	};
+
+	const startMission = (mission: Mission) => {
+		missionRef.current = mission;
+
+		// Reset Cars
+		playerRef.current = {
+			y: 0,
+			velocity: 0,
+			rpm: 1000,
+			gear: 0,
+			finished: false,
+			finishTime: 0,
+		};
+		opponentRef.current = {
+			y: 0,
+			velocity: 0,
+			rpm: 1000,
+			gear: 0,
+			finished: false,
+			finishTime: 0,
+		};
+
+		raceStartTimeRef.current = 0;
+		setRaceResult(null);
+
+		// Stop any existing audio
+		audioRef.current.stop();
+		opponentAudioRef.current.stop();
+
+		// Reset Audio Config (but don't start playing yet)
+		audioRef.current.setConfiguration(
+			playerTuning.cylinders,
+			playerTuning.exhaustOpenness,
+			playerTuning.backfireAggression,
+			playerTuning.turboIntensity
+		);
+		audioRef.current.setVolume(0); // Start muted
+		// Reset spatial
+		audioRef.current.setSpatial(0, 0, 0);
+
+		opponentAudioRef.current.setConfiguration(
+			mission.opponent.tuning.cylinders,
+			mission.opponent.tuning.exhaustOpenness,
+			mission.opponent.tuning.backfireAggression,
+			mission.opponent.tuning.turboIntensity
+		);
+		opponentAudioRef.current.setVolume(0); // Start muted
+		opponentAudioRef.current.setSpatial(0, 0, 0.5); // Opponent slightly right
+
+		// Start Countdown
+		setPhase('RACE');
+		setRaceStatus('COUNTDOWN');
+		setCountdownNum(3);
+		countdownStartRef.current = performance.now();
+	};
+
+	// --- Physics Engine (1D) ---
+	const updateCarPhysics = (
+		car: CarState,
+		t: TuningState,
+		inputs: InputState,
+		dt: number,
+		isAI: boolean,
+		audioEngine: AudioEngine,
+		aiStats?: Opponent
+	) => {
+		const isLocked = raceStatus === 'COUNTDOWN';
+
+		// 1. Shifting Logic
+		if (isAI && aiStats && !isLocked) {
+			if (car.gear === 0) {
+				car.gear = 1;
+			} else {
+				const shiftThreshold = isAI
+					? t.redlineRPM * (0.9 + aiStats.difficulty * 0.08)
+					: 0;
+				if (car.rpm > shiftThreshold && car.gear < 6) {
+					car.gear++;
+					car.rpm *= 0.7; // RPM drop simulation
+					audioEngine.triggerShift(false);
+				}
+			}
+		} else if (!isAI) {
+			// Player Logic
+			if (inputs.shiftUp && !shiftDebounce.current) {
+				if (car.gear < 6) {
+					car.gear++;
+					if (car.gear > 1) car.rpm *= 0.65;
+					audioEngine.triggerShift(false);
+				}
+				shiftDebounce.current = true;
+			}
+			if (inputs.shiftDown && !shiftDebounce.current) {
+				if (car.gear > 0) {
+					car.gear--;
+					car.rpm *= 1.4;
+					audioEngine.triggerShift(true);
+				}
+				shiftDebounce.current = true;
+			}
+			if (!inputs.shiftUp && !inputs.shiftDown) {
+				shiftDebounce.current = false;
+			}
+		}
+
+		// 2. Engine Physics
+		const gearRatio = t.gearRatios[car.gear] || 0;
+		const effectiveRatio = gearRatio * t.finalDriveRatio;
+		const wheelRadius = 0.3;
+
+		const wheelCirc = 2 * Math.PI * wheelRadius;
+
+		// Connected RPM is what the engine RPM *would* be if fully engaged to wheels at this speed
+		const connectedRPM = (car.velocity / wheelCirc) * 60 * effectiveRatio;
+
+		const torqueCurveFactor = interpolateTorque(car.rpm, t.torqueCurve);
+		let engineTorque =
+			isAI || inputs.gas ? t.maxTorque * torqueCurveFactor : 0;
+
+		// Rev Limiter
+		if (car.rpm > t.redlineRPM) {
+			engineTorque = 0;
+			car.rpm = t.redlineRPM - 100;
+			if (!isAI || Math.random() > 0.9) audioEngine.triggerLimiter();
+		}
+
+		let driveForce = 0;
+		let load = 0;
+
+		// Clutch / Coupling Logic
+		if (car.gear > 0 && !isLocked) {
+			driveForce = (engineTorque * effectiveRatio) / wheelRadius;
+
+			// Smooth Launch / Clutch Slip Logic
+			// Check if RPM is significantly higher than wheel speed in 1st gear (Launch)
+			const slipThreshold = 500; // RPM delta to consider slipping
+
+			if (car.gear === 1 && car.rpm > connectedRPM + slipThreshold) {
+				// Clutch is slipping. The engine is spinning faster than the wheels.
+				// We apply a "friction" drag to the RPM to pull it down towards connectedRPM,
+				// but we allow gas to keep it somewhat high.
+
+				const clutchFriction = 3.5; // Controls how fast RPM drops to match wheels
+				const rpmDrag = (car.rpm - connectedRPM) * dt * clutchFriction;
+
+				// Gas allows you to sustain RPM against the clutch friction
+				const rpmBoost =
+					isAI || inputs.gas
+						? (t.maxTorque / t.flywheelMass) * dt * 0.8
+						: 0;
+
+				car.rpm = car.rpm + rpmBoost - rpmDrag;
+				load = 1.0;
+			} else {
+				// Fully coupled - Engine locked to wheels
+				const coupling = dt * 10.0;
+				car.rpm = car.rpm + (connectedRPM - car.rpm) * coupling;
+				load = inputs.gas ? 1.0 : 0.0;
+			}
+		} else {
+			// Neutral / Clutch In
+			if (isAI || inputs.gas) {
+				car.rpm += (t.maxTorque / t.flywheelMass) * dt * 5;
+				load = 0.5; // Revving freely
+			} else {
+				car.rpm -= 2000 * dt;
+				load = 0;
+			}
+		}
+
+		car.rpm = Math.max(t.idleRPM, car.rpm);
+
+		// Forces
+		if (isLocked) {
+			car.velocity = 0;
+		} else {
+			const dragForce =
+				0.5 *
+				1.225 *
+				car.velocity *
+				car.velocity *
+				t.dragCoefficient *
+				2.0;
+			const rollingRes = 150;
+			const netForce = driveForce - dragForce - rollingRes;
+			const accel = netForce / t.mass;
+
+			car.velocity += accel * dt;
+			if (car.velocity < 0) car.velocity = 0;
+
+			car.y += car.velocity * dt;
+		}
+
+		// Update Audio (during countdown and racing, not in menus)
+		if (
+			!isLocked &&
+			(raceStatus === 'COUNTDOWN' || raceStatus === 'RACING')
+		) {
+			audioEngine.update(car.rpm, load, 0);
+		}
+	};
+
+	// --- Main Loop ---
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		let animationFrameId: number;
-		let lastTime = performance.now();
+		let animId: number;
+		lastTimeRef.current = performance.now();
 
-		const updatePhysics = (dt: number) => {
-			const car = carRef.current;
-			const inputs = inputsRef.current;
-			const prevInputs = prevInputsRef.current;
-			const t = tuningRef.current;
-			const c = CAR_CONSTANTS;
+		const render = (time: number) => {
+			const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
+			lastTimeRef.current = time;
 
-			// --- 1. Gear Shifting ---
-			if (inputs.gearUp && !gearShiftDebounce.current) {
-				if (car.gear < 6) car.gear++;
-				gearShiftDebounce.current = true;
-			}
-			if (inputs.gearDown && !gearShiftDebounce.current) {
-				if (car.gear > -1) car.gear--;
-				gearShiftDebounce.current = true;
-			}
-			if (!inputs.gearUp && !inputs.gearDown) {
-				gearShiftDebounce.current = false;
-			}
+			if (phase === 'RACE' && missionRef.current) {
+				const p = playerRef.current;
+				const o = opponentRef.current;
+				const m = missionRef.current;
 
-			// --- 2. Steering & Heading ---
-			const maxSteer = 0.6; // ~35 degrees
-			let targetSteer = 0;
-			if (inputs.left) targetSteer -= maxSteer;
-			if (inputs.right) targetSteer += maxSteer;
+				// Countdown Logic
+				if (raceStatus === 'COUNTDOWN') {
+					const elapsed = time - countdownStartRef.current;
+					const remaining = 3000 - elapsed;
+					if (remaining <= 0) {
+						setRaceStatus('RACING');
+						setCountdownNum('GO!');
+						raceStartTimeRef.current = time;
+						setTimeout(() => setCountdownNum(''), 1000);
 
-			// Smooth steering
-			const steerSpeed = t.steerSpeed * dt;
-			if (Math.abs(targetSteer - car.steeringAngle) < steerSpeed) {
-				car.steeringAngle = targetSteer;
-			} else {
-				car.steeringAngle +=
-					Math.sign(targetSteer - car.steeringAngle) * steerSpeed;
-			}
+						// Unmute audio when race actually starts
+						audioRef.current.setVolume(0.4);
+						opponentAudioRef.current.setVolume(0.4);
+					} else {
+						setCountdownNum(Math.ceil(remaining / 1000));
+					}
+				}
 
-			// --- 3. Velocity Decomposition (Local Space) ---
-			const headX = Math.cos(car.heading);
-			const headY = Math.sin(car.heading);
-
-			const sideX = -headY;
-			const sideY = headX;
-
-			let vLong = car.velocityX * headX + car.velocityY * headY;
-			const vLat = car.velocityX * sideX + car.velocityY * sideY;
-
-			car.speed = Math.sqrt(car.velocityX ** 2 + car.velocityY ** 2);
-
-			car.slipAngle =
-				Math.abs(vLong) > 1 ? Math.atan2(vLat, Math.abs(vLong)) : 0;
-
-			// --- 4. Engine & Transmission Physics ---
-			const isNeutral = car.gear === 0;
-			const isDeclutched = inputs.clutch || isNeutral;
-			const gearRatio = c.gearRatios[car.gear] || 0;
-			const effectiveRatio = gearRatio * t.finalDriveRatio;
-
-			const wheelCirc = 2 * Math.PI * c.wheelRadius;
-			const wheelRPM = (vLong / wheelCirc) * 60;
-			const connectedRPM = Math.abs(wheelRPM * effectiveRatio);
-
-			// Torque Calculation
-			const torqueCurveFactor = interpolateTorque(car.rpm);
-			const engineTorque = inputs.forward
-				? t.maxTorque * torqueCurveFactor
-				: 0;
-
-			let driveForce = 0;
-
-			if (isDeclutched) {
-				// Engine Free Revving
-				const revUpRate = 10000 / t.flywheelMass;
-				const revDownRate = 5000 / t.flywheelMass;
-
-				let targetRPM = t.idleRPM;
-				if (inputs.forward) targetRPM = t.redlineRPM;
-
-				if (car.rpm < targetRPM) {
-					car.rpm += revUpRate * dt;
+				// Update Physics
+				if (!p.finished) {
+					updateCarPhysics(
+						p,
+						tuningRef.current,
+						inputsRef.current,
+						dt,
+						false,
+						audioRef.current
+					);
+					if (p.y >= m.distance) {
+						p.finished = true;
+						p.finishTime = (time - raceStartTimeRef.current) / 1000;
+						setPlayerFinishTime(p.finishTime);
+					}
 				} else {
-					car.rpm -= revDownRate * dt;
+					audioRef.current.setVolume(0);
 				}
-			} else {
-				// Connected to wheels
-				const couplingStrength = 10.0 * dt;
-				car.rpm = car.rpm + (connectedRPM - car.rpm) * couplingStrength;
 
-				const availableForce =
-					(engineTorque * effectiveRatio) / c.wheelRadius;
-
-				if (car.gear === -1) {
-					driveForce = -availableForce;
+				if (!o.finished) {
+					updateCarPhysics(
+						o,
+						m.opponent.tuning,
+						{
+							gas: true,
+							shiftUp: false,
+							shiftDown: false,
+							clutch: false,
+						},
+						dt,
+						true,
+						opponentAudioRef.current,
+						m.opponent
+					);
+					if (o.y >= m.distance) {
+						o.finished = true;
+						o.finishTime = (time - raceStartTimeRef.current) / 1000;
+					}
 				} else {
-					driveForce = availableForce;
+					opponentAudioRef.current.setVolume(0);
 				}
 
-				if (!inputs.forward && car.rpm > t.idleRPM) {
-					const engineBrakeTorque = (car.rpm / t.redlineRPM) * 60;
-					driveForce -=
-						((engineBrakeTorque * effectiveRatio) / c.wheelRadius) *
-						Math.sign(vLong);
+				// --- Audio Spatialization ---
+				if (raceStatus === 'RACING') {
+					const distance = o.y - p.y; // Positive if opponent ahead
+					const relVel = o.velocity - p.velocity;
+
+					// Player audio is static center
+					// Opponent audio moves
+					opponentAudioRef.current.setSpatial(distance, relVel, 0.5); // Pan slightly right
 				}
 
-				if (car.rpm > t.redlineRPM) {
-					driveForce = 0;
-					car.rpm = t.redlineRPM - 200;
-					if (Math.random() > 0.7) audioRef.current.triggerLimiter();
+				// Check Win Condition
+				if (raceStatus === 'RACING' && (p.finished || o.finished)) {
+					if (
+						p.finished &&
+						(!o.finished || p.finishTime < o.finishTime)
+					) {
+						setRaceResult('WIN');
+						setRaceStatus('FINISHED');
+						setMoney((prev) => prev + m.payout);
+
+						// Update Best Time
+						const currentMissions = [...missions];
+						const missionIndex = currentMissions.findIndex(
+							(mis) => mis.id === m.id
+						);
+						if (missionIndex !== -1) {
+							const oldBest =
+								currentMissions[missionIndex].bestTime;
+							if (!oldBest || p.finishTime < oldBest) {
+								currentMissions[missionIndex].bestTime =
+									p.finishTime;
+								setMissions(currentMissions);
+							}
+						}
+
+						audioRef.current.stop();
+						opponentAudioRef.current.stop();
+					} else if (
+						o.finished &&
+						(!p.finished || o.finishTime < p.finishTime)
+					) {
+						setRaceResult('LOSS');
+						setRaceStatus('FINISHED');
+						audioRef.current.stop();
+						opponentAudioRef.current.stop();
+					}
 				}
-			}
 
-			if (car.rpm < t.idleRPM) car.rpm = t.idleRPM;
+				// --- DRAWING ---
 
-			// --- 5. Tire Physics & Braking ---
+				const carVisualY = -p.y * PPM;
+				const screenOffset = canvas.height * 0.75; // Player sits 75% down the screen
 
-			let longForce = driveForce;
+				const camTransY = screenOffset + p.y * PPM;
 
-			if (inputs.brake) {
-				const brakingDecel = t.brakingForce / t.mass;
-				const timeToStop = Math.abs(vLong) / brakingDecel;
+				ctx.fillStyle = '#1e1e1e';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-				if (timeToStop < dt) {
-					longForce = -(vLong * t.mass) / dt;
-				} else {
-					longForce -= Math.sign(vLong) * t.brakingForce;
+				ctx.save();
+
+				ctx.translate(canvas.width / 2, 0);
+				ctx.translate(0, camTransY);
+
+				const trackWidth = 300;
+
+				// Draw Track
+				const finishVisualY = -m.distance * PPM;
+				const trackStartVisualY = 200 * PPM;
+				const trackEndVisualY = finishVisualY - 500 * PPM;
+
+				const totalHeight = trackStartVisualY - trackEndVisualY;
+
+				// Grass
+				ctx.fillStyle = '#14532d';
+				ctx.fillRect(
+					-trackWidth / 2 - 40,
+					trackEndVisualY,
+					trackWidth + 80,
+					totalHeight
+				);
+
+				// Asphalt
+				ctx.fillStyle = '#333';
+				ctx.fillRect(
+					-trackWidth / 2,
+					trackEndVisualY,
+					trackWidth,
+					totalHeight
+				);
+
+				// Start Line
+				const checkSize = 20;
+				for (let r = 0; r < 2; r++) {
+					for (let c = 0; c < trackWidth / checkSize; c++) {
+						ctx.fillStyle = (r + c) % 2 === 0 ? '#fff' : '#000';
+						ctx.fillRect(
+							-trackWidth / 2 + c * checkSize,
+							-r * checkSize,
+							checkSize,
+							checkSize
+						);
+					}
 				}
-			} else {
-				if (Math.abs(vLong) > 0.1) {
-					longForce -=
-						Math.sign(vLong) *
-						(c.rollingResistance +
-							t.dragCoefficient * vLong * vLong);
-				} else if (!inputs.forward) {
-					longForce = -(vLong * t.mass) / dt;
+
+				// Finish Line
+				for (let r = 0; r < 3; r++) {
+					for (let c = 0; c < trackWidth / checkSize; c++) {
+						ctx.fillStyle = (r + c) % 2 === 0 ? '#fff' : '#000';
+						ctx.fillRect(
+							-trackWidth / 2 + c * checkSize,
+							finishVisualY + r * checkSize,
+							checkSize,
+							checkSize
+						);
+					}
 				}
-			}
 
-			// --- LATERAL FORCES (DRIFTING) ---
-			const normalLoad = t.mass * 9.81;
-			const maxLatGrip = normalLoad * t.tireGrip;
-			const currentGripLimit = inputs.eBrake
-				? maxLatGrip * 0.2
-				: maxLatGrip;
+				// Lane Lines
+				ctx.beginPath();
+				ctx.strokeStyle = '#555';
+				ctx.lineWidth = 4;
+				ctx.setLineDash([40, 40]);
+				ctx.moveTo(0, trackStartVisualY);
+				ctx.lineTo(0, trackEndVisualY);
+				ctx.stroke();
+				ctx.setLineDash([]);
 
-			const corneringStiffness = 30.0 * t.mass;
-			let latForce = -vLat * corneringStiffness;
+				// Draw Cars
+				const drawCar = (
+					car: CarState,
+					color: string,
+					xOffset: number
+				) => {
+					const y = -car.y * PPM;
+					const w = 40;
+					const h = 70;
 
-			const latForceMag = Math.abs(latForce);
-			car.gripRatio = latForceMag / (currentGripLimit || 1);
+					// Shadow
+					ctx.fillStyle = 'rgba(0,0,0,0.5)';
+					ctx.fillRect(xOffset - w / 2 + 5, y + 5, w, h);
 
-			if (latForceMag > currentGripLimit) {
-				latForce = Math.sign(latForce) * currentGripLimit;
-				car.isDrifting = true;
-			} else {
-				car.isDrifting = false;
-			}
+					// Body
+					ctx.fillStyle = color;
+					ctx.fillRect(xOffset - w / 2, y, w, h);
 
-			// --- 6. Suspension Physics ---
-			const accelX = longForce / t.mass;
-			const accelY = latForce / t.mass;
+					// Roof
+					ctx.fillStyle = 'rgba(0,0,0,0.3)';
+					ctx.fillRect(xOffset - w / 2 + 4, y + h / 2, w - 8, h / 3);
 
-			const targetPitch = -accelX * 0.05;
-			const targetRoll = accelY * 0.05;
+					// Lights
+					ctx.fillStyle = '#fff9c4';
+					ctx.fillRect(xOffset - w / 2 + 2, y + 2, 8, 5);
+					ctx.fillRect(xOffset + w / 2 - 10, y + 2, 8, 5);
 
-			const stiffness = t.suspensionStiffness * dt;
-			const damping = t.suspensionDamping * dt;
+					ctx.fillStyle = '#ef4444';
+					ctx.fillRect(xOffset - w / 2 + 2, y + h - 4, 8, 2);
+					ctx.fillRect(xOffset + w / 2 - 10, y + h - 4, 8, 2);
 
-			car.pitch = car.pitch + (targetPitch - car.pitch) * stiffness * 0.1;
-			car.roll = car.roll + (targetRoll - car.roll) * stiffness * 0.1;
-
-			// --- 7. Integration ---
-			const fx = longForce * headX + latForce * sideX;
-			const fy = longForce * headY + latForce * sideY;
-
-			car.velocityX += (fx / t.mass) * dt;
-			car.velocityY += (fy / t.mass) * dt;
-			car.x += car.velocityX * dt;
-			car.y += car.velocityY * dt;
-
-			const wheelBase = c.wheelBase;
-			let targetAngularVel =
-				(vLong * Math.tan(car.steeringAngle)) / wheelBase;
-			if (vLong < -1) targetAngularVel = -targetAngularVel;
-
-			// Smooth Angular Velocity
-			const angularBlend = car.isDrifting ? 0.02 : 0.2;
-			car.angularVelocity =
-				car.angularVelocity * (1 - angularBlend) +
-				targetAngularVel * angularBlend;
-
-			car.heading += car.angularVelocity * dt;
-
-			// --- 8. Audio Triggers ---
-			if (car.gear !== prevGearRef.current) {
-				// Determine shift direction
-				const isDownshift = car.gear < prevGearRef.current;
-				audioRef.current.triggerShift(isDownshift);
-			}
-
-			// Backfire Logic: Significant throttle lift at high RPM
-			if (prevInputs.forward && !inputs.forward && car.rpm > 4000) {
-				audioRef.current.triggerBackfire();
-			}
-
-			// Update Audio Engine
-			const driftIntensity = car.isDrifting
-				? Math.min(car.gripRatio - 1, 1.0) * Math.min(car.speed / 10, 1)
-				: 0;
-
-			// Calculate Load (0-1) for audio
-			let engineLoad = 0;
-			if (inputs.forward) engineLoad = 1;
-			// High RPM coasting = partial load sound (mechanical stress)
-			else if (car.rpm > 3000) engineLoad = 0.05;
-
-			audioRef.current.update(car.rpm, engineLoad, driftIntensity);
-
-			// --- 9. Effects ---
-			if (
-				(car.isDrifting || car.gripRatio > 0.8) &&
-				Math.abs(car.speed) > 2
-			) {
-				const intensity = Math.min(1, Math.max(0, car.gripRatio - 0.5));
-
-				const raDist = -c.wheelBase / 2;
-				const halfTrack = 0.9;
-
-				const cosH = Math.cos(car.heading);
-				const sinH = Math.sin(car.heading);
-
-				const rlX = car.x + raDist * cosH - halfTrack * sinH;
-				const rlY = car.y + raDist * sinH + halfTrack * cosH;
-
-				const rrX = car.x + raDist * cosH + halfTrack * sinH;
-				const rrY = car.y + raDist * sinH - halfTrack * cosH;
-
-				const skidPoint = {
-					x: 0,
-					y: 0,
-					alpha: intensity * 0.6,
-					life: 1.0,
+					// Flames
+					if (car.rpm > 6500 && Math.random() > 0.5) {
+						ctx.fillStyle = '#f59e0b';
+						ctx.fillRect(xOffset - 15, y + h, 10, 10);
+						ctx.fillRect(xOffset + 5, y + h, 10, 10);
+					}
 				};
 
-				skidmarksLeftRef.current.push({ ...skidPoint, x: rlX, y: rlY });
-				skidmarksRightRef.current.push({
-					...skidPoint,
-					x: rrX,
-					y: rrY,
-				});
+				drawCar(o, m.opponent.color, -trackWidth / 4);
+				drawCar(p, tuningRef.current.color, trackWidth / 4);
 
-				if (car.isDrifting && Math.random() < intensity * 0.4) {
-					particlesRef.current.push({
-						x: rlX + (Math.random() - 0.5),
-						y: rlY + (Math.random() - 0.5),
-						vx: (Math.random() - 0.5) * 2,
-						vy: (Math.random() - 0.5) * 2,
-						life: 1.0,
-						size: Math.random() * 0.5 + 0.2,
-					});
-					particlesRef.current.push({
-						x: rrX + (Math.random() - 0.5),
-						y: rrY + (Math.random() - 0.5),
-						vx: (Math.random() - 0.5) * 2,
-						vy: (Math.random() - 0.5) * 2,
-						life: 1.0,
-						size: Math.random() * 0.5 + 0.2,
-					});
-				}
-			}
+				ctx.restore();
 
-			// Decay
-			const decay = dt * 0.5;
-			skidmarksLeftRef.current.forEach((p) => (p.life -= decay));
-			skidmarksRightRef.current.forEach((p) => (p.life -= decay));
-			skidmarksLeftRef.current = skidmarksLeftRef.current.filter(
-				(p) => p.life > 0
-			);
-			skidmarksRightRef.current = skidmarksRightRef.current.filter(
-				(p) => p.life > 0
-			);
-
-			particlesRef.current.forEach((p) => {
-				p.life -= dt * 2;
-				p.x += p.vx * dt;
-				p.y += p.vy * dt;
-				p.size += dt;
-			});
-			particlesRef.current = particlesRef.current.filter(
-				(p) => p.life > 0
-			);
-
-			prevInputsRef.current = { ...inputs };
-			prevGearRef.current = car.gear;
-		};
-
-		const draw = () => {
-			ctx.fillStyle = '#1a1a1a';
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-			const car = carRef.current;
-
-			ctx.save();
-			ctx.translate(canvas.width / 2, canvas.height / 2);
-
-			const susPitchOffset = car.pitch * PPM;
-			const susRollOffset = -car.roll * PPM;
-
-			const cos = Math.cos(car.heading);
-			const sin = Math.sin(car.heading);
-
-			const visOffsetX = susPitchOffset * cos - susRollOffset * sin;
-			const visOffsetY = susPitchOffset * sin + susRollOffset * cos;
-
-			const cameraX = car.x * PPM + visOffsetX;
-			const cameraY = car.y * PPM + visOffsetY;
-
-			ctx.translate(-cameraX, -cameraY);
-
-			// Grid
-			ctx.strokeStyle = '#333';
-			ctx.lineWidth = 2;
-			const gridSize = 10;
-			const startX = Math.floor(car.x / gridSize) * gridSize - 100;
-			const endX = startX + 200;
-			const startY = Math.floor(car.y / gridSize) * gridSize - 100;
-			const endY = startY + 200;
-
-			ctx.beginPath();
-			for (let i = startX; i <= endX; i += gridSize) {
-				ctx.moveTo(i * PPM, (startY - 50) * PPM);
-				ctx.lineTo(i * PPM, (endY + 50) * PPM);
-			}
-			for (let j = startY; j <= endY; j += gridSize) {
-				ctx.moveTo((startX - 50) * PPM, j * PPM);
-				ctx.lineTo((endX + 50) * PPM, j * PPM);
-			}
-			ctx.stroke();
-
-			// Skidmarks
-			ctx.lineWidth = 0.3 * PPM;
-			const drawTrail = (trail: TrailPoint[]) => {
-				if (trail.length < 2) return;
-				ctx.beginPath();
-				for (let i = 0; i < trail.length - 1; i++) {
-					const p1 = trail[i];
-					const p2 = trail[i + 1];
-					if (
-						Math.abs(p1.x - car.x) > 100 ||
-						Math.abs(p1.y - car.y) > 100
-					)
-						continue;
-
-					ctx.strokeStyle = `rgba(20, 20, 20, ${p1.alpha * p1.life})`;
+				setUiState({ player: { ...p }, opponent: { ...o } });
+			} else {
+				// Menu Background renderer
+				ctx.fillStyle = '#111';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.strokeStyle = '#222';
+				ctx.lineWidth = 2;
+				const timeOffset = (time / 50) % 50;
+				for (let i = 0; i < canvas.height; i += 50) {
 					ctx.beginPath();
-					ctx.moveTo(p1.x * PPM, p1.y * PPM);
-					ctx.lineTo(p2.x * PPM, p2.y * PPM);
+					ctx.moveTo(0, i + timeOffset);
+					ctx.lineTo(canvas.width, i + timeOffset);
 					ctx.stroke();
 				}
-			};
-
-			drawTrail(skidmarksLeftRef.current);
-			drawTrail(skidmarksRightRef.current);
-
-			// Car
-			ctx.save();
-			ctx.translate(car.x * PPM, car.y * PPM);
-			ctx.rotate(car.heading);
-
-			const localSusX = -car.roll * PPM;
-			const localSusY = car.pitch * PPM;
-
-			// Shadow
-			ctx.fillStyle = 'rgba(0,0,0,0.5)';
-			const shadowLen = 5.0 * PPM;
-			const shadowWidth = 2.2 * PPM;
-			ctx.fillRect(
-				-shadowLen / 2,
-				-shadowWidth / 2,
-				shadowLen,
-				shadowWidth
-			);
-
-			// Wheels
-			const wheelOffsetFront = (CAR_CONSTANTS.wheelBase / 2) * PPM;
-			const wheelOffsetRear = -(CAR_CONSTANTS.wheelBase / 2) * PPM;
-			const wheelOffsetSide = 0.9 * PPM;
-
-			const wheelDiameter = 0.65 * PPM;
-			const wheelWidth = 0.3 * PPM;
-
-			ctx.fillStyle = '#080808';
-
-			// Rear Wheels
-			ctx.fillRect(
-				wheelOffsetRear - wheelDiameter / 2,
-				-wheelOffsetSide - wheelWidth / 2,
-				wheelDiameter,
-				wheelWidth
-			);
-			ctx.fillRect(
-				wheelOffsetRear - wheelDiameter / 2,
-				wheelOffsetSide - wheelWidth / 2,
-				wheelDiameter,
-				wheelWidth
-			);
-
-			// Front Wheels
-			ctx.save();
-			ctx.translate(wheelOffsetFront, -wheelOffsetSide);
-			ctx.rotate(car.steeringAngle);
-			ctx.fillRect(
-				-wheelDiameter / 2,
-				-wheelWidth / 2,
-				wheelDiameter,
-				wheelWidth
-			);
-			ctx.restore();
-
-			ctx.save();
-			ctx.translate(wheelOffsetFront, wheelOffsetSide);
-			ctx.rotate(car.steeringAngle);
-			ctx.fillRect(
-				-wheelDiameter / 2,
-				-wheelWidth / 2,
-				wheelDiameter,
-				wheelWidth
-			);
-			ctx.restore();
-
-			// Body
-			ctx.translate(localSusY, localSusX);
-
-			const bodyLen = 4.7 * PPM;
-			const bodyWidth = 1.9 * PPM;
-
-			// Chassis
-			ctx.fillStyle = car.isDrifting ? '#ef4444' : '#3b82f6';
-			ctx.beginPath();
-			ctx.roundRect(
-				-bodyLen / 2,
-				-bodyWidth / 2,
-				bodyLen,
-				bodyWidth,
-				0.2 * PPM
-			);
-			ctx.fill();
-
-			// Roof
-			ctx.fillStyle = '#1e293b';
-			const roofLen = 2.5 * PPM;
-			const roofWidth = 1.6 * PPM;
-			ctx.fillRect(-roofLen / 2, -roofWidth / 2, roofLen, roofWidth);
-
-			// Headlights
-			ctx.fillStyle = '#fef08a';
-			const lightSize = 0.15 * PPM;
-			ctx.beginPath();
-			ctx.arc(
-				bodyLen / 2 - 0.1 * PPM,
-				-bodyWidth / 2 + 0.4 * PPM,
-				lightSize,
-				0,
-				Math.PI * 2
-			);
-			ctx.arc(
-				bodyLen / 2 - 0.1 * PPM,
-				bodyWidth / 2 - 0.4 * PPM,
-				lightSize,
-				0,
-				Math.PI * 2
-			);
-			ctx.fill();
-
-			// Beams
-			ctx.fillStyle = 'rgba(255, 255, 200, 0.1)';
-			ctx.beginPath();
-			ctx.moveTo(bodyLen / 2, -bodyWidth / 2 + 0.4 * PPM);
-			ctx.lineTo(bodyLen / 2 + 6 * PPM, -bodyWidth / 2 - 1.5 * PPM);
-			ctx.lineTo(bodyLen / 2 + 6 * PPM, 0);
-			ctx.fill();
-
-			ctx.beginPath();
-			ctx.moveTo(bodyLen / 2, bodyWidth / 2 - 0.4 * PPM);
-			ctx.lineTo(bodyLen / 2 + 6 * PPM, bodyWidth / 2 + 1.5 * PPM);
-			ctx.lineTo(bodyLen / 2 + 6 * PPM, 0);
-			ctx.fill();
-
-			ctx.restore();
-			ctx.restore();
-
-			// Particles
-			ctx.save();
-			ctx.translate(canvas.width / 2, canvas.height / 2);
-			ctx.translate(-cameraX, -cameraY);
-
-			particlesRef.current.forEach((p) => {
-				ctx.fillStyle = `rgba(200, 200, 200, ${p.life * 0.4})`;
-				ctx.beginPath();
-				ctx.arc(p.x * PPM, p.y * PPM, p.size * PPM, 0, Math.PI * 2);
-				ctx.fill();
-			});
-
-			ctx.restore();
-		};
-
-		const loop = (time: number) => {
-			const dt = Math.min((time - lastTime) / 1000, 0.05);
-			lastTime = time;
-
-			updatePhysics(dt);
-			draw();
-
-			if (Math.random() > 0.5) {
-				setUiState({ ...carRef.current });
 			}
 
-			animationFrameId = requestAnimationFrame(loop);
+			animId = requestAnimationFrame(render);
 		};
 
-		animationFrameId = requestAnimationFrame(loop);
-
-		return () => {
-			cancelAnimationFrame(animationFrameId);
-		};
-	}, []);
+		animId = requestAnimationFrame(render);
+		return () => cancelAnimationFrame(animId);
+	}, [phase, raceStatus, missions]);
 
 	return (
-		<div className="relative w-full h-full">
+		<div className="relative w-full h-full bg-black overflow-hidden font-sans select-none">
 			<canvas
 				ref={canvasRef}
 				width={window.innerWidth}
 				height={window.innerHeight}
 				className="block"
 			/>
-			{/* Pass AudioEngine to Dashboard for visualization */}
-			<Dashboard
-				carState={uiState}
-				tuning={tuningRef.current}
-				audioEngine={audioRef.current}
+
+			{/* HUD only in Race */}
+			{phase === 'RACE' && missionRef.current && (
+				<>
+					<Dashboard
+						carState={uiState.player}
+						tuning={playerTuning}
+						opponentState={uiState.opponent}
+						raceDistance={missionRef.current.distance}
+					/>
+					{/* Countdown Overlay */}
+					{countdownNum !== '' && (
+						<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+							<div
+								className={`text-9xl font-black italic tracking-tighter ${
+									countdownNum === 'GO!'
+										? 'text-green-500 scale-150'
+										: 'text-white'
+								} transition-all duration-300 drop-shadow-2xl`}
+							>
+								{countdownNum}
+							</div>
+						</div>
+					)}
+				</>
+			)}
+
+			{/* Race Results Overlay */}
+			{phase === 'RACE' && raceResult && (
+				<div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-[100] animate-in fade-in duration-500">
+					<h1
+						className={`text-8xl font-black italic mb-4 ${
+							raceResult === 'WIN'
+								? 'text-green-500'
+								: 'text-red-500'
+						}`}
+					>
+						{raceResult === 'WIN' ? 'VICTORY' : 'DEFEAT'}
+					</h1>
+					<div className="text-4xl font-mono text-white mb-2">
+						TIME: {playerFinishTime.toFixed(3)}s
+					</div>
+					{raceResult === 'WIN' && (
+						<div className="text-2xl text-green-400 font-mono mb-8">
+							EARNED ${missionRef.current?.payout}
+						</div>
+					)}
+					<div className="flex gap-4 mt-8">
+						<button
+							onClick={() => startMission(missionRef.current!)}
+							className="px-8 py-4 bg-white text-black font-bold text-xl hover:bg-gray-200 uppercase"
+						>
+							{raceResult === 'WIN' ? 'Race Again' : 'Retry'}
+						</button>
+						<button
+							onClick={() => {
+								audioRef.current.stop();
+								opponentAudioRef.current.stop();
+								setPhase('MISSION_SELECT');
+							}}
+							className="px-8 py-4 bg-gray-800 text-white font-bold text-xl hover:bg-gray-700 uppercase"
+						>
+							Back to Menu
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* Menus */}
+			<GameMenu
+				phase={phase}
+				money={money}
+				missions={missions}
+				ownedMods={ownedMods}
+				playerTuning={playerTuning}
+				onStartMission={startMission}
+				onToggleMod={toggleMod}
+				onBack={() => setPhase('MENU')}
+				onPhaseChange={setPhase}
+				setPlayerTuning={setPlayerTuning}
 			/>
-			<TuningPanel tuning={tuning} onUpdate={setTuning} />
 		</div>
 	);
 };

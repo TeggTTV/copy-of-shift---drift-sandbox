@@ -1,68 +1,98 @@
+export type GamePhase =
+	| 'MENU'
+	| 'MISSION_SELECT'
+	| 'GARAGE'
+	| 'RACE'
+	| 'RESULTS';
+
 export interface InputState {
-	forward: boolean;
-	backward: boolean;
-	left: boolean;
-	right: boolean;
-	brake: boolean;
-	eBrake: boolean;
+	gas: boolean;
+	shiftUp: boolean;
+	shiftDown: boolean;
 	clutch: boolean;
-	gearUp: boolean;
-	gearDown: boolean;
+}
+
+// Replaces the old linear levels
+export interface ModNode {
+	id: string;
+	name: string;
+	description: string;
+	cost: number;
+	type:
+		| 'ENGINE'
+		| 'TURBO'
+		| 'WEIGHT'
+		| 'TIRES'
+		| 'TRANSMISSION'
+		| 'NITROUS'
+		| 'FUEL'
+		| 'COOLING'
+		| 'AERO'
+		| 'SUSPENSION'
+		| 'VISUAL';
+
+	// Tree Logic
+	parentId: string | null;
+	conflictsWith: string[]; // IDs of mods that cannot be active with this one
+
+	// Effects
+	stats: Partial<TuningState>;
+
+	// UI Layout (Grid Coordinates)
+	x: number;
+	y: number;
 }
 
 export interface TuningState {
 	// Engine
 	maxTorque: number; // Nm
+	torqueCurve: { rpm: number; factor: number }[];
 	redlineRPM: number;
-	flywheelMass: number; // Affects how fast RPM changes
+	flywheelMass: number;
 	idleRPM: number;
+	compressionRatio: number; // For audio simulation
 
-	// Audio / Mechanical Config
-	cylinders: number; // 4, 6, 8, 10, 12
-	exhaustOpenness: number; // 0.0 (Stock) to 1.0 (Straight Pipe)
-	backfireAggression: number; // 0.0 to 1.0
+	// Audio
+	cylinders: number;
+	exhaustOpenness: number;
+	backfireAggression: number;
+	turboIntensity: number;
 
 	// Transmission
 	finalDriveRatio: number;
+	gearRatios: Record<number, number>;
 
-	// Tires & Handling
-	tireGrip: number; // Friction coefficient
+	// Physics
+	mass: number;
 	dragCoefficient: number;
-	mass: number; // kg
-	steerSpeed: number; // how fast wheels turn
-	brakingForce: number;
+	tireGrip: number;
 
-	// Suspension
-	suspensionStiffness: number;
-	suspensionDamping: number;
+	// Visuals
+	color: string;
 }
 
 export interface CarState {
-	x: number;
-	y: number;
-	heading: number; // radians
-	velocityX: number; // World space X velocity
-	velocityY: number; // World space Y velocity
-	angularVelocity: number;
-
-	steeringAngle: number; // radians relative to car
+	y: number; // Distance in meters
+	velocity: number; // m/s
 	rpm: number;
-	gear: number; // -1: R, 0: N, 1-6: Forward
-
-	// Suspension State
-	pitch: number;
-	roll: number;
-
-	// Telemetry
-	speed: number; // m/s
-	slipAngle: number;
-	isDrifting: boolean;
-	gripRatio: number;
+	gear: number; // 0: N, 1-6: Forward
+	finished: boolean;
+	finishTime: number;
 }
 
-export interface PhysicsConstants {
-	wheelBase: number;
-	wheelRadius: number;
-	gearRatios: Record<number, number>;
-	rollingResistance: number;
+export interface Opponent {
+	name: string;
+	difficulty: number;
+	color: string;
+	tuning: TuningState;
+}
+
+export interface Mission {
+	id: number;
+	name: string;
+	description: string;
+	payout: number;
+	distance: number; // meters
+	opponent: Opponent;
+	bestTime?: number; // Persisted best time
 }

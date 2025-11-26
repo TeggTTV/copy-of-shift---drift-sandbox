@@ -1,271 +1,127 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, { useEffect, useState, useRef } from 'react';
 import { CarState, TuningState } from '../types';
-import { TORQUE_CURVE } from '../constants';
-import { AudioEngine } from './AudioEngine';
-import {
-	LineChart,
-	Line,
-	XAxis,
-	YAxis,
-	ResponsiveContainer,
-	ReferenceLine,
-} from 'recharts';
 
 interface DashboardProps {
-	carState: CarState;
-	tuning: TuningState;
-	audioEngine?: AudioEngine;
+  carState: CarState;
+  tuning: TuningState;
+  opponentState?: CarState;
+  raceDistance: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({
-	carState,
-	tuning,
-	audioEngine,
-}) => {
-	const speedMs = Math.abs(carState.speed).toFixed(1);
-	const rpm = Math.round(carState.rpm);
+const Dashboard: React.FC<DashboardProps> = ({ carState, tuning, opponentState, raceDistance }) => {
+  const speedKmh = Math.floor(carState.velocity * 3.6);
+  const rpm = Math.round(carState.rpm);
+  const gearLabel = carState.gear === 0 ? 'N' : carState.gear;
 
-	let gearLabel = 'N';
-	if (carState.gear === -1) gearLabel = 'R';
-	else if (carState.gear > 0) gearLabel = carState.gear.toString();
+  // Ensure valid calculation even if redline is weird, default to 7000 if 0
+  const redline = tuning.redlineRPM || 7000;
+  const rpmPercent = Math.min((carState.rpm / redline) * 100, 100);
+  
+  // Shift Light Logic
+  const isShiftPoint = rpmPercent > 90;
+  const isRedline = rpmPercent >= 98;
+  
+  // Progress Bar
+  const safeDistance = raceDistance || 400;
+  const userProgress = Math.max(0, Math.min((carState.y / safeDistance) * 100, 100));
+  const oppProgress = opponentState ? Math.max(0, Math.min((opponentState.y / safeDistance) * 100, 100)) : 0;
 
-	const rpmPercent = Math.min((carState.rpm / tuning.redlineRPM) * 100, 100);
+  return (
+    <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-4 z-50">
+        
+        {/* Race Progress Top Bar */}
+        <div className="w-full max-w-2xl mx-auto mt-4 bg-gray-900/90 rounded-full h-6 border-2 border-white/20 relative">
+             {/* Finish Line Marker */}
+            <div className="absolute right-0 top-0 h-full w-4 bg-white/10 z-0 flex items-center justify-center border-l border-white/30"></div>
 
-	let rpmColor = 'bg-blue-500';
-	if (rpmPercent > 70) rpmColor = 'bg-green-500';
-	if (rpmPercent > 85) rpmColor = 'bg-yellow-500';
-	if (rpmPercent > 95) rpmColor = 'bg-red-600';
+            {/* Opponent Dot */}
+            {opponentState && (
+                <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-red-600 rounded-full shadow-[0_0_10px_rgba(220,38,38,1)] border border-white/50 z-10 transition-none"
+                    style={{ left: `calc(${oppProgress}% - 8px)` }}
+                ></div>
+            )}
 
-	const isDrifting = carState.isDrifting;
+            {/* Player Dot */}
+            <div 
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-blue-500 border-2 border-white rounded-full shadow-[0_0_15px_rgba(59,130,246,1)] z-20 transition-none"
+                style={{ left: `calc(${userProgress}% - 10px)` }}
+            ></div>
+            
+            {/* Labels */}
+            <div className="absolute -bottom-6 left-0 text-[10px] text-gray-400 font-mono">START</div>
+            <div className="absolute -bottom-6 right-0 text-[10px] text-gray-400 font-mono">FINISH</div>
+        </div>
 
-	// Visualizer Logic
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const [visualizerMode, setVisualizerMode] = useState<'freq' | 'wave'>(
-		'freq'
-	);
 
-	useEffect(() => {
-		if (!audioEngine || !canvasRef.current) return;
+        {/* Bottom Cluster */}
+        <div className="flex justify-center items-end w-full mb-8">
+            <div className="bg-black/90 p-6 rounded-2xl border border-gray-800 shadow-2xl flex items-center gap-8 relative overflow-hidden">
+                
+                {/* Shift Light Glow Background */}
+                <div className={`absolute inset-0 transition-opacity duration-100 ${isRedline ? 'bg-red-600/30 animate-pulse' : isShiftPoint ? 'bg-yellow-500/10' : 'opacity-0'}`}></div>
 
-		const canvas = canvasRef.current;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+                {/* Gear Display */}
+                <div className="text-center relative z-10">
+                    <div className="text-xs text-gray-500 font-mono mb-1">GEAR</div>
+                    <div className={`text-6xl font-black font-mono w-24 h-24 flex items-center justify-center rounded-xl border-4 ${isShiftPoint ? 'border-yellow-500 text-yellow-500' : 'border-gray-700 text-white'} bg-gray-900`}>
+                        {gearLabel}
+                    </div>
+                </div>
 
-		let animId: number;
-		const analyser = audioEngine.analyser;
-		const bufferLength = analyser ? analyser.frequencyBinCount : 0;
-		const dataArray = new Uint8Array(bufferLength);
+                {/* Center Tacho */}
+                <div className="relative z-10 w-80">
+                    <div className="flex justify-between text-xs font-mono text-gray-400 mb-1">
+                        <span>RPM</span>
+                        <span className="text-white">{rpm}</span>
+                    </div>
+                    {/* RPM Bar - Removed transition-all for instant response */}
+                    <div className="h-8 bg-gray-800 rounded-lg overflow-hidden border border-gray-700 relative">
+                         {/* Tick Marks */}
+                         <div className="absolute top-0 left-[25%] bottom-0 w-0.5 bg-gray-700 z-0"></div>
+                         <div className="absolute top-0 left-[50%] bottom-0 w-0.5 bg-gray-700 z-0"></div>
+                         <div className="absolute top-0 left-[75%] bottom-0 w-0.5 bg-gray-700 z-0"></div>
+                         
+                         {/* Redline Marker */}
+                         <div className="absolute top-0 left-[90%] bottom-0 w-full bg-red-900/30 z-0"></div>
 
-		const drawVisualizer = () => {
-			if (!analyser) return;
+                        <div 
+                            className={`h-full ease-out ${isRedline ? 'bg-red-500' : isShiftPoint ? 'bg-yellow-400' : 'bg-gradient-to-r from-blue-600 to-blue-400'}`}
+                            style={{ width: `${rpmPercent}%` }}
+                        ></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-600 mt-1 font-mono">
+                        <span>0</span>
+                        <span>{Math.round(redline / 2)}</span>
+                        <span className="text-red-500">{redline}</span>
+                    </div>
+                </div>
 
-			animId = requestAnimationFrame(drawVisualizer);
-			ctx.fillStyle = 'rgba(10, 10, 15, 0.4)'; // Fade out effect
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
+                {/* Speed & Stats */}
+                <div className="text-right relative z-10 w-32 flex flex-col items-end">
+                    <div className="text-7xl font-bold italic tracking-tighter text-white leading-none">
+                        {speedKmh}
+                    </div>
+                    <div className="text-xl font-bold text-gray-500 mb-2">KM/H</div>
+                    
+                    <div className="flex items-center gap-2 text-xs font-mono text-gray-400 border-t border-gray-800 pt-2 w-full justify-end">
+                        <span>DIST</span>
+                        <span className="text-white">{Math.floor(carState.y)}m</span>
+                    </div>
+                </div>
 
-			if (visualizerMode === 'freq') {
-				analyser.getByteFrequencyData(dataArray);
-				// We only care about lower frequencies for the car engine mostly, but let's show all
-				const barWidth = canvas.width / (bufferLength * 0.7); // Zoom in slightly
-				let x = 0;
+            </div>
+        </div>
 
-				for (let i = 0; i < bufferLength * 0.7; i++) {
-					const v = dataArray[i];
-					const barHeight = (v / 255) * canvas.height;
-
-					// Heatmap style gradient
-					const hue = 200 + (v / 255) * 160;
-					ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
-
-					// Draw bars
-					ctx.fillRect(
-						x,
-						canvas.height - barHeight,
-						barWidth,
-						barHeight
-					);
-
-					// Top pixel
-					if (barHeight > 0) {
-						ctx.fillStyle = '#fff';
-						ctx.fillRect(
-							x,
-							canvas.height - barHeight - 2,
-							barWidth,
-							2
-						);
-					}
-
-					x += barWidth + 1;
-				}
-			} else {
-				analyser.getByteTimeDomainData(dataArray);
-				ctx.lineWidth = 2;
-				ctx.strokeStyle = '#6366f1'; // Indigo
-				ctx.beginPath();
-				const sliceWidth = canvas.width / bufferLength;
-				let x = 0;
-				for (let i = 0; i < bufferLength; i++) {
-					const v = dataArray[i] / 128.0;
-					const y = v * (canvas.height / 2);
-					if (i === 0) ctx.moveTo(x, y);
-					else ctx.lineTo(x, y);
-					x += sliceWidth;
-				}
-				ctx.lineTo(canvas.width, canvas.height / 2);
-				ctx.stroke();
-			}
-		};
-
-		drawVisualizer();
-		return () => cancelAnimationFrame(animId);
-	}, [audioEngine, visualizerMode]);
-
-	return (
-		<div className="absolute bottom-0 left-0 w-full p-4 pointer-events-none flex flex-col items-end justify-between gap-4 md:flex-row">
-			{/* Left Cluster: Stats */}
-			<div className="bg-black/90 text-white p-4 rounded-xl backdrop-blur-md border border-white/10 w-full md:w-96 shadow-2xl relative overflow-hidden group">
-				{/* Glow effect */}
-				<div
-					className={`absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/30 blur-3xl rounded-full transition-opacity duration-500 ${
-						rpmPercent > 80 ? 'opacity-100' : 'opacity-0'
-					}`}
-				></div>
-
-				{isDrifting && (
-					<div className="absolute top-0 right-0 p-2 opacity-30 animate-pulse pointer-events-none">
-						<span className="text-4xl font-black italic text-purple-500">
-							DRIFT
-						</span>
-					</div>
-				)}
-
-				<div className="flex justify-between items-center mb-2 relative z-10">
-					<div className="text-5xl font-bold font-mono tracking-tighter text-white drop-shadow-lg">
-						{speedMs}{' '}
-						<span className="text-lg text-gray-500 font-normal">
-							m/s
-						</span>
-					</div>
-					<div
-						className={`border-2 w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold shadow-inner transition-colors duration-200 ${
-							isDrifting
-								? 'border-purple-500 text-purple-500 bg-purple-900/20'
-								: 'border-gray-600 text-white bg-gray-800'
-						}`}
-					>
-						{gearLabel}
-					</div>
-				</div>
-
-				{/* RPM Bar */}
-				<div className="mb-1 flex justify-between text-[10px] text-gray-500 font-mono">
-					<span>IDLE</span>
-					<span
-						className={
-							rpmPercent > 90 ? 'text-red-500 animate-pulse' : ''
-						}
-					>
-						{rpm} RPM
-					</span>
-					<span>LIMIT</span>
-				</div>
-				<div className="h-3 w-full bg-gray-800 rounded-full overflow-hidden border border-gray-700 mb-4 shadow-inner">
-					<div
-						className={`h-full transition-all duration-75 ease-out ${rpmColor}`}
-						style={{ width: `${rpmPercent}%` }}
-					/>
-				</div>
-
-				{/* Visualizer Area */}
-				<div className="w-full h-24 bg-gray-950 rounded mb-2 overflow-hidden relative border border-gray-800 pointer-events-auto">
-					<canvas
-						ref={canvasRef}
-						width={350}
-						height={96}
-						className="w-full h-full opacity-90"
-					/>
-					{/* Visualizer Controls */}
-					<div className="absolute top-1 left-1 flex gap-1">
-						<button
-							onClick={() => setVisualizerMode('freq')}
-							className={`text-[8px] px-2 py-1 rounded transition-colors ${
-								visualizerMode === 'freq'
-									? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50'
-									: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-							}`}
-						>
-							SPECTRUM
-						</button>
-						<button
-							onClick={() => setVisualizerMode('wave')}
-							className={`text-[8px] px-2 py-1 rounded transition-colors ${
-								visualizerMode === 'wave'
-									? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50'
-									: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-							}`}
-						>
-							WAVEFORM
-						</button>
-					</div>
-				</div>
-
-				<div className="mt-2 flex justify-between items-center relative z-10">
-					<div className="font-mono text-xs text-gray-500">
-						SLIP: {(carState.slipAngle * 57.29).toFixed(1)}°
-					</div>
-					<div className="font-mono text-xs text-gray-500">
-						GRIP: {(carState.gripRatio * 100).toFixed(0)}%
-					</div>
-				</div>
-			</div>
-
-			{/* Middle: Controls Help */}
-			<div className="hidden lg:block bg-black/50 text-white/60 p-4 rounded-xl text-sm font-mono backdrop-blur-sm border border-white/5">
-				<div className="grid grid-cols-2 gap-x-8 gap-y-1">
-					<span>W</span> <span>Gas</span>
-					<span>A / D</span> <span>Steer</span>
-					<span>S</span> <span>Brake</span>
-					<span>SPACE</span> <span>E-Brake</span>
-					<span>SHIFT</span> <span>Clutch</span>
-					<span>↑ / ↓</span> <span>Gear Shift</span>
-				</div>
-			</div>
-
-			{/* Right: Torque Curve */}
-			<div className="bg-black/90 p-4 rounded-xl w-full md:w-64 h-48 border border-white/10 shadow-xl hidden sm:block">
-				<h3 className="text-gray-500 text-[10px] uppercase font-bold mb-2 tracking-widest">
-					Power Band
-				</h3>
-				<div className="h-32 w-full">
-					<ResponsiveContainer width="100%" height="100%">
-						<LineChart data={TORQUE_CURVE}>
-							<XAxis
-								dataKey="rpm"
-								hide
-								domain={[0, 9000]}
-								type="number"
-							/>
-							<YAxis hide domain={[0, 1.2]} />
-							<Line
-								type="monotone"
-								dataKey="factor"
-								stroke="#6366f1"
-								strokeWidth={2}
-								dot={false}
-								isAnimationActive={false}
-							/>
-							<ReferenceLine
-								x={carState.rpm}
-								stroke="#ef4444"
-								strokeDasharray="3 3"
-							/>
-						</LineChart>
-					</ResponsiveContainer>
-				</div>
-			</div>
-		</div>
-	);
+        {/* Shift Hint */}
+        {isShiftPoint && !isRedline && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 font-black text-6xl italic animate-pulse tracking-widest pointer-events-none drop-shadow-lg opacity-80">
+                SHIFT!
+            </div>
+        )}
+    </div>
+  );
 };
 
 export default Dashboard;

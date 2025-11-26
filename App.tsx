@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import GameCanvas from './components/GameCanvas';
 
@@ -12,7 +13,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Force re-render of canvas on resize by passing key
   return (
     <div className="w-full h-screen">
       <GameCanvas key={`${windowSize.w}-${windowSize.h}`} />
