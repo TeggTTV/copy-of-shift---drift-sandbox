@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GamePhase, Mission, ModNode, TuningState } from '../types';
 import { MISSIONS, MOD_TREE, BASE_TUNING } from '../constants';
 import {
@@ -11,34 +11,61 @@ import {
 	ResponsiveContainer,
 } from 'recharts';
 
-interface GameMenuProps {
-	phase: GamePhase;
-	money: number;
-	missions: Mission[];
-	ownedMods: string[];
-	playerTuning: TuningState;
-	onStartMission: (mission: Mission) => void;
-	onToggleMod: (mod: ModNode) => void;
-	onBack: () => void;
-	onPhaseChange: (p: GamePhase) => void;
-	setPlayerTuning: (t: TuningState) => void;
-}
-
-const GameMenu: React.FC<GameMenuProps> = ({
+const GameMenu = ({
 	phase,
+	setPhase,
 	money,
-	missions,
-	ownedMods,
 	playerTuning,
-	onStartMission,
-	onToggleMod,
-	onBack,
-	onPhaseChange,
 	setPlayerTuning,
+	ownedMods,
+	setOwnedMods,
+	missions,
+	onStartMission,
+	onConfirmRace,
+	selectedMission,
+}: {
+	phase: GamePhase;
+	setPhase: (p: GamePhase) => void;
+	money: number;
+	playerTuning: TuningState;
+	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
+	ownedMods: string[];
+	setOwnedMods: (mod: ModNode) => void;
+	missions: Mission[];
+	onStartMission: (m: Mission) => void;
+	onConfirmRace?: () => void;
+	selectedMission?: Mission | null;
 }) => {
-	if (phase === 'MENU') {
+	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING'>(
+		'UPGRADES'
+	);
+	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
+
+	// Calculate preview tuning for hover
+	const previewTuning = useMemo(() => {
+		if (!hoveredMod) return null;
+		// Simple override for preview
+		return {
+			...playerTuning,
+			...hoveredMod.stats,
+		};
+	}, [playerTuning, hoveredMod]);
+
+	if (phase === 'VERSUS' && selectedMission && onConfirmRace) {
 		return (
-			<div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50">
+			<VersusScreen
+				playerTuning={playerTuning}
+				mission={selectedMission}
+				onConfirmRace={onConfirmRace}
+				onBack={() => setPhase('MAP')}
+				ownedMods={ownedMods}
+			/>
+		);
+	}
+
+	if (phase === 'MAP') {
+		return (
+			<div className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center text-white z-50">
 				<h1 className="text-6xl font-black italic tracking-tighter text-indigo-500 mb-2">
 					SHIFT & DRAG
 				</h1>
@@ -48,13 +75,13 @@ const GameMenu: React.FC<GameMenuProps> = ({
 
 				<div className="flex flex-col gap-4 w-64">
 					<button
-						onClick={() => onPhaseChange('MISSION_SELECT')}
+						onClick={() => setPhase('MISSION_SELECT')}
 						className="py-4 bg-white text-black font-bold text-xl hover:bg-indigo-400 hover:scale-105 transition-all skew-x-[-10deg]"
 					>
 						RACE
 					</button>
 					<button
-						onClick={() => onPhaseChange('GARAGE')}
+						onClick={() => setPhase('GARAGE')}
 						className="py-4 bg-gray-800 text-white font-bold text-xl border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 transition-all skew-x-[-10deg]"
 					>
 						GARAGE
@@ -70,7 +97,7 @@ const GameMenu: React.FC<GameMenuProps> = ({
 				<div className="w-full max-w-4xl px-4">
 					<div className="flex justify-between items-center mb-8">
 						<button
-							onClick={onBack}
+							onClick={() => setPhase('MAP')}
 							className="text-gray-400 hover:text-white"
 						>
 							&larr; BACK
@@ -154,7 +181,7 @@ const GameMenu: React.FC<GameMenuProps> = ({
 				<div className="w-full h-full flex flex-col">
 					<div className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50">
 						<button
-							onClick={onBack}
+							onClick={() => setPhase('MAP')}
 							className="text-gray-400 hover:text-white"
 						>
 							&larr; BACK
@@ -184,6 +211,11 @@ const GameMenu: React.FC<GameMenuProps> = ({
 									</span>
 									<span className="text-white font-bold">
 										{playerTuning.maxTorque} Nm
+										<StatDiff
+											current={playerTuning.maxTorque}
+											preview={previewTuning?.maxTorque}
+											suffix=" Nm"
+										/>
 									</span>
 								</div>
 								<div className="flex justify-between border-b border-gray-800 pb-2">
@@ -197,6 +229,23 @@ const GameMenu: React.FC<GameMenuProps> = ({
 												9549
 										)}{' '}
 										HP
+										<StatDiff
+											current={Math.round(
+												(playerTuning.maxTorque *
+													playerTuning.redlineRPM) /
+													9549
+											)}
+											preview={
+												previewTuning
+													? Math.round(
+															(previewTuning.maxTorque *
+																previewTuning.redlineRPM) /
+																9549
+													  )
+													: null
+											}
+											suffix=" HP"
+										/>
 									</span>
 								</div>
 								<div className="flex justify-between border-b border-gray-800 pb-2">
@@ -205,6 +254,11 @@ const GameMenu: React.FC<GameMenuProps> = ({
 									</span>
 									<span className="text-white font-bold">
 										{playerTuning.redlineRPM} RPM
+										<StatDiff
+											current={playerTuning.redlineRPM}
+											preview={previewTuning?.redlineRPM}
+											suffix=" RPM"
+										/>
 									</span>
 								</div>
 								<div className="flex justify-between border-b border-gray-800 pb-2">
@@ -213,6 +267,12 @@ const GameMenu: React.FC<GameMenuProps> = ({
 									</span>
 									<span className="text-white font-bold">
 										{playerTuning.mass} KG
+										<StatDiff
+											current={playerTuning.mass}
+											preview={previewTuning?.mass}
+											suffix=" KG"
+											invertColor={true}
+										/>
 									</span>
 								</div>
 								<div className="flex justify-between border-b border-gray-800 pb-2">
@@ -230,12 +290,39 @@ const GameMenu: React.FC<GameMenuProps> = ({
 											1000
 										).toFixed(1)}{' '}
 										HP/ton
+										<StatDiff
+											current={
+												(Math.round(
+													(playerTuning.maxTorque *
+														playerTuning.redlineRPM) /
+														9549
+												) /
+													playerTuning.mass) *
+												1000
+											}
+											preview={
+												previewTuning
+													? (Math.round(
+															(previewTuning.maxTorque *
+																previewTuning.redlineRPM) /
+																9549
+													  ) /
+															previewTuning.mass) *
+													  1000
+													: null
+											}
+											suffix=" HP/ton"
+										/>
 									</span>
 								</div>
 								<div className="flex justify-between border-b border-gray-800 pb-2">
 									<span className="text-gray-500">GRIP</span>
 									<span className="text-white font-bold">
 										{playerTuning.tireGrip.toFixed(2)}
+										<StatDiff
+											current={playerTuning.tireGrip}
+											preview={previewTuning?.tireGrip}
+										/>
 									</span>
 								</div>
 							</div>
@@ -243,7 +330,10 @@ const GameMenu: React.FC<GameMenuProps> = ({
 							<h3 className="text-xl font-bold text-gray-300 mt-8 mb-4">
 								FINE TUNING
 							</h3>
-							<PerformanceMetrics tuning={playerTuning} />
+							<PerformanceMetrics
+								tuning={playerTuning}
+								previewTuning={previewTuning}
+							/>
 							<div className="space-y-4 mt-6">
 								<div>
 									<label className="text-xs text-gray-500 block mb-1">
@@ -441,7 +531,7 @@ const GameMenu: React.FC<GameMenuProps> = ({
 							<h3 className="text-xl font-bold text-gray-300 mt-8 mb-4">
 								CAR PREVIEW
 							</h3>
-							<div className="bg-black/50 border border-gray-800 rounded-lg p-4">
+							<div className="bg-slate-800 border border-gray-800 rounded-lg p-4">
 								<svg
 									width="100%"
 									height="180"
@@ -619,7 +709,8 @@ const GameMenu: React.FC<GameMenuProps> = ({
 								mods={MOD_TREE}
 								owned={ownedMods}
 								money={money}
-								onToggle={onToggleMod}
+								onToggle={setOwnedMods}
+								onHover={setHoveredMod}
 							/>
 						</div>
 					</div>
@@ -629,6 +720,40 @@ const GameMenu: React.FC<GameMenuProps> = ({
 	}
 
 	return null;
+};
+
+const StatDiff = ({
+	current,
+	preview,
+	suffix = '',
+	invertColor = false,
+}: {
+	current: number;
+	preview?: number | null;
+	suffix?: string;
+	invertColor?: boolean;
+}) => {
+	if (
+		preview === undefined ||
+		preview === null ||
+		Math.abs(preview - current) < 0.01
+	)
+		return null;
+	const diff = preview - current;
+	const isPositive = diff > 0;
+	const isGood = invertColor ? !isPositive : isPositive;
+
+	return (
+		<span
+			className={`ml-2 text-xs font-bold ${
+				isGood ? 'text-green-400' : 'text-red-400'
+			}`}
+		>
+			{isPositive ? '+' : ''}
+			{diff.toFixed(1)}
+			{suffix}
+		</span>
+	);
 };
 
 // --- Subcomponents ---
@@ -673,10 +798,29 @@ const calculateQuarterMile = (tuning: TuningState): number => {
 	return Math.max(8.0, baseTime * gripModifier);
 };
 
-const PerformanceMetrics = ({ tuning }: { tuning: TuningState }) => {
+const PerformanceMetrics = ({
+	tuning,
+	previewTuning,
+}: {
+	tuning: TuningState;
+	previewTuning?: TuningState | null;
+}) => {
 	const topSpeed = useMemo(() => calculateTopSpeed(tuning), [tuning]);
 	const zeroTo60 = useMemo(() => calculate0to60(tuning), [tuning]);
 	const quarterMile = useMemo(() => calculateQuarterMile(tuning), [tuning]);
+
+	const pTopSpeed = useMemo(
+		() => (previewTuning ? calculateTopSpeed(previewTuning) : null),
+		[previewTuning]
+	);
+	const pZeroTo60 = useMemo(
+		() => (previewTuning ? calculate0to60(previewTuning) : null),
+		[previewTuning]
+	);
+	const pQuarterMile = useMemo(
+		() => (previewTuning ? calculateQuarterMile(previewTuning) : null),
+		[previewTuning]
+	);
 
 	return (
 		<div className="bg-black/50 rounded border border-gray-800 p-3 space-y-2">
@@ -688,6 +832,11 @@ const PerformanceMetrics = ({ tuning }: { tuning: TuningState }) => {
 					<div className="text-xs text-gray-500">Top Speed</div>
 					<div className="text-lg font-bold text-indigo-400">
 						{topSpeed.toFixed(0)}
+						<StatDiff
+							current={topSpeed}
+							preview={pTopSpeed}
+							suffix=""
+						/>
 					</div>
 					<div className="text-[10px] text-gray-600">MPH</div>
 				</div>
@@ -695,6 +844,11 @@ const PerformanceMetrics = ({ tuning }: { tuning: TuningState }) => {
 					<div className="text-xs text-gray-500">0-60</div>
 					<div className="text-lg font-bold text-green-400">
 						{zeroTo60.toFixed(2)}
+						<StatDiff
+							current={zeroTo60}
+							preview={pZeroTo60}
+							invertColor={true}
+						/>
 					</div>
 					<div className="text-[10px] text-gray-600">SEC</div>
 				</div>
@@ -702,6 +856,11 @@ const PerformanceMetrics = ({ tuning }: { tuning: TuningState }) => {
 					<div className="text-xs text-gray-500">1/4 Mile</div>
 					<div className="text-lg font-bold text-yellow-400">
 						{quarterMile.toFixed(2)}
+						<StatDiff
+							current={quarterMile}
+							preview={pQuarterMile}
+							invertColor={true}
+						/>
 					</div>
 					<div className="text-[10px] text-gray-600">SEC</div>
 				</div>
@@ -727,239 +886,319 @@ const interpolateTorque = (
 	return curve[curve.length - 1]?.factor || 0.2;
 };
 
-const DynoGraph = ({ tuning }: { tuning: TuningState }) => {
-	const data = useMemo(() => {
-		const points = [];
-		for (let r = 0; r <= tuning.redlineRPM; r += 500) {
-			const factor = interpolateTorque(r, tuning.torqueCurve);
-			const torque = tuning.maxTorque * factor;
-			const hp = (torque * r) / 7023;
+const DynoGraph = React.memo(
+	({
+		tuning,
+		previewTuning,
+	}: {
+		tuning: TuningState;
+		previewTuning?: TuningState | null;
+	}) => {
+		const data = useMemo(() => {
+			const points = [];
+			// Use the higher redline if preview has higher redline
+			const maxRpm = previewTuning
+				? Math.max(tuning.redlineRPM, previewTuning.redlineRPM)
+				: tuning.redlineRPM;
 
-			// Stock baseline for comparison
-			const stockFactor = interpolateTorque(r, BASE_TUNING.torqueCurve);
-			const stockTorque = BASE_TUNING.maxTorque * stockFactor;
-			const stockHp = (stockTorque * r) / 7023;
+			for (let r = 0; r <= maxRpm; r += 500) {
+				const factor = interpolateTorque(r, tuning.torqueCurve);
+				const torque = tuning.maxTorque * factor;
+				const hp = (torque * r) / 7023;
 
-			points.push({ rpm: r, torque, hp, stockTorque, stockHp });
-		}
-		return points;
-	}, [tuning]);
+				// Stock baseline for comparison
+				const stockFactor = interpolateTorque(
+					r,
+					BASE_TUNING.torqueCurve
+				);
+				const stockTorque = BASE_TUNING.maxTorque * stockFactor;
+				const stockHp = (stockTorque * r) / 7023;
 
-	// Find peaks
-	const peakTorque = useMemo(() => {
-		let max = 0;
-		let maxRpm = 0;
-		data.forEach((p) => {
-			if (p.torque > max) {
-				max = p.torque;
-				maxRpm = p.rpm;
+				// Preview
+				let previewTorque = null;
+				let previewHp = null;
+				if (previewTuning) {
+					const pFactor = interpolateTorque(
+						r,
+						previewTuning.torqueCurve
+					);
+					previewTorque = previewTuning.maxTorque * pFactor;
+					previewHp = (previewTorque * r) / 7023;
+				}
+
+				points.push({
+					rpm: r,
+					torque,
+					hp,
+					stockTorque,
+					stockHp,
+					previewTorque,
+					previewHp,
+				});
 			}
-		});
-		return { value: max, rpm: maxRpm };
-	}, [data]);
+			return points;
+		}, [tuning, previewTuning]);
 
-	const peakHP = useMemo(() => {
-		let max = 0;
-		let maxRpm = 0;
-		data.forEach((p) => {
-			if (p.hp > max) {
-				max = p.hp;
-				maxRpm = p.rpm;
-			}
-		});
-		return { value: max, rpm: maxRpm };
-	}, [data]);
+		// Find peaks
+		const peakTorque = useMemo(() => {
+			let max = 0;
+			let maxRpm = 0;
+			data.forEach((p) => {
+				if (p.torque > max) {
+					max = p.torque;
+					maxRpm = p.rpm;
+				}
+			});
+			return { value: max, rpm: maxRpm };
+		}, [data]);
 
-	// Custom tooltip
-	const CustomTooltip = ({ active, payload }: any) => {
-		if (active && payload && payload.length) {
-			const data = payload[0].payload;
-			return (
-				<div className="bg-black/95 border border-indigo-500 p-3 rounded shadow-lg">
-					<div className="text-white font-mono text-xs space-y-1">
-						<div className="text-indigo-400 font-bold mb-2">
-							{data.rpm} RPM
+		const peakHP = useMemo(() => {
+			let max = 0;
+			let maxRpm = 0;
+			data.forEach((p) => {
+				if (p.hp > max) {
+					max = p.hp;
+					maxRpm = p.rpm;
+				}
+			});
+			return { value: max, rpm: maxRpm };
+		}, [data]);
+
+		// Custom tooltip
+		const CustomTooltip = ({ active, payload }: any) => {
+			if (active && payload && payload.length) {
+				const data = payload[0].payload;
+				return (
+					<div className="bg-black/95 border border-indigo-500 p-3 rounded shadow-lg z-50">
+						<div className="text-white font-mono text-xs space-y-1">
+							<div className="text-indigo-400 font-bold mb-2">
+								{data.rpm} RPM
+							</div>
+							<div className="flex justify-between gap-4">
+								<span className="text-blue-400">Torque:</span>
+								<span className="text-white font-bold">
+									{data.torque.toFixed(1)} Nm
+								</span>
+							</div>
+							<div className="flex justify-between gap-4">
+								<span className="text-green-400">Power:</span>
+								<span className="text-white font-bold">
+									{data.hp.toFixed(1)} HP
+								</span>
+							</div>
+							{data.previewTorque !== null && (
+								<>
+									<div className="border-t border-gray-700 my-1"></div>
+									<div className="flex justify-between gap-4 text-gray-400">
+										<span>Preview Tq:</span>
+										<span className="text-blue-300 font-bold">
+											{data.previewTorque.toFixed(1)} Nm
+										</span>
+									</div>
+									<div className="flex justify-between gap-4 text-gray-400">
+										<span>Preview HP:</span>
+										<span className="text-green-300 font-bold">
+											{data.previewHp.toFixed(1)} HP
+										</span>
+									</div>
+								</>
+							)}
+							{data.stockTorque > 0 && (
+								<>
+									<div className="border-t border-gray-700 my-1"></div>
+									<div className="flex justify-between gap-4 text-gray-500">
+										<span>Stock Torque:</span>
+										<span>
+											{data.stockTorque.toFixed(1)} Nm
+										</span>
+									</div>
+									<div className="flex justify-between gap-4 text-gray-500">
+										<span>Stock Power:</span>
+										<span>
+											{data.stockHp.toFixed(1)} HP
+										</span>
+									</div>
+								</>
+							)}
 						</div>
-						<div className="flex justify-between gap-4">
-							<span className="text-blue-400">Torque:</span>
-							<span className="text-white font-bold">
-								{data.torque.toFixed(1)} Nm
-							</span>
-						</div>
-						<div className="flex justify-between gap-4">
-							<span className="text-green-400">Power:</span>
-							<span className="text-white font-bold">
-								{data.hp.toFixed(1)} HP
-							</span>
-						</div>
-						{data.stockTorque > 0 && (
-							<>
-								<div className="border-t border-gray-700 my-1"></div>
-								<div className="flex justify-between gap-4 text-gray-500">
-									<span>Stock Torque:</span>
-									<span>
-										{data.stockTorque.toFixed(1)} Nm
-									</span>
-								</div>
-								<div className="flex justify-between gap-4 text-gray-500">
-									<span>Stock Power:</span>
-									<span>{data.stockHp.toFixed(1)} HP</span>
-								</div>
-							</>
-						)}
 					</div>
-				</div>
-			);
-		}
-		return null;
-	};
+				);
+			}
+			return null;
+		};
 
-	// Custom dot for peak markers
-	const PeakDot = (props: any) => {
-		const { cx, cy, payload } = props;
-		const isTorquePeak =
-			payload.rpm === peakTorque.rpm &&
-			payload.torque === peakTorque.value;
-		const isHpPeak =
-			payload.rpm === peakHP.rpm && payload.hp === peakHP.value;
+		// Custom dot for peak markers
+		const PeakDot = (props: any) => {
+			const { cx, cy, payload } = props;
+			const isTorquePeak =
+				payload.rpm === peakTorque.rpm &&
+				payload.torque === peakTorque.value;
+			const isHpPeak =
+				payload.rpm === peakHP.rpm && payload.hp === peakHP.value;
 
-		if (isTorquePeak || isHpPeak) {
-			return (
-				<g>
-					<circle
-						cx={cx}
-						cy={cy}
-						r={4}
-						fill={isTorquePeak ? '#8884d8' : '#82ca9d'}
-						stroke="#fff"
-						strokeWidth={2}
+			if (isTorquePeak || isHpPeak) {
+				return (
+					<g>
+						<circle
+							cx={cx}
+							cy={cy}
+							r={4}
+							fill={isTorquePeak ? '#8884d8' : '#82ca9d'}
+							stroke="#fff"
+							strokeWidth={2}
+						/>
+					</g>
+				);
+			}
+			return null;
+		};
+
+		return (
+			<ResponsiveContainer width="100%" height="100%">
+				<LineChart data={data}>
+					<CartesianGrid strokeDasharray="3 3" stroke="#333" />
+					<XAxis
+						dataKey="rpm"
+						stroke="#666"
+						tick={{ fill: '#666', fontSize: 10 }}
+						label={{
+							value: 'RPM',
+							position: 'insideBottom',
+							offset: -5,
+							fontSize: 10,
+							fill: '#999',
+						}}
 					/>
-				</g>
-			);
-		}
-		return null;
-	};
+					<YAxis
+						yAxisId="left"
+						stroke="#8884d8"
+						tick={{ fill: '#8884d8', fontSize: 10 }}
+						label={{
+							value: 'Torque (Nm)',
+							angle: -90,
+							position: 'insideLeft',
+							fill: '#8884d8',
+							fontSize: 10,
+						}}
+					/>
+					<YAxis
+						yAxisId="right"
+						orientation="right"
+						stroke="#82ca9d"
+						tick={{ fill: '#82ca9d', fontSize: 10 }}
+						label={{
+							value: 'Power (HP)',
+							angle: 90,
+							position: 'insideRight',
+							fill: '#82ca9d',
+							fontSize: 10,
+						}}
+					/>
+					<Tooltip content={<CustomTooltip />} />
+					{/* Stock Baseline */}
+					<Line
+						yAxisId="left"
+						type="monotone"
+						dataKey="stockTorque"
+						stroke="#444"
+						strokeDasharray="3 3"
+						dot={false}
+						strokeWidth={1}
+					/>
+					<Line
+						yAxisId="right"
+						type="monotone"
+						dataKey="stockHp"
+						stroke="#444"
+						strokeDasharray="3 3"
+						dot={false}
+						strokeWidth={1}
+					/>
 
-	return (
-		<ResponsiveContainer width="100%" height="100%">
-			<LineChart data={data}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#333" />
-				<XAxis
-					dataKey="rpm"
-					tick={{ fontSize: 10, fill: '#999' }}
-					stroke="#666"
-					label={{
-						value: 'RPM',
-						position: 'insideBottom',
-						offset: -5,
-						fontSize: 10,
-						fill: '#999',
-					}}
-				/>
-				<YAxis
-					yAxisId="left"
-					stroke="#8884d8"
-					tick={{ fontSize: 10, fill: '#8884d8' }}
-					label={{
-						value: 'Nm',
-						angle: -90,
-						position: 'insideLeft',
-						fontSize: 10,
-						fill: '#8884d8',
-					}}
-				/>
-				<YAxis
-					yAxisId="right"
-					orientation="right"
-					stroke="#82ca9d"
-					tick={{ fontSize: 10, fill: '#82ca9d' }}
-					label={{
-						value: 'HP',
-						angle: 90,
-						position: 'insideRight',
-						fontSize: 10,
-						fill: '#82ca9d',
-					}}
-				/>
-				<Tooltip content={<CustomTooltip />} />
+					{/* Current Tuning */}
+					<Line
+						yAxisId="left"
+						type="monotone"
+						dataKey="torque"
+						stroke="#8884d8"
+						strokeWidth={2}
+						dot={<PeakDot />}
+						activeDot={{ r: 6 }}
+					/>
+					<Line
+						yAxisId="right"
+						type="monotone"
+						dataKey="hp"
+						stroke="#82ca9d"
+						strokeWidth={2}
+						dot={<PeakDot />}
+						activeDot={{ r: 6 }}
+					/>
 
-				{/* Stock baseline - dotted lines */}
-				<Line
-					yAxisId="left"
-					type="monotone"
-					dataKey="stockTorque"
-					stroke="#8884d8"
-					strokeDasharray="5 5"
-					dot={false}
-					strokeWidth={1}
-					opacity={0.3}
-				/>
-				<Line
-					yAxisId="right"
-					type="monotone"
-					dataKey="stockHp"
-					stroke="#82ca9d"
-					strokeDasharray="5 5"
-					dot={false}
-					strokeWidth={1}
-					opacity={0.3}
-				/>
+					{/* Preview Tuning */}
+					{previewTuning && (
+						<>
+							<Line
+								yAxisId="left"
+								type="monotone"
+								dataKey="previewTorque"
+								stroke="#8884d8"
+								strokeDasharray="5 5"
+								strokeOpacity={0.7}
+								dot={false}
+								strokeWidth={2}
+							/>
+							<Line
+								yAxisId="right"
+								type="monotone"
+								dataKey="previewHp"
+								stroke="#82ca9d"
+								strokeDasharray="5 5"
+								strokeOpacity={0.7}
+								dot={false}
+								strokeWidth={2}
+							/>
+						</>
+					)}
 
-				{/* Current tuning - solid lines with peak markers */}
-				<Line
-					yAxisId="left"
-					type="monotone"
-					dataKey="torque"
-					stroke="#8884d8"
-					dot={<PeakDot />}
-					strokeWidth={2}
-					activeDot={{ r: 6 }}
-				/>
-				<Line
-					yAxisId="right"
-					type="monotone"
-					dataKey="hp"
-					stroke="#82ca9d"
-					dot={<PeakDot />}
-					strokeWidth={2}
-					activeDot={{ r: 6 }}
-				/>
-
-				{/* Redline indicator */}
-				<line
-					x1="0"
-					y1="0"
-					x2="0"
-					y2="100%"
-					stroke="#ef4444"
-					strokeWidth={2}
-					strokeDasharray="4 4"
-					style={{
-						transform: `translateX(${
-							(tuning.redlineRPM / tuning.redlineRPM) * 100
-						}%)`,
-					}}
-				/>
-			</LineChart>
-		</ResponsiveContainer>
-	);
-};
+					{/* Redline indicator */}
+					<line
+						x1="0"
+						y1="0"
+						x2="0"
+						y2="100%"
+						stroke="#ef4444"
+						strokeWidth={2}
+						strokeDasharray="4 4"
+						style={{
+							transform: `translateX(${
+								(tuning.redlineRPM / tuning.redlineRPM) * 100
+							}%)`,
+						}}
+					/>
+				</LineChart>
+			</ResponsiveContainer>
+		);
+	}
+);
 
 const ModTreeVisuals = ({
 	mods,
 	owned,
 	money,
 	onToggle,
+	onHover,
 }: {
 	mods: ModNode[];
 	owned: string[];
 	money: number;
 	onToggle: (m: ModNode) => void;
+	onHover: (m: ModNode | null) => void;
 }) => {
 	// Calculate canvas size based on nodes
 	const gridSize = 160; // Increased from 120 for better spacing
 	const offsetX = 150;
-	const offsetY = 900; // Increased from 800 to prevent top cutoff
+	const offsetY = 1000; // Increased to prevent top cutoff
 
 	// Category colors
 	const getCategoryColor = (type: string): string => {
@@ -984,16 +1223,26 @@ const ModTreeVisuals = ({
 			{/* Mod Tree Canvas */}
 			<div
 				className="flex-1 overflow-auto"
-				style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+				style={{
+					scrollbarWidth: 'none',
+					msOverflowStyle: 'none',
+					willChange: 'scroll-position',
+				}}
 			>
 				<style>{`
 					.flex-1.overflow-auto::-webkit-scrollbar {
 						display: none;
 					}
 				`}</style>
-				<div className="relative w-[2400px] h-[2200px]">
+				<div
+					className="relative w-[2400px] h-[2200px]"
+					style={{ contain: 'layout paint' }}
+				>
 					{/* Draw Lines */}
-					<svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+					<svg
+						className="absolute inset-0 w-full h-full pointer-events-none z-0"
+						style={{ contain: 'strict' }}
+					>
 						{mods.map((mod) => {
 							if (!mod.parentId) return null;
 							const parent = mods.find(
@@ -1044,7 +1293,7 @@ const ModTreeVisuals = ({
 						return (
 							<div
 								key={mod.id}
-								className={`absolute w-36 p-3 rounded-lg border-2 cursor-pointer transition-all z-10 shadow-lg
+								className={`absolute w-36 p-3 rounded-lg border-2 cursor-pointer transition-all z-10
 									${
 										isOwned
 											? 'border-2 shadow-lg'
@@ -1064,12 +1313,15 @@ const ModTreeVisuals = ({
 									backgroundColor: isOwned
 										? `${getCategoryColor(mod.type)}20`
 										: undefined,
+									contain: 'content',
 								}}
 								onClick={() => {
 									if (hasConflict && !isOwned) return;
 									if (!parentOwned) return;
 									onToggle(mod);
 								}}
+								onMouseEnter={() => onHover(mod)}
+								onMouseLeave={() => onHover(null)}
 							>
 								<div
 									className="text-[9px] font-bold uppercase mb-1 px-1 py-0.5 rounded inline-block"
@@ -1107,6 +1359,300 @@ const ModTreeVisuals = ({
 							</div>
 						);
 					})}
+				</div>
+			</div>
+		</div>
+	);
+};
+
+const VersusScreen = ({
+	playerTuning,
+	mission,
+	onConfirmRace,
+	onBack,
+	ownedMods,
+}: {
+	playerTuning: TuningState;
+	mission: Mission;
+	onConfirmRace: () => void;
+	onBack: () => void;
+	ownedMods: string[];
+}) => {
+	const CarModel = ({
+		color,
+		tuning,
+		isOpponent = false,
+		ownedMods = [],
+	}: {
+		color: string;
+		tuning: any;
+		isOpponent?: boolean;
+		ownedMods?: string[];
+	}) => {
+		const hasSpoiler = ownedMods.some((id) => id.includes('spoiler'));
+
+		return (
+			<div className="relative">
+				<svg
+					width="100%"
+					height="200"
+					viewBox="0 0 200 100"
+					className={`drop-shadow-2xl ${
+						isOpponent ? 'scale-x-[-1]' : ''
+					}`}
+				>
+					{/* Shadow */}
+					<ellipse
+						cx="100"
+						cy="85"
+						rx="90"
+						ry="10"
+						fill="black"
+						opacity="0.5"
+					/>
+					{/* Car Body */}
+					<path
+						d="M20,70 L40,50 L70,45 L130,45 L160,55 L190,60 L190,75 L170,80 L50,80 L20,75 Z"
+						fill={color}
+						stroke="#111"
+						strokeWidth="2"
+					/>
+					{/* Roof/Windows */}
+					<path
+						d="M45,50 L60,30 L130,30 L150,55"
+						fill="#333"
+						stroke="#111"
+						strokeWidth="2"
+					/>
+					{/* Wheels */}
+					<circle
+						cx="45"
+						cy="80"
+						r="14"
+						fill="#111"
+						stroke="#333"
+						strokeWidth="2"
+					/>
+					<circle
+						cx="45"
+						cy="80"
+						r="8"
+						fill="#222"
+						stroke="#555"
+						strokeWidth="1"
+					/>
+					<circle
+						cx="155"
+						cy="80"
+						r="14"
+						fill="#111"
+						stroke="#333"
+						strokeWidth="2"
+					/>
+					<circle
+						cx="155"
+						cy="80"
+						r="8"
+						fill="#222"
+						stroke="#555"
+						strokeWidth="1"
+					/>
+					{/* Spoiler */}
+					{hasSpoiler && (
+						<path
+							d="M10,35 L20,35 L25,55 L10,55 Z"
+							fill={color}
+							stroke="#111"
+							strokeWidth="2"
+						/>
+					)}
+					{/* Stock Spoiler (if no custom one) */}
+					{!hasSpoiler && (
+						<path
+							d="M10,45 L20,45 L25,55"
+							stroke={color}
+							strokeWidth="4"
+							fill="none"
+						/>
+					)}
+				</svg>
+			</div>
+		);
+	};
+
+	const StatRow = ({
+		label,
+		pVal,
+		oVal,
+		unit,
+		inverse = false,
+	}: {
+		label: string;
+		pVal: number;
+		oVal: number;
+		unit: string;
+		inverse?: boolean;
+	}) => {
+		const pBetter = inverse ? pVal < oVal : pVal > oVal;
+		const oBetter = inverse ? oVal < pVal : oVal > pVal;
+		const equal = Math.abs(pVal - oVal) < 0.1;
+
+		return (
+			<div className="flex justify-between items-center py-2 border-b border-gray-800">
+				<div
+					className={`w-1/3 text-right font-mono font-bold text-xl ${
+						oBetter
+							? 'text-red-500'
+							: equal
+							? 'text-gray-400'
+							: 'text-gray-600'
+					}`}
+				>
+					{oVal.toFixed(1)}
+				</div>
+				<div className="w-1/3 text-center text-xs text-gray-500 uppercase tracking-widest">
+					{label}
+					<span className="block text-[9px] opacity-50">{unit}</span>
+				</div>
+				<div
+					className={`w-1/3 text-left font-mono font-bold text-xl ${
+						pBetter
+							? 'text-green-500'
+							: equal
+							? 'text-gray-400'
+							: 'text-gray-600'
+					}`}
+				>
+					{pVal.toFixed(1)}
+				</div>
+			</div>
+		);
+	};
+
+	// Calculate Stats
+	const pPower = (playerTuning.maxTorque * playerTuning.redlineRPM) / 7023;
+	const oPower =
+		(mission.opponent.tuning.maxTorque *
+			mission.opponent.tuning.redlineRPM) /
+		7023;
+
+	const pWeight = playerTuning.mass;
+	const oWeight = mission.opponent.tuning.mass;
+
+	const pGrip = playerTuning.tireGrip;
+	const oGrip = mission.opponent.tuning.tireGrip;
+
+	return (
+		<div className="absolute inset-0 bg-zinc-950 flex flex-col z-50 animate-in fade-in duration-500">
+			{/* Header */}
+			<div className="h-24 flex items-center justify-center relative bg-black/50 border-b border-gray-800">
+				<div className="text-6xl font-black italic tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+					VS
+				</div>
+			</div>
+
+			{/* Main Content */}
+			<div className="flex-1 flex relative">
+				{/* Opponent Side (Left) */}
+				<div className="flex-1 bg-gradient-to-br from-red-950/20 to-black p-8 flex flex-col items-center justify-center border-r border-gray-800 relative overflow-hidden">
+					<div className="absolute top-4 left-4 text-red-500 font-black text-4xl opacity-20 uppercase tracking-tighter">
+						Opponent
+					</div>
+					<div className="w-full max-w-md">
+						<CarModel
+							color={mission.opponent.color}
+							tuning={mission.opponent.tuning}
+							isOpponent
+						/>
+						<div className="text-center mt-8">
+							<h2 className="text-3xl font-bold text-red-500 uppercase tracking-tight mb-1">
+								{mission.opponent.name}
+							</h2>
+							<div className="text-gray-500 text-sm font-mono">
+								DIFFICULTY: {mission.difficulty}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{/* Player Side (Right) */}
+				<div className="flex-1 bg-gradient-to-bl from-indigo-950/20 to-black p-8 flex flex-col items-center justify-center relative overflow-hidden">
+					<div className="absolute top-4 right-4 text-indigo-500 font-black text-4xl opacity-20 uppercase tracking-tighter">
+						You
+					</div>
+					<div className="w-full max-w-md">
+						<CarModel
+							color={playerTuning.color}
+							tuning={playerTuning}
+							ownedMods={ownedMods}
+						/>
+						<div className="text-center mt-8">
+							<h2 className="text-3xl font-bold text-indigo-500 uppercase tracking-tight mb-1">
+								Player
+							</h2>
+							<div className="text-gray-500 text-sm font-mono">
+								READY TO RACE
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{/* Stats Overlay (Center) */}
+				<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+					<div className="bg-black/80 backdrop-blur-sm border border-gray-800 rounded-xl p-6 w-[500px] shadow-2xl">
+						<StatRow
+							label="Power"
+							pVal={pPower}
+							oVal={oPower}
+							unit="HP"
+						/>
+						<StatRow
+							label="Torque"
+							pVal={playerTuning.maxTorque}
+							oVal={mission.opponent.tuning.maxTorque}
+							unit="Nm"
+						/>
+						<StatRow
+							label="Weight"
+							pVal={pWeight}
+							oVal={oWeight}
+							unit="kg"
+							inverse
+						/>
+						<StatRow
+							label="Grip"
+							pVal={pGrip}
+							oVal={oGrip}
+							unit="Coeff"
+						/>
+						<StatRow
+							label="Redline"
+							pVal={playerTuning.redlineRPM}
+							oVal={mission.opponent.tuning.redlineRPM}
+							unit="RPM"
+						/>
+					</div>
+				</div>
+			</div>
+
+			{/* Footer Actions */}
+			<div className="h-24 bg-black border-t border-gray-800 flex items-center justify-between px-12 gap-6">
+				<button
+					onClick={onBack}
+					className="text-gray-400 hover:text-white font-bold text-xl"
+				>
+					&larr; BACK
+				</button>
+				<div className="flex items-center gap-6">
+					<div className="text-gray-500 text-sm">
+						Make sure your tune is ready...
+					</div>
+					<button
+						onClick={onConfirmRace}
+						className="bg-white text-black px-12 py-4 text-2xl font-black italic hover:bg-green-400 hover:scale-105 transition-all skew-x-[-10deg] shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+					>
+						START RACE
+					</button>
 				</div>
 			</div>
 		</div>

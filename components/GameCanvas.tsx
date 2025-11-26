@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
 	CarState,
 	InputState,
@@ -7,6 +7,7 @@ import {
 	Mission,
 	Opponent,
 	ModNode,
+	GhostFrame,
 } from '../types';
 import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
 import Dashboard from './Dashboard';
@@ -43,7 +44,7 @@ const GameCanvas: React.FC = () => {
 
 	// Game Persistence State
 	const [money, setMoney] = useState(500);
-	const [phase, setPhase] = useState<GamePhase>('MENU');
+	const [phase, setPhase] = useState<GamePhase>('MAP');
 
 	// New Inventory System (Array of owned Mod IDs)
 	const [ownedMods, setOwnedMods] = useState<string[]>([]);
@@ -56,6 +57,10 @@ const GameCanvas: React.FC = () => {
 
 	// Current Mission
 	const missionRef = useRef<Mission | null>(null);
+
+	// Ghost Racing Refs
+	const currentGhostRecording = useRef<GhostFrame[]>([]);
+	const activeGhost = useRef<GhostFrame[] | null>(null);
 
 	// Race Logic State
 	const [raceStatus, setRaceStatus] = useState<RaceStatus>('IDLE');
@@ -102,6 +107,7 @@ const GameCanvas: React.FC = () => {
 	});
 	const [raceResult, setRaceResult] = useState<'WIN' | 'LOSS' | null>(null);
 	const [playerFinishTime, setPlayerFinishTime] = useState<number>(0);
+	const [opponentFinishTime, setOpponentFinishTime] = useState<number>(0);
 	const [countdownNum, setCountdownNum] = useState<number | string>('');
 
 	// --- Input Handling ---
@@ -165,50 +171,93 @@ const GameCanvas: React.FC = () => {
 	}, [playerTuning]);
 
 	// --- Helpers ---
-	const recalculateTuning = (currentOwnedMods: string[]) => {
-		let newTuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
-
-		// Sort mods by tree depth (rough approx) so base mods apply first?
-		// Actually, simple object spread merge usually works for this complexity level.
+	// Helper to calculate base tuning from a set of mods
+	const getTuningFromMods = useCallback((modIds: string[]) => {
+		let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
 		MOD_TREE.forEach((mod) => {
-			if (currentOwnedMods.includes(mod.id)) {
-				newTuning = { ...newTuning, ...mod.stats };
-				// Special handling for array overrides if needed, but strict replacement is fine for now
+			if (modIds.includes(mod.id)) {
+				tuning = { ...tuning, ...mod.stats };
 			}
 		});
-		setPlayerTuning(newTuning);
-	};
+		return tuning;
+	}, []);
 
-	const toggleMod = (mod: ModNode) => {
-		const isOwned = ownedMods.includes(mod.id);
+	const toggleMod = useCallback(
+		(mod: ModNode) => {
+			const isOwned = ownedMods.includes(mod.id);
+			let newOwnedMods = [...ownedMods];
 
-		if (!isOwned) {
-			// Buy
-			if (money >= mod.cost) {
-				setMoney((m) => m - mod.cost);
-				const newOwned = [...ownedMods, mod.id];
-				setOwnedMods(newOwned);
-				recalculateTuning(newOwned);
-			}
-		} else {
-			// Sell (Refund 50%)
-			// Check if any children are owned first
-			const hasChildOwned = MOD_TREE.some(
-				(m) => m.parentId === mod.id && ownedMods.includes(m.id)
-			);
-			if (!hasChildOwned) {
-				setMoney((m) => m + Math.floor(mod.cost * 0.5));
-				const newOwned = ownedMods.filter((id) => id !== mod.id);
-				setOwnedMods(newOwned);
-				recalculateTuning(newOwned);
+			if (!isOwned) {
+				// Buy
+				if (money >= mod.cost) {
+					setMoney((m) => m - mod.cost);
+					newOwnedMods.push(mod.id);
+				} else {
+					return; // Cannot afford
+				}
 			} else {
-				alert('Cannot sell: Dependent parts installed.');
+				// Sell
+				const hasOwnedChildren = MOD_TREE.some(
+					(m) => m.parentId === mod.id && ownedMods.includes(m.id)
+				);
+				if (hasOwnedChildren) {
+					alert('Cannot sell: Dependent parts installed.');
+					return;
+				}
+				setMoney((m) => m + Math.floor(mod.cost * 0.5));
+				newOwnedMods = newOwnedMods.filter((id) => id !== mod.id);
 			}
-		}
-	};
+
+			// Smart Merge Logic
+			setOwnedMods(newOwnedMods);
+
+			// 1. Calculate what the tuning WAS (Base + Old Mods)
+			const oldBaseTuning = getTuningFromMods(ownedMods);
+
+			// 2. Calculate what the tuning WOULD BE (Base + New Mods)
+			const newBaseTuning = getTuningFromMods(newOwnedMods);
+
+			// 3. Update playerTuning, preserving custom changes
+			setPlayerTuning((currentTuning) => {
+				const nextTuning = { ...currentTuning };
+
+				// Iterate over all keys in the tuning state
+				(
+					Object.keys(newBaseTuning) as Array<keyof TuningState>
+				).forEach((key) => {
+					const oldBaseValue = oldBaseTuning[key];
+					const newBaseValue = newBaseTuning[key];
+					const currentValue = currentTuning[key];
+
+					// If the base value for this field changed due to the mod...
+					if (
+						JSON.stringify(oldBaseValue) !==
+						JSON.stringify(newBaseValue)
+					) {
+						// ...then we MUST update it to the new base value.
+						// This effectively "resets" this specific field to the mod's value,
+						// which is correct behavior (e.g. installing a new transmission SHOULD reset gear ratios).
+						// @ts-ignore
+						nextTuning[key] = newBaseValue;
+					}
+					// If the base value DID NOT change (e.g. installing a Turbo doesn't change Gear Ratios),
+					// then we leave 'nextTuning[key]' as 'currentValue', preserving the user's custom tune.
+				});
+
+				return nextTuning;
+			});
+		},
+		[money, ownedMods, getTuningFromMods]
+	);
 
 	const startMission = (mission: Mission) => {
 		missionRef.current = mission;
+		setPhase('VERSUS');
+	};
+
+	const confirmStartRace = () => {
+		const mission = missionRef.current;
+		if (!mission) return;
 
 		// Reset Cars
 		playerRef.current = {
@@ -230,6 +279,12 @@ const GameCanvas: React.FC = () => {
 
 		raceStartTimeRef.current = 0;
 		setRaceResult(null);
+		setPlayerFinishTime(0);
+		setOpponentFinishTime(0);
+
+		// Reset Ghost Racing
+		currentGhostRecording.current = [];
+		activeGhost.current = mission.bestGhost || null;
 
 		// Stop any existing audio
 		audioRef.current.stop();
@@ -406,6 +461,18 @@ const GameCanvas: React.FC = () => {
 		) {
 			audioEngine.update(car.rpm, load, 0);
 		}
+
+		// Ghost Recording
+		if (!isAI && raceStatus === 'RACING') {
+			const currentTime = performance.now() - raceStartTimeRef.current;
+			currentGhostRecording.current.push({
+				time: currentTime,
+				y: car.y,
+				velocity: car.velocity,
+				rpm: car.rpm,
+				gear: car.gear,
+			});
+		}
 	};
 
 	// --- Main Loop ---
@@ -518,6 +585,10 @@ const GameCanvas: React.FC = () => {
 							if (!oldBest || p.finishTime < oldBest) {
 								currentMissions[missionIndex].bestTime =
 									p.finishTime;
+								// Save Ghost Data
+								currentMissions[missionIndex].bestGhost = [
+									...currentGhostRecording.current,
+								];
 								setMissions(currentMissions);
 							}
 						}
@@ -533,6 +604,14 @@ const GameCanvas: React.FC = () => {
 						audioRef.current.stop();
 						opponentAudioRef.current.stop();
 					}
+				}
+
+				// Update finish times for UI
+				if (p.finished && playerFinishTime === 0) {
+					setPlayerFinishTime(p.finishTime);
+				}
+				if (o.finished && opponentFinishTime === 0) {
+					setOpponentFinishTime(o.finishTime);
 				}
 
 				// --- DRAWING ---
@@ -618,7 +697,8 @@ const GameCanvas: React.FC = () => {
 				const drawCar = (
 					car: CarState,
 					color: string,
-					xOffset: number
+					xOffset: number,
+					hasSpoiler: boolean = false
 				) => {
 					const y = -car.y * PPM;
 					const w = 40;
@@ -645,6 +725,21 @@ const GameCanvas: React.FC = () => {
 					ctx.fillRect(xOffset - w / 2 + 2, y + h - 4, 8, 2);
 					ctx.fillRect(xOffset + w / 2 - 10, y + h - 4, 8, 2);
 
+					// Spoiler
+					if (hasSpoiler) {
+						ctx.fillStyle = color;
+						// Wing
+						ctx.fillRect(xOffset - w / 2 - 2, y + h - 15, w + 4, 8);
+						// Struts
+						ctx.fillStyle = '#111';
+						ctx.fillRect(xOffset - w / 4, y + h - 10, 4, 6);
+						ctx.fillRect(xOffset + w / 4 - 4, y + h - 10, 4, 6);
+					} else {
+						// Stock Spoiler
+						ctx.fillStyle = 'rgba(0,0,0,0.2)';
+						ctx.fillRect(xOffset - w / 2, y + h - 8, w, 4);
+					}
+
 					// Flames
 					if (car.rpm > 6500 && Math.random() > 0.5) {
 						ctx.fillStyle = '#f59e0b';
@@ -653,8 +748,37 @@ const GameCanvas: React.FC = () => {
 					}
 				};
 
+				// Draw Ghost
+				if (activeGhost.current && raceStatus === 'RACING') {
+					const raceTime = time - raceStartTimeRef.current;
+					// Find frame with closest time
+					const ghostFrame = activeGhost.current.find(
+						(f) => f.time >= raceTime
+					);
+
+					if (ghostFrame) {
+						ctx.globalAlpha = 0.3;
+						drawCar(
+							{
+								y: ghostFrame.y,
+								velocity: ghostFrame.velocity,
+								rpm: ghostFrame.rpm,
+								gear: ghostFrame.gear,
+								finished: false,
+								finishTime: 0,
+							},
+							'#ffffff', // Ghost color
+							trackWidth / 4 // Same lane as player
+						);
+						ctx.globalAlpha = 1.0;
+					}
+				}
+
 				drawCar(o, m.opponent.color, -trackWidth / 4);
-				drawCar(p, tuningRef.current.color, trackWidth / 4);
+				const hasSpoiler = ownedMods.some((id) =>
+					id.includes('spoiler')
+				);
+				drawCar(p, tuningRef.current.color, trackWidth / 4, hasSpoiler);
 
 				ctx.restore();
 
@@ -736,6 +860,13 @@ const GameCanvas: React.FC = () => {
 							EARNED ${missionRef.current?.payout}
 						</div>
 					)}
+					{raceResult === 'LOSS' && (
+						<div className="text-2xl text-red-400 font-mono mb-8">
+							+
+							{(playerFinishTime - opponentFinishTime).toFixed(3)}
+							s
+						</div>
+					)}
 					<div className="flex gap-4 mt-8">
 						<button
 							onClick={() => startMission(missionRef.current!)}
@@ -757,19 +888,26 @@ const GameCanvas: React.FC = () => {
 				</div>
 			)}
 
-			{/* Menus */}
-			<GameMenu
-				phase={phase}
-				money={money}
-				missions={missions}
-				ownedMods={ownedMods}
-				playerTuning={playerTuning}
-				onStartMission={startMission}
-				onToggleMod={toggleMod}
-				onBack={() => setPhase('MENU')}
-				onPhaseChange={setPhase}
-				setPlayerTuning={setPlayerTuning}
-			/>
+			{/* Menu UI */}
+			{(phase === 'MENU' ||
+				phase === 'GARAGE' ||
+				phase === 'MAP' ||
+				phase === 'MISSION_SELECT' ||
+				phase === 'VERSUS') && (
+				<GameMenu
+					phase={phase}
+					setPhase={setPhase}
+					money={money}
+					playerTuning={playerTuning}
+					setPlayerTuning={setPlayerTuning}
+					ownedMods={ownedMods}
+					setOwnedMods={toggleMod}
+					missions={missions}
+					onStartMission={startMission}
+					onConfirmRace={confirmStartRace}
+					selectedMission={missionRef.current}
+				/>
+			)}
 		</div>
 	);
 };

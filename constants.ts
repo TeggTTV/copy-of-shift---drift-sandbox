@@ -859,6 +859,7 @@ export const MISSIONS: Mission[] = [
 		name: 'Rookie Night',
 		description: 'Race against a local rookie. Easy money.',
 		payout: 300,
+		difficulty: 'EASY',
 		distance: 402, // 1/4 mile
 		opponent: {
 			name: 'Slow Joe',
@@ -872,6 +873,7 @@ export const MISSIONS: Mission[] = [
 		name: 'Street Tuner',
 		description: 'This guy put some money into his hatchback.',
 		payout: 800,
+		difficulty: 'MEDIUM',
 		distance: 402,
 		opponent: {
 			name: 'Brian',
@@ -891,6 +893,7 @@ export const MISSIONS: Mission[] = [
 		name: 'V8 Thunder',
 		description: 'Heavy car, big V8 power.',
 		payout: 2000,
+		difficulty: 'HARD',
 		distance: 804, // 1/2 mile
 		opponent: {
 			name: 'Dom',
@@ -920,6 +923,7 @@ export const MISSIONS: Mission[] = [
 		name: 'The 2JZ King',
 		description: '1000HP Supra. Good luck.',
 		payout: 10000,
+		difficulty: 'EXTREME',
 		distance: 1000,
 		opponent: {
 			name: 'Smokey',
@@ -942,6 +946,7 @@ export const MISSIONS: Mission[] = [
 		name: 'Hypercar',
 		description: 'Engineering perfection.',
 		payout: 50000,
+		difficulty: 'IMPOSSIBLE',
 		distance: 1609, // 1 Mile
 		opponent: {
 			name: 'The Baron',

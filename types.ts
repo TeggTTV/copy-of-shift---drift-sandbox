@@ -1,7 +1,9 @@
 export type GamePhase =
 	| 'MENU'
-	| 'MISSION_SELECT'
 	| 'GARAGE'
+	| 'MAP'
+	| 'MISSION_SELECT'
+	| 'VERSUS'
 	| 'RACE'
 	| 'RESULTS';
 
@@ -87,12 +89,22 @@ export interface Opponent {
 	tuning: TuningState;
 }
 
+export interface GhostFrame {
+	time: number;
+	y: number;
+	velocity: number;
+	rpm: number;
+	gear: number;
+}
+
 export interface Mission {
 	id: number;
 	name: string;
 	description: string;
 	payout: number;
+	difficulty: string;
 	distance: number; // meters
 	opponent: Opponent;
 	bestTime?: number; // Persisted best time
+	bestGhost?: GhostFrame[]; // Recorded ghost data
 }
