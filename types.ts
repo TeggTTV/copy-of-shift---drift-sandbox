@@ -1,64 +1,68 @@
 export interface InputState {
-  forward: boolean;
-  backward: boolean; 
-  left: boolean;
-  right: boolean;
-  brake: boolean;
-  eBrake: boolean;
-  clutch: boolean;
-  gearUp: boolean;
-  gearDown: boolean;
+	forward: boolean;
+	backward: boolean;
+	left: boolean;
+	right: boolean;
+	brake: boolean;
+	eBrake: boolean;
+	clutch: boolean;
+	gearUp: boolean;
+	gearDown: boolean;
 }
 
 export interface TuningState {
-  // Engine
-  maxTorque: number;      // Nm
-  redlineRPM: number;
-  flywheelMass: number;   // Affects how fast RPM changes (0.1 = racing, 1.0 = heavy truck)
-  idleRPM: number;
-  
-  // Transmission
-  finalDriveRatio: number;
+	// Engine
+	maxTorque: number; // Nm
+	redlineRPM: number;
+	flywheelMass: number; // Affects how fast RPM changes
+	idleRPM: number;
 
-  // Tires & Handling
-  tireGrip: number;       // 0 to 1+ (friction coefficient)
-  dragCoefficient: number;
-  mass: number;           // kg
-  steerSpeed: number;     // how fast wheels turn
-  brakingForce: number;
+	// Audio / Mechanical Config
+	cylinders: number; // 4, 6, 8, 10, 12
+	exhaustOpenness: number; // 0.0 (Stock) to 1.0 (Straight Pipe)
+	backfireAggression: number; // 0.0 to 1.0
 
-  // Suspension
-  suspensionStiffness: number;
-  suspensionDamping: number;
+	// Transmission
+	finalDriveRatio: number;
+
+	// Tires & Handling
+	tireGrip: number; // Friction coefficient
+	dragCoefficient: number;
+	mass: number; // kg
+	steerSpeed: number; // how fast wheels turn
+	brakingForce: number;
+
+	// Suspension
+	suspensionStiffness: number;
+	suspensionDamping: number;
 }
 
 export interface CarState {
-  x: number;
-  y: number;
-  heading: number;       // radians (direction car is facing)
-  velocityX: number;     // World space X velocity
-  velocityY: number;     // World space Y velocity
-  angularVelocity: number; // Rotational speed
-  
-  steeringAngle: number; // radians relative to car
-  rpm: number;
-  gear: number;          // -1: Reverse, 0: Neutral, 1-6: Forward
-  
-  // Suspension State
-  pitch: number;         // Forward/Back tilt (acceleration)
-  roll: number;          // Left/Right tilt (turning)
+	x: number;
+	y: number;
+	heading: number; // radians
+	velocityX: number; // World space X velocity
+	velocityY: number; // World space Y velocity
+	angularVelocity: number;
 
-  // Telemetry
-  speed: number;         // m/s magnitude
-  slipAngle: number;     // Difference between heading and movement vector
-  isDrifting: boolean;   // Visual flag
-  gripRatio: number;     // 0.0 - 1.0 (grip), >1.0 (drift)
+	steeringAngle: number; // radians relative to car
+	rpm: number;
+	gear: number; // -1: R, 0: N, 1-6: Forward
+
+	// Suspension State
+	pitch: number;
+	roll: number;
+
+	// Telemetry
+	speed: number; // m/s
+	slipAngle: number;
+	isDrifting: boolean;
+	gripRatio: number;
 }
 
-// Fixed constants that don't need runtime tuning
 export interface PhysicsConstants {
-  wheelBase: number;
-  wheelRadius: number;
-  gearRatios: Record<number, number>;
-  rollingResistance: number;
+	wheelBase: number;
+	wheelRadius: number;
+	gearRatios: Record<number, number>;
+	rollingResistance: number;
 }
