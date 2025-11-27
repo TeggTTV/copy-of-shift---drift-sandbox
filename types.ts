@@ -31,7 +31,8 @@ export interface ModNode {
 		| 'COOLING'
 		| 'AERO'
 		| 'SUSPENSION'
-		| 'VISUAL';
+		| 'VISUAL'
+		| 'PAINT';
 
 	// Tree Logic
 	parentId: string | null;
@@ -135,3 +136,21 @@ export interface Mission {
 	bestTime?: number; // Persisted best time
 	bestGhost?: GhostFrame[]; // Recorded ghost data
 }
+
+export type ToastType =
+	| 'ENGINE'
+	| 'TIRES'
+	| 'WEIGHT'
+	| 'TRANSMISSION'
+	| 'TURBO'
+	| 'NITROUS'
+	| 'FUEL'
+	| 'COOLING'
+	| 'AERO'
+	| 'SUSPENSION'
+	| 'MONEY'
+	| 'UNLOCK'
+	| 'INFO'
+	| 'WARNING'
+	| 'PAINT'
+	| 'ECU';

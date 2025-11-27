@@ -170,3 +170,146 @@ export const updateCarPhysics = (
 		});
 	}
 };
+export const updateCircuitCarPhysics = (
+	car: CarState,
+	t: TuningState,
+	inputs: InputState,
+	dt: number,
+	isAI: boolean,
+	audioEngine: AudioEngine
+) => {
+	// Initialize 2D props if missing
+	if (car.x === undefined) car.x = 0;
+	if (car.angle === undefined) car.angle = 0;
+	if (car.steerAngle === undefined) car.steerAngle = 0;
+	if (car.lateralVelocity === undefined) car.lateralVelocity = 0;
+
+	// --- 1. Steering Logic ---
+	const MAX_STEER = Math.PI / 4; // 45 degrees
+	const STEER_SPEED = 2.0; // Radians per second
+	const CENTER_SPEED = 3.0; // Faster return to center
+
+	let targetSteer = 0;
+	if (inputs.steerLeft) targetSteer = -MAX_STEER;
+	if (inputs.steerRight) targetSteer = MAX_STEER;
+
+	if (inputs.steerLeft || inputs.steerRight) {
+		// Move towards target
+		if (car.steerAngle < targetSteer) {
+			car.steerAngle = Math.min(
+				targetSteer,
+				car.steerAngle + STEER_SPEED * dt
+			);
+		} else {
+			car.steerAngle = Math.max(
+				targetSteer,
+				car.steerAngle - STEER_SPEED * dt
+			);
+		}
+	} else {
+		// Return to center
+		if (car.steerAngle > 0) {
+			car.steerAngle = Math.max(0, car.steerAngle - CENTER_SPEED * dt);
+		} else if (car.steerAngle < 0) {
+			car.steerAngle = Math.min(0, car.steerAngle + CENTER_SPEED * dt);
+		}
+	}
+
+	// --- 2. Longitudinal Physics (Engine/Brake) ---
+	// Reuse existing logic for RPM/Gear/Velocity (Longitudinal)
+	// We can reuse the core of updateCarPhysics but we need to extract it or copy-paste-modify.
+	// For now, I will inline a simplified version of the engine physics here to avoid breaking the existing drag race.
+
+	// Shifting
+	if (!isAI) {
+		if (inputs.shiftUp && car.gear < 6) {
+			car.gear++;
+			if (car.gear > 1) car.rpm *= 0.65;
+			audioEngine.triggerShift(false);
+		}
+		if (inputs.shiftDown && car.gear > 0) {
+			car.gear--;
+			car.rpm *= 1.4;
+			audioEngine.triggerShift(true);
+		}
+	} else {
+		// Simple AI shifting
+		const shiftThreshold = t.redlineRPM * 0.9;
+		if (car.rpm > shiftThreshold && car.gear < 6) {
+			car.gear++;
+			car.rpm *= 0.7;
+			audioEngine.triggerShift(false);
+		}
+	}
+
+	// Engine Forces
+	const gearRatio = t.gearRatios[car.gear] || 0;
+	const effectiveRatio = gearRatio * t.finalDriveRatio;
+	const wheelRadius = 0.3;
+	const wheelCirc = 2 * Math.PI * wheelRadius;
+
+	// Connected RPM
+	const connectedRPM = (car.velocity / wheelCirc) * 60 * effectiveRatio;
+	const torqueCurveFactor = interpolateTorque(car.rpm, t.torqueCurve);
+	let engineTorque = inputs.gas || isAI ? t.maxTorque * torqueCurveFactor : 0;
+
+	// Rev Limiter
+	if (car.rpm > t.redlineRPM) {
+		engineTorque = 0;
+		car.rpm = t.redlineRPM - 100;
+		if (!isAI && Math.random() > 0.95) audioEngine.triggerLimiter();
+	}
+
+	// Clutch/Load
+	let driveForce = 0;
+	let load = 0;
+	if (car.gear > 0) {
+		driveForce = (engineTorque * effectiveRatio) / wheelRadius;
+		// Simplified clutch for circuit
+		const coupling = dt * 10.0;
+		car.rpm = car.rpm + (connectedRPM - car.rpm) * coupling;
+		load = inputs.gas ? 1.0 : 0.0;
+	} else {
+		// Neutral
+		if (inputs.gas) {
+			car.rpm += (t.maxTorque / t.flywheelMass) * dt * 5;
+			load = 0.5;
+		} else {
+			car.rpm -= 2000 * dt;
+			load = 0;
+		}
+	}
+	car.rpm = Math.max(t.idleRPM, car.rpm);
+
+	// Longitudinal Forces
+	const dragForce =
+		0.5 * 1.225 * car.velocity * car.velocity * t.dragCoefficient;
+	const rollingRes = 150;
+	const netForce = driveForce - dragForce - rollingRes;
+	const accel = netForce / t.mass;
+
+	car.velocity += accel * dt;
+	if (car.velocity < 0) car.velocity = 0;
+
+	// --- 3. Turning Physics (Bicycle Model) ---
+	// L = Wheelbase
+	const L = 2.5;
+
+	// If moving, update angle
+	if (Math.abs(car.velocity) > 0.1) {
+		// Angular velocity = v / R = v * tan(delta) / L
+		const angularVelocity = (car.velocity * Math.tan(car.steerAngle)) / L;
+		car.angle += angularVelocity * dt;
+	}
+
+	// --- 4. Position Update ---
+	// Velocity vector in world space
+	const vx = car.velocity * Math.sin(car.angle);
+	const vy = car.velocity * Math.cos(car.angle);
+
+	car.x += vx * dt;
+	car.y += vy * dt;
+
+	// Audio Update
+	audioEngine.update(car.rpm, load, 0);
+};

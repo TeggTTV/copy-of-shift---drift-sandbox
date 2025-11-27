@@ -56,16 +56,33 @@ export const ModTreeVisuals = ({
 
 	const handleWheel = (e: React.WheelEvent) => {
 		e.stopPropagation();
+		if (!containerRef.current) return;
+
+		const rect = containerRef.current.getBoundingClientRect();
+		const mouseX = e.clientX - rect.left;
+		const mouseY = e.clientY - rect.top;
+
 		const scaleAmount = -e.deltaY * 0.001;
 		const newScale = Math.min(
 			Math.max(0.2, transform.scale + scaleAmount),
 			3
 		);
 
-		setTransform((prev) => ({
-			...prev,
+		// Calculate the point in world space that is currently under the mouse
+		// world_point = (mouse_screen - translate) / scale
+		const worldX = (mouseX - transform.x) / transform.scale;
+		const worldY = (mouseY - transform.y) / transform.scale;
+
+		// Calculate new translate to keep that world point under the mouse
+		// new_translate = mouse_screen - world_point * new_scale
+		const newX = mouseX - worldX * newScale;
+		const newY = mouseY - worldY * newScale;
+
+		setTransform({
+			x: newX,
+			y: newY,
 			scale: newScale,
-		}));
+		});
 	};
 
 	const handleMouseDown = (e: React.MouseEvent) => {

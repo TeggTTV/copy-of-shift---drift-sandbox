@@ -842,7 +842,7 @@ export const MOD_TREE: ModNode[] = [
 		name: 'Red Paint',
 		description: 'Classic red',
 		cost: 500,
-		type: 'VISUAL',
+		type: 'PAINT',
 		parentId: null,
 		conflictsWith: [
 			'paint_black',
@@ -859,7 +859,7 @@ export const MOD_TREE: ModNode[] = [
 		name: 'Black Paint',
 		description: 'Murdered out',
 		cost: 500,
-		type: 'VISUAL',
+		type: 'PAINT',
 		parentId: null,
 		conflictsWith: [
 			'paint_red',
@@ -876,7 +876,7 @@ export const MOD_TREE: ModNode[] = [
 		name: 'White Paint',
 		description: 'Clean white',
 		cost: 500,
-		type: 'VISUAL',
+		type: 'PAINT',
 		parentId: null,
 		conflictsWith: [
 			'paint_red',
@@ -893,7 +893,7 @@ export const MOD_TREE: ModNode[] = [
 		name: 'Gold Paint',
 		description: 'Flashy gold',
 		cost: 800,
-		type: 'VISUAL',
+		type: 'PAINT',
 		parentId: null,
 		conflictsWith: [
 			'paint_red',
@@ -910,7 +910,7 @@ export const MOD_TREE: ModNode[] = [
 		name: 'Purple Paint',
 		description: 'Royal purple',
 		cost: 800,
-		type: 'VISUAL',
+		type: 'PAINT',
 		parentId: null,
 		conflictsWith: [
 			'paint_red',

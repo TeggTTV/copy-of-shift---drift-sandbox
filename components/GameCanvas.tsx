@@ -18,12 +18,14 @@ import { interpolateTorque, updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { useGamePersistence } from '../hooks/useGamePersistence';
 import { SoundProvider } from '../contexts/SoundContext';
+import { useToast } from '../contexts/ToastContext';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
 
 type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 
 const GameCanvas: React.FC = () => {
+	const { showToast } = useToast();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	// Audio Refs
@@ -182,11 +184,21 @@ const GameCanvas: React.FC = () => {
 			}
 		};
 
+		const handleInteraction = () => {
+			if (!audioInitializedRef.current) {
+				audioRef.current.init();
+				opponentAudioRef.current.init();
+				audioInitializedRef.current = true;
+			}
+		};
+
 		window.addEventListener('keydown', handleKeyDown);
 		window.addEventListener('keyup', handleKeyUp);
+		window.addEventListener('click', handleInteraction);
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
 			window.removeEventListener('keyup', handleKeyUp);
+			window.removeEventListener('click', handleInteraction);
 		};
 	}, [phase]);
 
@@ -366,6 +378,47 @@ const GameCanvas: React.FC = () => {
 		},
 		[money, ownedMods]
 	);
+
+	// --- Toast Logic ---
+	const prevMoneyRef = useRef(money);
+	const prevOwnedModsRef = useRef(ownedMods);
+
+	useEffect(() => {
+		// Check for money thresholds
+		if (money > prevMoneyRef.current) {
+			// Find mods that were not affordable before but are now
+			const newlyAffordable = MOD_TREE.filter(
+				(mod) =>
+					!ownedMods.includes(mod.id) &&
+					mod.cost <= money &&
+					mod.cost > prevMoneyRef.current &&
+					(!mod.parentId || ownedMods.includes(mod.parentId))
+			);
+
+			if (newlyAffordable.length > 0) {
+				// Show toast for all newly affordable items
+				newlyAffordable.forEach((mod) => {
+					showToast(
+						`${mod.name} is now available for purchase in the shop`,
+						mod.type as any
+					);
+				});
+			}
+		}
+		prevMoneyRef.current = money;
+
+		// Check for new unlocks/purchases
+		if (ownedMods.length > prevOwnedModsRef.current.length) {
+			const newModId = ownedMods.find(
+				(id) => !prevOwnedModsRef.current.includes(id)
+			);
+			const mod = MOD_TREE.find((m) => m.id === newModId);
+			if (mod) {
+				showToast(`Purchased ${mod.name}!`, mod.type as any);
+			}
+		}
+		prevOwnedModsRef.current = ownedMods;
+	}, [money, ownedMods, showToast]);
 
 	const startMission = (mission: Mission) => {
 		missionRef.current = mission;
