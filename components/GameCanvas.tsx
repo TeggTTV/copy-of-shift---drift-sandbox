@@ -14,24 +14,11 @@ import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
 import Dashboard from './Dashboard';
 import GameMenu from './GameMenu';
 import { AudioEngine } from './AudioEngine';
+import { interpolateTorque, updateCarPhysics } from '../utils/physics';
+import { drawCar } from '../utils/renderUtils';
+import { useGamePersistence } from '../hooks/useGamePersistence';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
-
-const interpolateTorque = (
-	rpm: number,
-	curve: { rpm: number; factor: number }[]
-): number => {
-	const clampedRPM = Math.max(0, rpm);
-	for (let i = 0; i < curve.length - 1; i++) {
-		const p1 = curve[i];
-		const p2 = curve[i + 1];
-		if (clampedRPM >= p1.rpm && clampedRPM <= p2.rpm) {
-			const t = (clampedRPM - p1.rpm) / (p2.rpm - p1.rpm);
-			return p1.factor + t * (p2.factor - p1.factor);
-		}
-	}
-	return curve[curve.length - 1]?.factor || 0.2;
-};
 
 type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 
@@ -59,6 +46,22 @@ const GameCanvas: React.FC = () => {
 	// Current Tuning (Calculated from Base + Mods)
 	const [playerTuning, setPlayerTuning] = useState<TuningState>(BASE_TUNING);
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
+
+	// Persistence Hook
+	useGamePersistence(
+		money,
+		setMoney,
+		ownedMods,
+		setOwnedMods,
+		disabledMods,
+		setDisabledMods,
+		modSettings,
+		setModSettings,
+		missions,
+		setMissions,
+		playerTuning,
+		setPlayerTuning
+	);
 
 	// Current Mission
 	const missionRef = useRef<Mission | null>(null);
@@ -116,6 +119,9 @@ const GameCanvas: React.FC = () => {
 	const [countdownNum, setCountdownNum] = useState<number | string>('');
 
 	// --- Input Handling ---
+	// Track which keys are currently pressed to prevent repeat firing
+	const keysPressed = useRef<Set<string>>(new Set());
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Audio Init on first interaction
@@ -126,6 +132,10 @@ const GameCanvas: React.FC = () => {
 			}
 
 			if (phase !== 'RACE') return;
+
+			// Prevent repeated keydown events when key is held
+			if (keysPressed.current.has(e.key)) return;
+			keysPressed.current.add(e.key);
 
 			switch (e.key) {
 				case CONTROLS.GAS:
@@ -141,6 +151,9 @@ const GameCanvas: React.FC = () => {
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
+			// Remove from pressed keys set
+			keysPressed.current.delete(e.key);
+
 			switch (e.key) {
 				case CONTROLS.GAS:
 					inputsRef.current.gas = false;
@@ -420,164 +433,6 @@ const GameCanvas: React.FC = () => {
 		countdownStartRef.current = performance.now();
 	};
 
-	// --- Physics Engine (1D) ---
-	const updateCarPhysics = (
-		car: CarState,
-		t: TuningState,
-		inputs: InputState,
-		dt: number,
-		isAI: boolean,
-		audioEngine: AudioEngine,
-		aiStats?: Opponent
-	) => {
-		const isLocked = raceStatus === 'COUNTDOWN';
-
-		// 1. Shifting Logic
-		if (isAI && aiStats && !isLocked) {
-			if (car.gear === 0) {
-				car.gear = 1;
-			} else {
-				const shiftThreshold = isAI
-					? t.redlineRPM * (0.9 + aiStats.difficulty * 0.08)
-					: 0;
-				if (car.rpm > shiftThreshold && car.gear < 6) {
-					car.gear++;
-					car.rpm *= 0.7; // RPM drop simulation
-					audioEngine.triggerShift(false);
-				}
-			}
-		} else if (!isAI) {
-			// Player Logic
-			if (inputs.shiftUp && !shiftDebounce.current) {
-				if (car.gear < 6) {
-					car.gear++;
-					if (car.gear > 1) car.rpm *= 0.65;
-					audioEngine.triggerShift(false);
-				}
-				shiftDebounce.current = true;
-			}
-			if (inputs.shiftDown && !shiftDebounce.current) {
-				if (car.gear > 0) {
-					car.gear--;
-					car.rpm *= 1.4;
-					audioEngine.triggerShift(true);
-				}
-				shiftDebounce.current = true;
-			}
-			if (!inputs.shiftUp && !inputs.shiftDown) {
-				shiftDebounce.current = false;
-			}
-		}
-
-		// 2. Engine Physics
-		const gearRatio = t.gearRatios[car.gear] || 0;
-		const effectiveRatio = gearRatio * t.finalDriveRatio;
-		const wheelRadius = 0.3;
-
-		const wheelCirc = 2 * Math.PI * wheelRadius;
-
-		// Connected RPM is what the engine RPM *would* be if fully engaged to wheels at this speed
-		const connectedRPM = (car.velocity / wheelCirc) * 60 * effectiveRatio;
-
-		const torqueCurveFactor = interpolateTorque(car.rpm, t.torqueCurve);
-		let engineTorque =
-			isAI || inputs.gas ? t.maxTorque * torqueCurveFactor : 0;
-
-		// Rev Limiter
-		if (car.rpm > t.redlineRPM) {
-			engineTorque = 0;
-			car.rpm = t.redlineRPM - 100;
-			if (!isAI || Math.random() > 0.9) audioEngine.triggerLimiter();
-		}
-
-		let driveForce = 0;
-		let load = 0;
-
-		// Clutch / Coupling Logic
-		if (car.gear > 0 && !isLocked) {
-			driveForce = (engineTorque * effectiveRatio) / wheelRadius;
-
-			// Smooth Launch / Clutch Slip Logic
-			// Check if RPM is significantly higher than wheel speed in 1st gear (Launch)
-			const slipThreshold = 500; // RPM delta to consider slipping
-
-			if (car.gear === 1 && car.rpm > connectedRPM + slipThreshold) {
-				// Clutch is slipping. The engine is spinning faster than the wheels.
-				// We apply a "friction" drag to the RPM to pull it down towards connectedRPM,
-				// but we allow gas to keep it somewhat high.
-
-				const clutchFriction = 3.5; // Controls how fast RPM drops to match wheels
-				const rpmDrag = (car.rpm - connectedRPM) * dt * clutchFriction;
-
-				// Gas allows you to sustain RPM against the clutch friction
-				const rpmBoost =
-					isAI || inputs.gas
-						? (t.maxTorque / t.flywheelMass) * dt * 0.8
-						: 0;
-
-				car.rpm = car.rpm + rpmBoost - rpmDrag;
-				load = 1.0;
-			} else {
-				// Fully coupled - Engine locked to wheels
-				const coupling = dt * 10.0;
-				car.rpm = car.rpm + (connectedRPM - car.rpm) * coupling;
-				load = inputs.gas ? 1.0 : 0.0;
-			}
-		} else {
-			// Neutral / Clutch In
-			if (isAI || inputs.gas) {
-				car.rpm += (t.maxTorque / t.flywheelMass) * dt * 5;
-				load = 0.5; // Revving freely
-			} else {
-				car.rpm -= 2000 * dt;
-				load = 0;
-			}
-		}
-
-		car.rpm = Math.max(t.idleRPM, car.rpm);
-
-		// Forces
-		if (isLocked) {
-			car.velocity = 0;
-		} else {
-			const dragForce =
-				0.5 *
-				1.225 *
-				car.velocity *
-				car.velocity *
-				t.dragCoefficient *
-				2.0;
-			const rollingRes = 150;
-			const netForce = driveForce - dragForce - rollingRes;
-			const accel = netForce / t.mass;
-
-			car.velocity += accel * dt;
-			if (car.velocity < 0) car.velocity = 0;
-
-			car.y += car.velocity * dt;
-		}
-
-		// Update Audio (during countdown and racing, not in menus)
-		if (
-			!isLocked &&
-			(raceStatus === 'COUNTDOWN' || raceStatus === 'RACING')
-		) {
-			audioEngine.update(car.rpm, load, 0);
-		}
-
-		// Ghost Recording
-		if (!isAI && raceStatus === 'RACING') {
-			const currentTime = performance.now() - raceStartTimeRef.current;
-			currentGhostRecording.current.push({
-				time: currentTime,
-				y: car.y,
-				velocity: car.velocity,
-				rpm: car.rpm,
-				gear: car.gear,
-			});
-		}
-	};
-
 	// --- Main Loop ---
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -623,8 +478,16 @@ const GameCanvas: React.FC = () => {
 						inputsRef.current,
 						dt,
 						false,
-						audioRef.current
+						audioRef.current,
+						raceStatus,
+						raceStartTimeRef.current,
+						currentGhostRecording
 					);
+
+					// Reset shift inputs after processing (they should only trigger once per key press)
+					inputsRef.current.shiftUp = false;
+					inputsRef.current.shiftDown = false;
+
 					if (p.y >= m.distance) {
 						p.finished = true;
 						p.finishTime = (time - raceStartTimeRef.current) / 1000;
@@ -647,6 +510,9 @@ const GameCanvas: React.FC = () => {
 						dt,
 						true,
 						opponentAudioRef.current,
+						raceStatus,
+						raceStartTimeRef.current,
+						undefined,
 						m.opponent
 					);
 					if (o.y >= m.distance) {
@@ -797,59 +663,17 @@ const GameCanvas: React.FC = () => {
 				ctx.setLineDash([]);
 
 				// Draw Cars
-				const drawCar = (
-					car: CarState,
-					color: string,
-					xOffset: number,
-					hasSpoiler: boolean = false
-				) => {
-					const y = -car.y * PPM;
-					const w = 40;
-					const h = 70;
-
-					// Shadow
-					ctx.fillStyle = 'rgba(0,0,0,0.5)';
-					ctx.fillRect(xOffset - w / 2 + 5, y + 5, w, h);
-
-					// Body
-					ctx.fillStyle = color;
-					ctx.fillRect(xOffset - w / 2, y, w, h);
-
-					// Roof
-					ctx.fillStyle = 'rgba(0,0,0,0.3)';
-					ctx.fillRect(xOffset - w / 2 + 4, y + h / 2, w - 8, h / 3);
-
-					// Lights
-					ctx.fillStyle = '#fff9c4';
-					ctx.fillRect(xOffset - w / 2 + 2, y + 2, 8, 5);
-					ctx.fillRect(xOffset + w / 2 - 10, y + 2, 8, 5);
-
-					ctx.fillStyle = '#ef4444';
-					ctx.fillRect(xOffset - w / 2 + 2, y + h - 4, 8, 2);
-					ctx.fillRect(xOffset + w / 2 - 10, y + h - 4, 8, 2);
-
-					// Spoiler
-					if (hasSpoiler) {
-						ctx.fillStyle = color;
-						// Wing
-						ctx.fillRect(xOffset - w / 2 - 2, y + h - 15, w + 4, 8);
-						// Struts
-						ctx.fillStyle = '#111';
-						ctx.fillRect(xOffset - w / 4, y + h - 10, 4, 6);
-						ctx.fillRect(xOffset + w / 4 - 4, y + h - 10, 4, 6);
-					} else {
-						// Stock Spoiler
-						ctx.fillStyle = 'rgba(0,0,0,0.2)';
-						ctx.fillRect(xOffset - w / 2, y + h - 8, w, 4);
-					}
-
-					// Flames
-					if (car.rpm > 6500 && Math.random() > 0.5) {
-						ctx.fillStyle = '#f59e0b';
-						ctx.fillRect(xOffset - 15, y + h, 10, 10);
-						ctx.fillRect(xOffset + 5, y + h, 10, 10);
-					}
-				};
+				drawCar(ctx, o, m.opponent.color, -trackWidth / 4);
+				const hasSpoiler = ownedMods.some((id) =>
+					id.includes('spoiler')
+				);
+				drawCar(
+					ctx,
+					p,
+					tuningRef.current.color,
+					trackWidth / 4,
+					hasSpoiler
+				);
 
 				// Draw Ghost
 				if (activeGhost.current && raceStatus === 'RACING') {
@@ -862,6 +686,7 @@ const GameCanvas: React.FC = () => {
 					if (ghostFrame) {
 						ctx.globalAlpha = 0.3;
 						drawCar(
+							ctx,
 							{
 								y: ghostFrame.y,
 								velocity: ghostFrame.velocity,
@@ -876,12 +701,6 @@ const GameCanvas: React.FC = () => {
 						ctx.globalAlpha = 1.0;
 					}
 				}
-
-				drawCar(o, m.opponent.color, -trackWidth / 4);
-				const hasSpoiler = ownedMods.some((id) =>
-					id.includes('spoiler')
-				);
-				drawCar(p, tuningRef.current.color, trackWidth / 4, hasSpoiler);
 
 				ctx.restore();
 
