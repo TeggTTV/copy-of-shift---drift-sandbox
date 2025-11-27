@@ -1,5 +1,6 @@
 import React from 'react';
 import { GamePhase, Mission } from '../../types';
+import { useSound } from '../../contexts/SoundContext';
 
 interface MissionSelectProps {
 	missions: Mission[];
@@ -14,6 +15,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 	onStartMission,
 	setPhase,
 }) => {
+	const { play } = useSound();
 	return (
 		<div className="absolute inset-0 bg-neutral-900 flex flex-col items-center py-10 text-white z-50 overflow-y-auto">
 			<div className="w-full max-w-4xl px-4">
@@ -34,7 +36,8 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 					{missions.map((m) => (
 						<div
 							key={m.id}
-							className="bg-black border border-gray-800 p-6 rounded-xl hover:border-indigo-500 transition-all group relative overflow-hidden"
+							className="bg-black border border-gray-800 p-6 rounded-xl hover:border-indigo-500 transition-all group relative overflow-hidden cursor-pointer"
+							onClick={() => onStartMission(m)}
 						>
 							<div className="relative z-10">
 								<div className="flex justify-between items-start mb-2">

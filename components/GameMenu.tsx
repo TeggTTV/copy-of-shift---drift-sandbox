@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GamePhase, Mission, ModNode, TuningState, SavedTune } from '../types';
 import { MOD_TREE } from '../constants';
 import MissionSelect from './menu/MissionSelect';
@@ -7,6 +7,7 @@ import UpgradesTab from './menu/UpgradesTab';
 import TuningTab from './menu/TuningTab';
 import DynoGraph from './menu/DynoGraph';
 import { ModTreeVisuals } from './menu/ModTreeVisuals';
+import { useSound } from '../contexts/SoundContext';
 
 const GameMenu = ({
 	phase,
@@ -45,10 +46,30 @@ const GameMenu = ({
 	>;
 	onLoadTune: (tune: SavedTune) => void;
 }) => {
+	const { play } = useSound();
 	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING'>(
 		'UPGRADES'
 	);
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
+
+	// Escape key navigation
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				if (
+					phase === 'GARAGE' ||
+					phase === 'MISSION_SELECT' ||
+					phase === 'VERSUS'
+				) {
+					// play('back');
+					setPhase('MAP');
+				}
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [phase, setPhase, play]);
 
 	// Calculate preview tuning for hover
 	const previewTuning = useMemo(() => {
@@ -74,6 +95,7 @@ const GameMenu = ({
 	}, [playerTuning, hoveredMod]);
 
 	const handleToggleDisable = (id: string) => {
+		// play('click');
 		setDisabledMods((prev) => {
 			const isDisabled = prev.includes(id);
 			if (isDisabled) {
@@ -114,8 +136,14 @@ const GameMenu = ({
 			<VersusScreen
 				playerTuning={playerTuning}
 				mission={selectedMission}
-				onConfirmRace={onConfirmRace}
-				onBack={() => setPhase('MAP')}
+				onConfirmRace={() => {
+					// play('confirm');
+					if (onConfirmRace) onConfirmRace();
+				}}
+				onBack={() => {
+					// play('back');
+					setPhase('MAP');
+				}}
 				ownedMods={ownedMods}
 			/>
 		);
@@ -133,13 +161,19 @@ const GameMenu = ({
 
 				<div className="flex flex-col gap-4 w-64">
 					<button
-						onClick={() => setPhase('MISSION_SELECT')}
+						onClick={() => {
+							// play('click');
+							setPhase('MISSION_SELECT');
+						}}
 						className="py-4 bg-white text-black font-bold text-xl hover:bg-indigo-400 hover:scale-105 transition-all skew-x-[-10deg]"
 					>
 						RACE
 					</button>
 					<button
-						onClick={() => setPhase('GARAGE')}
+						onClick={() => {
+							// play('click');
+							setPhase('GARAGE');
+						}}
 						className="py-4 bg-gray-800 text-white font-bold text-xl border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 transition-all skew-x-[-10deg]"
 					>
 						GARAGE
@@ -154,8 +188,15 @@ const GameMenu = ({
 			<MissionSelect
 				missions={missions}
 				money={money}
-				onStartMission={onStartMission}
-				setPhase={setPhase}
+				onStartMission={(m) => {
+					// play('confirm');
+					onStartMission(m);
+				}}
+				setPhase={(p) => {
+					// if (p === 'MAP') play('back');
+					// else play('click');
+					setPhase(p);
+				}}
 			/>
 		);
 	}
@@ -166,7 +207,10 @@ const GameMenu = ({
 				<div className="w-full h-full flex flex-col">
 					<div className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50">
 						<button
-							onClick={() => setPhase('MAP')}
+							onClick={() => {
+								// play('back');
+								setPhase('MAP');
+							}}
 							className="text-gray-400 hover:text-white"
 						>
 							&larr; BACK
@@ -193,7 +237,10 @@ const GameMenu = ({
 
 							<div className="flex gap-2 mb-4">
 								<button
-									onClick={() => setActiveTab('UPGRADES')}
+									onClick={() => {
+										// play('click');
+										setActiveTab('UPGRADES');
+									}}
 									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
 										activeTab === 'UPGRADES'
 											? 'bg-indigo-600 text-white'
@@ -203,7 +250,10 @@ const GameMenu = ({
 									Upgrades
 								</button>
 								<button
-									onClick={() => setActiveTab('TUNING')}
+									onClick={() => {
+										// play('click');
+										setActiveTab('TUNING');
+									}}
 									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
 										activeTab === 'TUNING'
 											? 'bg-indigo-600 text-white'
@@ -248,8 +298,19 @@ const GameMenu = ({
 								mods={MOD_TREE}
 								owned={ownedMods}
 								money={money}
-								onToggle={setOwnedMods}
-								onHover={setHoveredMod}
+								onToggle={(mod) => {
+									if (ownedMods.includes(mod.id)) {
+										// play('click'); // Sell
+									} else if (money >= mod.cost) {
+										// play('purchase'); // Buy
+									} else {
+										// play('error');
+									}
+									setOwnedMods(mod);
+								}}
+								onHover={(m) => {
+									setHoveredMod(m);
+								}}
 								disabledMods={disabledMods}
 								onToggleDisable={handleToggleDisable}
 							/>

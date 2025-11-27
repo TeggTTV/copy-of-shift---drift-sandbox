@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ModNode, SavedTune, TuningState } from '../../types';
 import { MOD_TREE } from '../../constants';
+import { useSound } from '../../contexts/SoundContext';
 
 interface TuningTabProps {
 	ownedMods: string[];
@@ -23,6 +24,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	setPlayerTuning,
 	onLoadTune,
 }) => {
+	const { play } = useSound();
 	// Saved Tunes State
 	const [savedTunes, setSavedTunes] = useState<SavedTune[]>([]);
 	const [tuneName, setTuneName] = useState('');
@@ -40,6 +42,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	}, []);
 
 	const handleSaveTune = () => {
+		play('confirm');
 		if (!tuneName.trim()) return;
 
 		const newTune: SavedTune = {
@@ -63,6 +66,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	};
 
 	const handleDeleteTune = (id: string) => {
+		play('click');
 		const updatedTunes = savedTunes.filter((t) => t.id !== id);
 		setSavedTunes(updatedTunes);
 		localStorage.setItem('shift_drift_tunes', JSON.stringify(updatedTunes));
@@ -340,7 +344,10 @@ const TuningTab: React.FC<TuningTabProps> = ({
 									</div>
 									<div className="flex gap-2">
 										<button
-											onClick={() => onLoadTune(tune)}
+											onClick={() => {
+												play('confirm');
+												onLoadTune(tune);
+											}}
 											className="px-2 py-1 bg-green-900/50 text-green-400 text-[10px] uppercase rounded border border-green-900 hover:bg-green-900"
 										>
 											Load

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Mission, TuningState } from '../../types';
+import { useSound } from '../../contexts/SoundContext';
 
 interface VersusScreenProps {
 	playerTuning: TuningState;
@@ -16,6 +17,7 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	onBack,
 	ownedMods,
 }) => {
+	const { play } = useSound();
 	const CarModel = ({
 		color,
 		tuning,

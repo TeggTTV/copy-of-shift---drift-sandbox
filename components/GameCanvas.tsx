@@ -17,6 +17,7 @@ import { AudioEngine } from './AudioEngine';
 import { interpolateTorque, updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { useGamePersistence } from '../hooks/useGamePersistence';
+import { SoundProvider } from '../contexts/SoundContext';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
 
@@ -31,7 +32,7 @@ const GameCanvas: React.FC = () => {
 	const audioInitializedRef = useRef(false);
 
 	// Game Persistence State
-	const [money, setMoney] = useState(999999);
+	const [money, setMoney] = useState(0);
 	const [phase, setPhase] = useState<GamePhase>('MAP');
 
 	// New Inventory System (Array of owned Mod IDs)
@@ -190,10 +191,14 @@ const GameCanvas: React.FC = () => {
 	}, [phase]);
 
 	// Stop audio when leaving race phase
+	// Stop audio when leaving race phase
 	useEffect(() => {
 		if (phase !== 'RACE') {
 			audioRef.current.stop();
 			opponentAudioRef.current.stop();
+		} else {
+			audioRef.current.start();
+			opponentAudioRef.current.start();
 		}
 	}, [phase]);
 
@@ -205,22 +210,10 @@ const GameCanvas: React.FC = () => {
 			disabled: string[],
 			settings: Record<string, Record<string, number>>
 		) => {
-			console.log('🛠️ getTuningFromMods called with:', modIds);
 			let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
-			console.log('📦 Starting with BASE_TUNING:', {
-				maxTorque: BASE_TUNING.maxTorque,
-				redlineRPM: BASE_TUNING.redlineRPM,
-				mass: BASE_TUNING.mass,
-			});
 
 			MOD_TREE.forEach((mod) => {
 				if (modIds.includes(mod.id) && !disabled.includes(mod.id)) {
-					console.log(
-						`✅ Applying mod: ${mod.name} (${mod.id})`,
-						mod.stats
-					);
-
-					// For each stat in the mod, ADD it to the base instead of replacing
 					Object.keys(mod.stats).forEach((key) => {
 						const modValue = (mod.stats as any)[key];
 						const currentValue = (tuning as any)[key];
@@ -231,31 +224,19 @@ const GameCanvas: React.FC = () => {
 							typeof currentValue === 'number'
 						) {
 							(tuning as any)[key] = currentValue + modValue;
-							console.log(
-								`  ${key}: ${currentValue} + ${modValue} = ${
-									(tuning as any)[key]
-								}`
-							);
 						} else {
-							// For non-numeric values (arrays, strings), replace
 							(tuning as any)[key] = modValue;
-							console.log(`  ${key}: replaced with`, modValue);
 						}
 					});
 
-					// Apply Custom Tuning Settings
 					if (mod.tuningOptions && settings[mod.id]) {
 						mod.tuningOptions.forEach((option) => {
 							const userValue = settings[mod.id][option.id];
 							if (userValue !== undefined) {
 								if (option.statAffected) {
-									// Direct stat replacement
 									(tuning as any)[option.statAffected] =
 										userValue;
 								} else if (option.id === 'boost_pressure') {
-									// Boost Pressure Logic: Adjust Max Torque
-									// Base assumption: 1.0 BAR adds ~100Nm over base
-									// We calculate delta from default and apply it
 									const deltaBar =
 										userValue - option.defaultValue;
 									tuning.maxTorque += deltaBar * 100;
@@ -275,7 +256,6 @@ const GameCanvas: React.FC = () => {
 						});
 					}
 
-					// Apply Sound Profile (Last installed mod wins)
 					if (mod.soundProfile) {
 						// We need to store this somewhere, maybe in tuning state?
 						// For now let's assume AudioEngine reads it from tuning or we pass it separately
@@ -285,15 +265,13 @@ const GameCanvas: React.FC = () => {
 						// The soundProfile string itself isn't in TuningState.
 						// We should probably rely on the stats provided by the sound mod (exhaustOpenness etc)
 						// which are already applied above.
+
+						// For now, let's just log it.
+						console.log('Sound profile:', mod.soundProfile);
 					}
 				}
 			});
 
-			console.log('🎯 Final tuning:', {
-				maxTorque: tuning.maxTorque,
-				redlineRPM: tuning.redlineRPM,
-				mass: tuning.mass,
-			});
 			return tuning;
 		},
 		[]
@@ -325,28 +303,17 @@ const GameCanvas: React.FC = () => {
 
 		// If we have pending manual tuning (from loading a preset), apply it
 		if (pendingTuningRef.current) {
-			console.log(
-				'📥 Applying pending manual tuning:',
-				pendingTuningRef.current
-			);
 			Object.assign(newTuning, pendingTuningRef.current);
 			pendingTuningRef.current = null;
 		} else {
 			// Restore manual tuning parameters (unless this is the first load)
 			if (playerTuning.maxTorque !== 0) {
-				console.log('🎨 Preserving manual tuning:', manualParams);
 				newTuning.finalDriveRatio = manualParams.finalDriveRatio;
 				newTuning.gearRatios = manualParams.gearRatios;
 				newTuning.torqueCurve = manualParams.torqueCurve;
 			}
 		}
 
-		console.log('📊 New tuning calculated:', {
-			maxTorque: newTuning.maxTorque,
-			redlineRPM: newTuning.redlineRPM,
-			mass: newTuning.mass,
-			newTuning,
-		});
 		setPlayerTuning(newTuning);
 	}, [
 		ownedMods,
@@ -360,11 +327,7 @@ const GameCanvas: React.FC = () => {
 
 	const handleLoadTune = useCallback(
 		(tune: SavedTune) => {
-			console.log('📂 Loading tune:', tune.name);
-			// Queue the manual tuning to be applied after the mod update triggers the effect
 			pendingTuningRef.current = tune.manualTuning;
-
-			// Update mod states
 			setOwnedMods(tune.ownedMods);
 			setDisabledMods(tune.disabledMods);
 			setModSettings(tune.modSettings);
@@ -854,24 +817,28 @@ const GameCanvas: React.FC = () => {
 				phase === 'MAP' ||
 				phase === 'MISSION_SELECT' ||
 				phase === 'VERSUS') && (
-				<GameMenu
-					onLoadTune={handleLoadTune}
-					phase={phase}
-					setPhase={setPhase}
-					money={money}
-					playerTuning={playerTuning}
-					setPlayerTuning={setPlayerTuning}
-					ownedMods={ownedMods}
-					setOwnedMods={toggleMod}
-					missions={missions}
-					onStartMission={startMission}
-					onConfirmRace={confirmStartRace}
-					selectedMission={missionRef.current}
-					disabledMods={disabledMods}
-					setDisabledMods={setDisabledMods}
-					modSettings={modSettings}
-					setModSettings={setModSettings}
-				/>
+				<SoundProvider
+					play={(type) => audioRef.current.playUISound(type)}
+				>
+					<GameMenu
+						onLoadTune={handleLoadTune}
+						phase={phase}
+						setPhase={setPhase}
+						money={money}
+						playerTuning={playerTuning}
+						setPlayerTuning={setPlayerTuning}
+						ownedMods={ownedMods}
+						setOwnedMods={toggleMod}
+						missions={missions}
+						onStartMission={startMission}
+						onConfirmRace={confirmStartRace}
+						selectedMission={missionRef.current}
+						disabledMods={disabledMods}
+						setDisabledMods={setDisabledMods}
+						modSettings={modSettings}
+						setModSettings={setModSettings}
+					/>
+				</SoundProvider>
 			)}
 		</div>
 	);

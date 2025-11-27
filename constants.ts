@@ -172,7 +172,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: 0,
-		stats: { maxTorque: 25, exhaustOpenness: 0.3 },
+		stats: { maxTorque: 15, exhaustOpenness: 0.3 },
 	},
 
 	// FORCED INDUCTION SPLIT: TURBO vs SUPERCHARGER vs NA
@@ -187,7 +187,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 2,
 		y: -1,
 		stats: {
-			maxTorque: 50,
+			maxTorque: 120,
 			turboIntensity: 0.6,
 			exhaustOpenness: 0.5,
 			torqueCurve: [
@@ -220,7 +220,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 2,
 		y: 0.5,
 		stats: {
-			maxTorque: 50,
+			maxTorque: 100,
 			exhaustOpenness: 0.4,
 			torqueCurve: [
 				{ rpm: 0, factor: 0.7 },
@@ -241,7 +241,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 2,
 		y: 2,
 		stats: {
-			maxTorque: 260,
+			maxTorque: 45,
 			redlineRPM: 8500,
 			idleRPM: 1200,
 			exhaustOpenness: 0.6,
@@ -267,7 +267,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 3,
 		y: -1.5,
 		stats: {
-			maxTorque: 60,
+			maxTorque: 180,
 			turboIntensity: 1.0,
 			exhaustOpenness: 0.8,
 			backfireAggression: 0.8,
@@ -320,7 +320,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 4,
 		y: -1.5,
-		stats: { maxTorque: 65 },
+		stats: { maxTorque: 30 },
 	},
 	{
 		id: 'ball_bearing',
@@ -347,7 +347,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 3,
 		y: 0.5,
-		stats: { maxTorque: 480, exhaustOpenness: 0.6 },
+		stats: { maxTorque: 150, exhaustOpenness: 0.6 },
 	},
 	{
 		id: 'centrifugal_sc',
@@ -360,7 +360,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 3,
 		y: 1.2,
 		stats: {
-			maxTorque: 450,
+			maxTorque: 130,
 			redlineRPM: 7500,
 			torqueCurve: [
 				{ rpm: 0, factor: 0.4 },
@@ -380,7 +380,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 4,
 		y: 0.5,
-		stats: { maxTorque: 520 },
+		stats: { maxTorque: 60 },
 	},
 
 	// NA PATH
@@ -395,7 +395,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 3,
 		y: 2,
 		stats: {
-			maxTorque: 320,
+			maxTorque: 50,
 			redlineRPM: 9500,
 			exhaustOpenness: 1.0,
 			flywheelMass: 0.2,
@@ -412,7 +412,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 3,
 		y: 2.7,
-		stats: { maxTorque: 290 },
+		stats: { maxTorque: 35 },
 	},
 	{
 		id: 'stroker',
@@ -424,7 +424,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 4,
 		y: 2.7,
-		stats: { maxTorque: 360, redlineRPM: 8800 },
+		stats: { maxTorque: 70, redlineRPM: 8800 },
 	},
 	{
 		id: 'titanium_valves',
@@ -597,7 +597,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 0,
 		y: -4,
-		stats: { maxTorque: 250 },
+		stats: { maxTorque: 70 },
 	},
 	{
 		id: 'nitrous_100',
@@ -609,7 +609,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: -4,
-		stats: { maxTorque: 280 },
+		stats: { maxTorque: 140 },
 	},
 	{
 		id: 'nitrous_200',
@@ -621,7 +621,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 2,
 		y: -4,
-		stats: { maxTorque: 330 },
+		stats: { maxTorque: 280 },
 	},
 	{
 		id: 'progressive_nos',
@@ -647,7 +647,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 0,
 		y: 6.5,
-		stats: {},
+		stats: { maxTorque: 10 },
 	},
 	{
 		id: 'injectors',
@@ -659,7 +659,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: 6.5,
-		stats: { maxTorque: 210 },
+		stats: { maxTorque: 20 },
 	},
 	{
 		id: 'e85',
@@ -671,7 +671,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 2,
 		y: 6.5,
-		stats: { maxTorque: 240 },
+		stats: { maxTorque: 60 },
 	},
 	{
 		id: 'fuel_rail',
@@ -683,7 +683,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 2,
 		y: 7.2,
-		stats: {},
+		stats: { maxTorque: 15 },
 	},
 
 	// ===== COOLING BRANCH =====
@@ -697,7 +697,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 0,
 		y: -5.5,
-		stats: {},
+		stats: { maxTorque: 5 },
 	},
 	{
 		id: 'intercooler',
@@ -709,7 +709,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: -5.5,
-		stats: { maxTorque: 220 },
+		stats: { maxTorque: 30 },
 	},
 	{
 		id: 'oil_cooler',
@@ -721,7 +721,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: -6.2,
-		stats: {},
+		stats: { maxTorque: 5 },
 	},
 	{
 		id: 'methanol',
@@ -733,7 +733,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 2,
 		y: -5.5,
-		stats: { maxTorque: 250 },
+		stats: { maxTorque: 40 },
 	},
 
 	// ===== AERODYNAMICS BRANCH =====
