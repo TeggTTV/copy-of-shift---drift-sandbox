@@ -1,44 +1,10 @@
 import React, { useMemo } from 'react';
 import { TuningState } from '../../types';
-
-const calculateTopSpeed = (tuning: TuningState): number => {
-	// Top speed in mph based on redline RPM and gearing
-	const wheelRadius = 0.3; // meters
-	const wheelCirc = 2 * Math.PI * wheelRadius;
-	const topGearRatio = tuning.gearRatios[6] || tuning.gearRatios[5];
-	const effectiveRatio = topGearRatio * tuning.finalDriveRatio;
-
-	// Speed at redline in top gear
-	const wheelRPM = tuning.redlineRPM / effectiveRatio;
-	const speedMS = (wheelRPM * wheelCirc) / 60;
-	const speedMPH = speedMS * 2.237; // m/s to mph
-
-	return speedMPH;
-};
-
-const calculate0to60 = (tuning: TuningState): number => {
-	// Simplified 0-60mph estimate based on power-to-weight ratio
-	const avgHP = (tuning.maxTorque * tuning.redlineRPM * 0.7) / 7023; // Average HP
-	const powerToWeight = avgHP / (tuning.mass / 1000); // HP per ton
-
-	// Empirical formula with grip factor
-	const baseTime = 15 / powerToWeight;
-	const gripModifier = 1.5 - tuning.tireGrip * 0.3;
-
-	return Math.max(2.0, baseTime * gripModifier);
-};
-
-const calculateQuarterMile = (tuning: TuningState): number => {
-	// Simplified 1/4 mile time estimate
-	const avgHP = (tuning.maxTorque * tuning.redlineRPM * 0.7) / 7023;
-	const powerToWeight = avgHP / (tuning.mass / 1000);
-
-	// Empirical formula
-	const baseTime = 18 / Math.sqrt(powerToWeight);
-	const gripModifier = 1.3 - tuning.tireGrip * 0.2;
-
-	return Math.max(8.0, baseTime * gripModifier);
-};
+import {
+	simulate0to60,
+	simulateQuarterMile,
+	simulateTopSpeed,
+} from '../../utils/performanceSimulator';
 
 const StatDiff = ({
 	current,
@@ -81,20 +47,20 @@ const PerformanceMetrics = ({
 	tuning: TuningState;
 	previewTuning?: TuningState | null;
 }) => {
-	const topSpeed = useMemo(() => calculateTopSpeed(tuning), [tuning]);
-	const zeroTo60 = useMemo(() => calculate0to60(tuning), [tuning]);
-	const quarterMile = useMemo(() => calculateQuarterMile(tuning), [tuning]);
+	const topSpeed = useMemo(() => simulateTopSpeed(tuning), [tuning]);
+	const zeroTo60 = useMemo(() => simulate0to60(tuning), [tuning]);
+	const quarterMile = useMemo(() => simulateQuarterMile(tuning), [tuning]);
 
 	const pTopSpeed = useMemo(
-		() => (previewTuning ? calculateTopSpeed(previewTuning) : null),
+		() => (previewTuning ? simulateTopSpeed(previewTuning) : null),
 		[previewTuning]
 	);
 	const pZeroTo60 = useMemo(
-		() => (previewTuning ? calculate0to60(previewTuning) : null),
+		() => (previewTuning ? simulate0to60(previewTuning) : null),
 		[previewTuning]
 	);
 	const pQuarterMile = useMemo(
-		() => (previewTuning ? calculateQuarterMile(previewTuning) : null),
+		() => (previewTuning ? simulateQuarterMile(previewTuning) : null),
 		[previewTuning]
 	);
 

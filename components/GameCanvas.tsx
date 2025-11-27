@@ -44,7 +44,21 @@ const GameCanvas: React.FC = () => {
 	const [missions, setMissions] = useState<Mission[]>(MISSIONS);
 
 	// Current Tuning (Calculated from Base + Mods)
-	const [playerTuning, setPlayerTuning] = useState<TuningState>(BASE_TUNING);
+	const [playerTuning, setPlayerTuning] = useState<TuningState>(() => {
+		const saved = localStorage.getItem('shift_drift_manual_tuning');
+		if (saved) {
+			try {
+				const manual = JSON.parse(saved);
+				return {
+					...BASE_TUNING,
+					...manual,
+				};
+			} catch (e) {
+				console.error('Failed to parse saved manual tuning', e);
+			}
+		}
+		return BASE_TUNING;
+	});
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
 
 	// Persistence Hook
@@ -295,6 +309,14 @@ const GameCanvas: React.FC = () => {
 
 	useEffect(() => {
 		console.log('🔧 Recalculating tuning for mods:', ownedMods);
+
+		// Preserve manual tuning parameters before recalculating
+		const manualParams = {
+			finalDriveRatio: playerTuning.finalDriveRatio,
+			gearRatios: playerTuning.gearRatios,
+			torqueCurve: playerTuning.torqueCurve,
+		};
+
 		const newTuning = getTuningFromMods(
 			ownedMods,
 			disabledMods,
@@ -309,6 +331,14 @@ const GameCanvas: React.FC = () => {
 			);
 			Object.assign(newTuning, pendingTuningRef.current);
 			pendingTuningRef.current = null;
+		} else {
+			// Restore manual tuning parameters (unless this is the first load)
+			if (playerTuning.maxTorque !== 0) {
+				console.log('🎨 Preserving manual tuning:', manualParams);
+				newTuning.finalDriveRatio = manualParams.finalDriveRatio;
+				newTuning.gearRatios = manualParams.gearRatios;
+				newTuning.torqueCurve = manualParams.torqueCurve;
+			}
 		}
 
 		console.log('📊 New tuning calculated:', {
@@ -318,7 +348,15 @@ const GameCanvas: React.FC = () => {
 			newTuning,
 		});
 		setPlayerTuning(newTuning);
-	}, [ownedMods, disabledMods, modSettings, getTuningFromMods]);
+	}, [
+		ownedMods,
+		disabledMods,
+		modSettings,
+		getTuningFromMods,
+		playerTuning.finalDriveRatio,
+		playerTuning.gearRatios,
+		playerTuning.torqueCurve,
+	]);
 
 	const handleLoadTune = useCallback(
 		(tune: SavedTune) => {

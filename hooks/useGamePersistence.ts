@@ -111,5 +111,18 @@ export const useGamePersistence = (
 		localStorage.setItem('shift_drift_missions', JSON.stringify(missions));
 	}, [missions, loaded]);
 
+	useEffect(() => {
+		if (!loaded) return;
+		const manualTuning = {
+			finalDriveRatio: playerTuning.finalDriveRatio,
+			gearRatios: playerTuning.gearRatios,
+			torqueCurve: playerTuning.torqueCurve,
+		};
+		localStorage.setItem(
+			'shift_drift_manual_tuning',
+			JSON.stringify(manualTuning)
+		);
+	}, [playerTuning, loaded]);
+
 	return loaded;
 };
