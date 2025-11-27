@@ -43,6 +43,33 @@ export interface ModNode {
 	// UI Layout (Grid Coordinates)
 	x: number;
 	y: number;
+
+	// New Tuning System
+	tuningOptions?: TuningOption[];
+	soundProfile?: string; // e.g., 'muffler_sport'
+}
+
+export interface TuningOption {
+	id: string; // e.g., 'boost_pressure'
+	name: string;
+	min: number;
+	max: number;
+	step: number;
+	defaultValue: number;
+	unit?: string;
+	statAffected?: keyof TuningState; // Which stat this modifies directly (optional)
+}
+
+export type ModSettings = Record<string, Record<string, number>>; // modId -> { settingId: value }
+
+export interface SavedTune {
+	id: string;
+	name: string;
+	date: number;
+	ownedMods: string[];
+	disabledMods: string[];
+	modSettings: ModSettings;
+	manualTuning: Partial<TuningState>;
 }
 
 export interface TuningState {

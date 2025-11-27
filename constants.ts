@@ -50,7 +50,68 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 0,
 		y: 0,
-		stats: { maxTorque: 200, redlineRPM: 6800 },
+		stats: { maxTorque: 20, redlineRPM: 6800 },
+		tuningOptions: [
+			{
+				id: 'rev_limiter',
+				name: 'Rev Limiter',
+				min: 5000,
+				max: 9000,
+				step: 100,
+				defaultValue: 6800,
+				unit: 'RPM',
+				statAffected: 'redlineRPM',
+			},
+			{
+				id: 'idle_rpm',
+				name: 'Idle RPM',
+				min: 800,
+				max: 1500,
+				step: 50,
+				defaultValue: 1000,
+				unit: 'RPM',
+				statAffected: 'idleRPM',
+			},
+		],
+	},
+	{
+		id: 'muffler_sport',
+		name: 'Sport Muffler',
+		description: 'Better flow, deeper tone.',
+		cost: 300,
+		type: 'ENGINE',
+		parentId: null,
+		conflictsWith: ['muffler_race', 'muffler_straight'],
+		x: -1,
+		y: 1,
+		stats: { exhaustOpenness: 0.3 },
+		soundProfile: 'sport',
+	},
+	{
+		id: 'muffler_race',
+		name: 'Race Muffler',
+		description: 'Loud and aggressive.',
+		cost: 600,
+		type: 'ENGINE',
+		parentId: null,
+		conflictsWith: ['muffler_sport', 'muffler_straight'],
+		x: -1,
+		y: 2,
+		stats: { exhaustOpenness: 0.6 },
+		soundProfile: 'race',
+	},
+	{
+		id: 'muffler_straight',
+		name: 'Straight Pipe',
+		description: 'Ear bleeding loud.',
+		cost: 1000,
+		type: 'ENGINE',
+		parentId: null,
+		conflictsWith: ['muffler_sport', 'muffler_race'],
+		x: -1,
+		y: 3,
+		stats: { exhaustOpenness: 1.0 },
+		soundProfile: 'straight_pipe',
 	},
 	{
 		id: 'tires1',
@@ -63,6 +124,17 @@ export const MOD_TREE: ModNode[] = [
 		x: 0,
 		y: 3,
 		stats: { tireGrip: 1.2 },
+		tuningOptions: [
+			{
+				id: 'tire_pressure',
+				name: 'Tire Pressure',
+				min: 20,
+				max: 40,
+				step: 1,
+				defaultValue: 30,
+				unit: 'PSI',
+			},
+		],
 	},
 	{
 		id: 'weight1',
@@ -100,7 +172,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: 0,
-		stats: { maxTorque: 220, exhaustOpenness: 0.3 },
+		stats: { maxTorque: 25, exhaustOpenness: 0.3 },
 	},
 
 	// FORCED INDUCTION SPLIT: TURBO vs SUPERCHARGER vs NA
@@ -115,7 +187,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 2,
 		y: -1,
 		stats: {
-			maxTorque: 350,
+			maxTorque: 50,
 			turboIntensity: 0.6,
 			exhaustOpenness: 0.5,
 			torqueCurve: [
@@ -125,6 +197,17 @@ export const MOD_TREE: ModNode[] = [
 				{ rpm: 6800, factor: 0.9 },
 			],
 		},
+		tuningOptions: [
+			{
+				id: 'boost_pressure',
+				name: 'Boost Pressure',
+				min: 0.3,
+				max: 1.2,
+				step: 0.1,
+				defaultValue: 0.6,
+				unit: 'BAR',
+			},
+		],
 	},
 	{
 		id: 'supercharger',
@@ -137,7 +220,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 2,
 		y: 0.5,
 		stats: {
-			maxTorque: 380,
+			maxTorque: 50,
 			exhaustOpenness: 0.4,
 			torqueCurve: [
 				{ rpm: 0, factor: 0.7 },
@@ -184,7 +267,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 3,
 		y: -1.5,
 		stats: {
-			maxTorque: 550,
+			maxTorque: 60,
 			turboIntensity: 1.0,
 			exhaustOpenness: 0.8,
 			backfireAggression: 0.8,
@@ -195,6 +278,17 @@ export const MOD_TREE: ModNode[] = [
 				{ rpm: 7500, factor: 1.0 },
 			],
 		},
+		tuningOptions: [
+			{
+				id: 'boost_pressure',
+				name: 'Boost Pressure',
+				min: 0.8,
+				max: 2.5,
+				step: 0.1,
+				defaultValue: 1.5,
+				unit: 'BAR',
+			},
+		],
 	},
 	{
 		id: 'antilag',
@@ -226,7 +320,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 4,
 		y: -1.5,
-		stats: { maxTorque: 580 },
+		stats: { maxTorque: 65 },
 	},
 	{
 		id: 'ball_bearing',
@@ -239,6 +333,7 @@ export const MOD_TREE: ModNode[] = [
 		x: 4,
 		y: -0.8,
 		stats: { turboIntensity: 0.9 },
+		soundProfile: 'turbo_flutter',
 	},
 
 	// SUPERCHARGER PATH

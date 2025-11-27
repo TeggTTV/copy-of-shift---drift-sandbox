@@ -8,6 +8,7 @@ import {
 	Opponent,
 	ModNode,
 	GhostFrame,
+	SavedTune,
 } from '../types';
 import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
 import Dashboard from './Dashboard';
@@ -48,6 +49,10 @@ const GameCanvas: React.FC = () => {
 
 	// New Inventory System (Array of owned Mod IDs)
 	const [ownedMods, setOwnedMods] = useState<string[]>([]);
+	const [disabledMods, setDisabledMods] = useState<string[]>([]);
+	const [modSettings, setModSettings] = useState<
+		Record<string, Record<string, number>>
+	>({});
 	// Missions state to track best times
 	const [missions, setMissions] = useState<Mission[]>(MISSIONS);
 
@@ -167,54 +172,105 @@ const GameCanvas: React.FC = () => {
 
 	// --- Helpers ---
 	// Helper to calculate base tuning from a set of mods
-	const getTuningFromMods = useCallback((modIds: string[]) => {
-		console.log('🛠️ getTuningFromMods called with:', modIds);
-		let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
-		console.log('📦 Starting with BASE_TUNING:', {
-			maxTorque: BASE_TUNING.maxTorque,
-			redlineRPM: BASE_TUNING.redlineRPM,
-			mass: BASE_TUNING.mass,
-		});
+	const getTuningFromMods = useCallback(
+		(
+			modIds: string[],
+			disabled: string[],
+			settings: Record<string, Record<string, number>>
+		) => {
+			console.log('🛠️ getTuningFromMods called with:', modIds);
+			let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
+			console.log('📦 Starting with BASE_TUNING:', {
+				maxTorque: BASE_TUNING.maxTorque,
+				redlineRPM: BASE_TUNING.redlineRPM,
+				mass: BASE_TUNING.mass,
+			});
 
-		MOD_TREE.forEach((mod) => {
-			if (modIds.includes(mod.id)) {
-				console.log(
-					`✅ Applying mod: ${mod.name} (${mod.id})`,
-					mod.stats
-				);
+			MOD_TREE.forEach((mod) => {
+				if (modIds.includes(mod.id) && !disabled.includes(mod.id)) {
+					console.log(
+						`✅ Applying mod: ${mod.name} (${mod.id})`,
+						mod.stats
+					);
 
-				// For each stat in the mod, ADD it to the base instead of replacing
-				Object.keys(mod.stats).forEach((key) => {
-					const modValue = (mod.stats as any)[key];
-					const currentValue = (tuning as any)[key];
+					// For each stat in the mod, ADD it to the base instead of replacing
+					Object.keys(mod.stats).forEach((key) => {
+						const modValue = (mod.stats as any)[key];
+						const currentValue = (tuning as any)[key];
 
-					// If both are numbers, ADD them
-					if (
-						typeof modValue === 'number' &&
-						typeof currentValue === 'number'
-					) {
-						(tuning as any)[key] = currentValue + modValue;
-						console.log(
-							`  ${key}: ${currentValue} + ${modValue} = ${
-								(tuning as any)[key]
-							}`
-						);
-					} else {
-						// For non-numeric values (arrays, strings), replace
-						(tuning as any)[key] = modValue;
-						console.log(`  ${key}: replaced with`, modValue);
+						// If both are numbers, ADD them
+						if (
+							typeof modValue === 'number' &&
+							typeof currentValue === 'number'
+						) {
+							(tuning as any)[key] = currentValue + modValue;
+							console.log(
+								`  ${key}: ${currentValue} + ${modValue} = ${
+									(tuning as any)[key]
+								}`
+							);
+						} else {
+							// For non-numeric values (arrays, strings), replace
+							(tuning as any)[key] = modValue;
+							console.log(`  ${key}: replaced with`, modValue);
+						}
+					});
+
+					// Apply Custom Tuning Settings
+					if (mod.tuningOptions && settings[mod.id]) {
+						mod.tuningOptions.forEach((option) => {
+							const userValue = settings[mod.id][option.id];
+							if (userValue !== undefined) {
+								if (option.statAffected) {
+									// Direct stat replacement
+									(tuning as any)[option.statAffected] =
+										userValue;
+								} else if (option.id === 'boost_pressure') {
+									// Boost Pressure Logic: Adjust Max Torque
+									// Base assumption: 1.0 BAR adds ~100Nm over base
+									// We calculate delta from default and apply it
+									const deltaBar =
+										userValue - option.defaultValue;
+									tuning.maxTorque += deltaBar * 100;
+									// Also affect turbo intensity
+									tuning.turboIntensity = Math.min(
+										1.0,
+										tuning.turboIntensity + deltaBar * 0.2
+									);
+								} else if (option.id === 'tire_pressure') {
+									// Tire Pressure Logic: Lower = More Grip, More Drag
+									// Default 30 PSI.
+									const deltaPsi = 30 - userValue; // Positive if under-inflated
+									tuning.tireGrip += deltaPsi * 0.01;
+									tuning.dragCoefficient += deltaPsi * 0.002;
+								}
+							}
+						});
 					}
-				});
-			}
-		});
 
-		console.log('🎯 Final tuning:', {
-			maxTorque: tuning.maxTorque,
-			redlineRPM: tuning.redlineRPM,
-			mass: tuning.mass,
-		});
-		return tuning;
-	}, []);
+					// Apply Sound Profile (Last installed mod wins)
+					if (mod.soundProfile) {
+						// We need to store this somewhere, maybe in tuning state?
+						// For now let's assume AudioEngine reads it from tuning or we pass it separately
+						// But wait, AudioEngine config is set in confirmStartRace using tuning props.
+						// So we need to map soundProfile to tuning props if possible, or add soundProfile to TuningState.
+						// Let's check TuningState... it has exhaustOpenness, backfireAggression, turboIntensity.
+						// The soundProfile string itself isn't in TuningState.
+						// We should probably rely on the stats provided by the sound mod (exhaustOpenness etc)
+						// which are already applied above.
+					}
+				}
+			});
+
+			console.log('🎯 Final tuning:', {
+				maxTorque: tuning.maxTorque,
+				redlineRPM: tuning.redlineRPM,
+				mass: tuning.mass,
+			});
+			return tuning;
+		},
+		[]
+	);
 
 	// Sync ref
 	useEffect(() => {
@@ -222,9 +278,26 @@ const GameCanvas: React.FC = () => {
 	}, [playerTuning]);
 
 	// Recalculate playerTuning when owned mods change
+	const pendingTuningRef = useRef<Partial<TuningState> | null>(null);
+
 	useEffect(() => {
 		console.log('🔧 Recalculating tuning for mods:', ownedMods);
-		const newTuning = getTuningFromMods(ownedMods);
+		const newTuning = getTuningFromMods(
+			ownedMods,
+			disabledMods,
+			modSettings
+		);
+
+		// If we have pending manual tuning (from loading a preset), apply it
+		if (pendingTuningRef.current) {
+			console.log(
+				'📥 Applying pending manual tuning:',
+				pendingTuningRef.current
+			);
+			Object.assign(newTuning, pendingTuningRef.current);
+			pendingTuningRef.current = null;
+		}
+
 		console.log('📊 New tuning calculated:', {
 			maxTorque: newTuning.maxTorque,
 			redlineRPM: newTuning.redlineRPM,
@@ -232,7 +305,21 @@ const GameCanvas: React.FC = () => {
 			newTuning,
 		});
 		setPlayerTuning(newTuning);
-	}, [ownedMods, getTuningFromMods]);
+	}, [ownedMods, disabledMods, modSettings, getTuningFromMods]);
+
+	const handleLoadTune = useCallback(
+		(tune: SavedTune) => {
+			console.log('📂 Loading tune:', tune.name);
+			// Queue the manual tuning to be applied after the mod update triggers the effect
+			pendingTuningRef.current = tune.manualTuning;
+
+			// Update mod states
+			setOwnedMods(tune.ownedMods);
+			setDisabledMods(tune.disabledMods);
+			setModSettings(tune.modSettings);
+		},
+		[setOwnedMods, setDisabledMods, setModSettings]
+	);
 
 	const toggleMod = useCallback(
 		(mod: ModNode) => {
@@ -911,6 +998,7 @@ const GameCanvas: React.FC = () => {
 				phase === 'MISSION_SELECT' ||
 				phase === 'VERSUS') && (
 				<GameMenu
+					onLoadTune={handleLoadTune}
 					phase={phase}
 					setPhase={setPhase}
 					money={money}
@@ -922,6 +1010,10 @@ const GameCanvas: React.FC = () => {
 					onStartMission={startMission}
 					onConfirmRace={confirmStartRace}
 					selectedMission={missionRef.current}
+					disabledMods={disabledMods}
+					setDisabledMods={setDisabledMods}
+					modSettings={modSettings}
+					setModSettings={setModSettings}
 				/>
 			)}
 		</div>

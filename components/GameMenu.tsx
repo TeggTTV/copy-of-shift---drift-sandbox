@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { GamePhase, Mission, ModNode, TuningState } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { GamePhase, Mission, ModNode, TuningState, SavedTune } from '../types';
 import { MISSIONS, MOD_TREE, BASE_TUNING } from '../constants';
 import {
 	LineChart,
@@ -23,6 +23,11 @@ const GameMenu = ({
 	onStartMission,
 	onConfirmRace,
 	selectedMission,
+	disabledMods,
+	setDisabledMods,
+	modSettings,
+	setModSettings,
+	onLoadTune,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -35,11 +40,63 @@ const GameMenu = ({
 	onStartMission: (m: Mission) => void;
 	onConfirmRace?: () => void;
 	selectedMission?: Mission | null;
+	disabledMods: string[];
+	setDisabledMods: React.Dispatch<React.SetStateAction<string[]>>;
+	modSettings: Record<string, Record<string, number>>;
+	setModSettings: React.Dispatch<
+		React.SetStateAction<Record<string, Record<string, number>>>
+	>;
+	onLoadTune: (tune: SavedTune) => void;
 }) => {
 	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING'>(
 		'UPGRADES'
 	);
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
+
+	// Saved Tunes State
+	const [savedTunes, setSavedTunes] = useState<SavedTune[]>([]);
+	const [tuneName, setTuneName] = useState('');
+
+	// Load tunes from localStorage on mount
+	useEffect(() => {
+		const saved = localStorage.getItem('shift_drift_tunes');
+		if (saved) {
+			try {
+				setSavedTunes(JSON.parse(saved));
+			} catch (e) {
+				console.error('Failed to parse saved tunes', e);
+			}
+		}
+	}, []);
+
+	const handleSaveTune = () => {
+		if (!tuneName.trim()) return;
+
+		const newTune: SavedTune = {
+			id: crypto.randomUUID(),
+			name: tuneName.trim(),
+			date: Date.now(),
+			ownedMods,
+			disabledMods,
+			modSettings,
+			manualTuning: {
+				finalDriveRatio: playerTuning.finalDriveRatio,
+				gearRatios: playerTuning.gearRatios,
+				torqueCurve: playerTuning.torqueCurve,
+			},
+		};
+
+		const updatedTunes = [...savedTunes, newTune];
+		setSavedTunes(updatedTunes);
+		localStorage.setItem('shift_drift_tunes', JSON.stringify(updatedTunes));
+		setTuneName('');
+	};
+
+	const handleDeleteTune = (id: string) => {
+		const updatedTunes = savedTunes.filter((t) => t.id !== id);
+		setSavedTunes(updatedTunes);
+		localStorage.setItem('shift_drift_tunes', JSON.stringify(updatedTunes));
+	};
 
 	// Calculate preview tuning for hover
 	const previewTuning = useMemo(() => {
@@ -221,328 +278,530 @@ const GameMenu = ({
 								<DynoGraph tuning={playerTuning} />
 							</div>
 
-							<div className="space-y-4 font-mono text-sm">
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">
-										PEAK TORQUE
-									</span>
-									<span className="text-white font-bold">
-										{playerTuning.maxTorque} Nm
-										<StatDiff
-											current={playerTuning.maxTorque}
-											preview={previewTuning?.maxTorque}
-											suffix=" Nm"
-										/>
-									</span>
-								</div>
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">
-										PEAK POWER
-									</span>
-									<span className="text-white font-bold">
-										{Math.round(
-											(playerTuning.maxTorque *
-												playerTuning.redlineRPM) /
-												9549
-										)}{' '}
-										HP
-										<StatDiff
-											current={Math.round(
-												(playerTuning.maxTorque *
-													playerTuning.redlineRPM) /
-													9549
-											)}
-											preview={
-												previewTuning
-													? Math.round(
-															(previewTuning.maxTorque *
-																previewTuning.redlineRPM) /
-																9549
-													  )
-													: null
-											}
-											suffix=" HP"
-										/>
-									</span>
-								</div>
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">
-										REDLINE
-									</span>
-									<span className="text-white font-bold">
-										{playerTuning.redlineRPM} RPM
-										<StatDiff
-											current={playerTuning.redlineRPM}
-											preview={previewTuning?.redlineRPM}
-											suffix=" RPM"
-										/>
-									</span>
-								</div>
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">
-										WEIGHT
-									</span>
-									<span className="text-white font-bold">
-										{playerTuning.mass} KG
-										<StatDiff
-											current={playerTuning.mass}
-											preview={previewTuning?.mass}
-											suffix=" KG"
-											invertColor={true}
-										/>
-									</span>
-								</div>
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">
-										POWER/WEIGHT
-									</span>
-									<span className="text-white font-bold">
-										{(
-											(Math.round(
-												(playerTuning.maxTorque *
-													playerTuning.redlineRPM) /
-													9549
-											) /
-												playerTuning.mass) *
-											1000
-										).toFixed(1)}{' '}
-										HP/ton
-										<StatDiff
-											current={
-												(Math.round(
-													(playerTuning.maxTorque *
-														playerTuning.redlineRPM) /
-														9549
-												) /
-													playerTuning.mass) *
-												1000
-											}
-											preview={
-												previewTuning
-													? (Math.round(
-															(previewTuning.maxTorque *
-																previewTuning.redlineRPM) /
-																9549
-													  ) /
-															previewTuning.mass) *
-													  1000
-													: null
-											}
-											suffix=" HP/ton"
-										/>
-									</span>
-								</div>
-								<div className="flex justify-between border-b border-gray-800 pb-2">
-									<span className="text-gray-500">GRIP</span>
-									<span className="text-white font-bold">
-										{playerTuning.tireGrip.toFixed(2)}
-										<StatDiff
-											current={playerTuning.tireGrip}
-											preview={previewTuning?.tireGrip}
-										/>
-									</span>
-								</div>
+							{/* Tabs */}
+							<div className="flex gap-2 mb-4">
+								<button
+									onClick={() => setActiveTab('UPGRADES')}
+									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+										activeTab === 'UPGRADES'
+											? 'bg-indigo-600 text-white'
+											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+									}`}
+								>
+									Upgrades
+								</button>
+								<button
+									onClick={() => setActiveTab('TUNING')}
+									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+										activeTab === 'TUNING'
+											? 'bg-indigo-600 text-white'
+											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+									}`}
+								>
+									Tuning
+								</button>
 							</div>
 
-							<h3 className="text-xl font-bold text-gray-300 mt-8 mb-4">
-								FINE TUNING
-							</h3>
-							<PerformanceMetrics
-								tuning={playerTuning}
-								previewTuning={previewTuning}
-							/>
-							<div className="space-y-4 mt-6">
-								<div>
-									<label className="text-xs text-gray-500 block mb-1">
-										FINAL DRIVE RATIO (
-										{playerTuning.finalDriveRatio})
-									</label>
-									<div className="relative">
-										<input
-											type="range"
-											min="2.0"
-											max="5.0"
-											step="0.1"
-											value={playerTuning.finalDriveRatio}
-											onChange={(e) =>
-												setPlayerTuning({
-													...playerTuning,
-													finalDriveRatio: parseFloat(
-														e.target.value
-													),
-												})
-											}
-											className="w-full accent-indigo-500"
-											style={{
-												background: `linear-gradient(to right, #22c55e 0%, #eab308 50%, #ef4444 100%)`,
-											}}
-										/>
-									</div>
-									<div className="flex justify-between text-[10px] text-gray-600 mt-1">
-										<span className="text-green-400">
-											TOP SPEED
-										</span>
-										<span className="text-yellow-400">
-											BALANCED
-										</span>
-										<span className="text-red-400">
-											ACCEL
-										</span>
-									</div>
-									{/* Visual indicator */}
-									<div className="mt-3 p-2 bg-black/50 rounded border border-gray-800">
-										<div className="flex justify-between items-center">
-											<div className="flex items-center gap-2">
+							{activeTab === 'TUNING' ? (
+								<div className="space-y-6">
+									{ownedMods.some(
+										(id) =>
+											!disabledMods.includes(id) &&
+											MOD_TREE.find((m) => m.id === id)
+												?.tuningOptions
+									) && (
+										<h3 className="text-sm font-bold text-indigo-400 uppercase border-b border-indigo-900/50 pb-2 mb-4">
+											Mod Tuning
+										</h3>
+									)}
+									{ownedMods
+										.filter(
+											(id) => !disabledMods.includes(id)
+										)
+										.map((modId) => {
+											const mod = MOD_TREE.find(
+												(m) => m.id === modId
+											);
+											if (!mod || !mod.tuningOptions)
+												return null;
+
+											return (
 												<div
-													className={`w-2 h-2 rounded-full ${
-														playerTuning.finalDriveRatio <
-														3.0
-															? 'bg-green-500 animate-pulse'
-															: 'bg-gray-700'
-													}`}
-												></div>
-												<span className="text-[10px] text-gray-500">
-													High Speed
+													key={mod.id}
+													className="bg-black/40 p-4 rounded border border-gray-800"
+												>
+													<h4 className="text-indigo-400 font-bold mb-3 text-sm uppercase">
+														{mod.name}
+													</h4>
+													<div className="space-y-4">
+														{mod.tuningOptions.map(
+															(option) => {
+																const currentValue =
+																	modSettings[
+																		mod.id
+																	]?.[
+																		option
+																			.id
+																	] ??
+																	option.defaultValue;
+
+																return (
+																	<div
+																		key={
+																			option.id
+																		}
+																	>
+																		<div className="flex justify-between text-xs text-gray-400 mb-1">
+																			<span>
+																				{
+																					option.name
+																				}
+																			</span>
+																			<span className="text-white font-mono">
+																				{
+																					currentValue
+																				}{' '}
+																				{
+																					option.unit
+																				}
+																			</span>
+																		</div>
+																		<input
+																			type="range"
+																			min={
+																				option.min
+																			}
+																			max={
+																				option.max
+																			}
+																			step={
+																				option.step
+																			}
+																			value={
+																				currentValue
+																			}
+																			onChange={(
+																				e
+																			) => {
+																				const newVal =
+																					parseFloat(
+																						e
+																							.target
+																							.value
+																					);
+																				setModSettings(
+																					(
+																						prev
+																					) => ({
+																						...prev,
+																						[mod.id]:
+																							{
+																								...(prev[
+																									mod
+																										.id
+																								] ||
+																									{}),
+																								[option.id]:
+																									newVal,
+																							},
+																					})
+																				);
+																			}}
+																			className="w-full accent-indigo-500"
+																		/>
+																	</div>
+																);
+															}
+														)}
+													</div>
+												</div>
+											);
+										})}
+
+									<h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-800 pb-2 mb-4 mt-8">
+										General Tuning
+									</h3>
+
+									<div className="space-y-4">
+										<div>
+											<label className="text-xs text-gray-500 block mb-1">
+												FINAL DRIVE RATIO (
+												{playerTuning.finalDriveRatio})
+											</label>
+											<div className="relative">
+												<input
+													type="range"
+													min="2.0"
+													max="5.0"
+													step="0.1"
+													value={
+														playerTuning.finalDriveRatio
+													}
+													onChange={(e) =>
+														setPlayerTuning({
+															...playerTuning,
+															finalDriveRatio:
+																parseFloat(
+																	e.target
+																		.value
+																),
+														})
+													}
+													className="w-full accent-indigo-500"
+													style={{
+														background: `linear-gradient(to right, #22c55e 0%, #eab308 50%, #ef4444 100%)`,
+													}}
+												/>
+											</div>
+											<div className="flex justify-between text-[10px] text-gray-600 mt-1">
+												<span className="text-green-400">
+													TOP SPEED
+												</span>
+												<span className="text-yellow-400">
+													BALANCED
+												</span>
+												<span className="text-red-400">
+													ACCEL
 												</span>
 											</div>
-											<div className="flex items-center gap-2">
-												<div
-													className={`w-2 h-2 rounded-full ${
-														playerTuning.finalDriveRatio >=
-															3.0 &&
-														playerTuning.finalDriveRatio <=
-															4.0
-															? 'bg-yellow-500 animate-pulse'
-															: 'bg-gray-700'
-													}`}
-												></div>
-												<span className="text-[10px] text-gray-500">
-													Balanced
-												</span>
+											<div className="mt-3 p-2 bg-black/50 rounded border border-gray-800">
+												<div className="flex justify-between items-center">
+													<div className="flex items-center gap-2">
+														<div
+															className={`w-2 h-2 rounded-full ${
+																playerTuning.finalDriveRatio <
+																3.0
+																	? 'bg-green-500 animate-pulse'
+																	: 'bg-gray-700'
+															}`}
+														></div>
+														<span className="text-[10px] text-gray-500">
+															High Speed
+														</span>
+													</div>
+													<div className="flex items-center gap-2">
+														<div
+															className={`w-2 h-2 rounded-full ${
+																playerTuning.finalDriveRatio >=
+																	3.0 &&
+																playerTuning.finalDriveRatio <=
+																	4.0
+																	? 'bg-yellow-500 animate-pulse'
+																	: 'bg-gray-700'
+															}`}
+														></div>
+														<span className="text-[10px] text-gray-500">
+															Balanced
+														</span>
+													</div>
+													<div className="flex items-center gap-2">
+														<div
+															className={`w-2 h-2 rounded-full ${
+																playerTuning.finalDriveRatio >
+																4.0
+																	? 'bg-red-500 animate-pulse'
+																	: 'bg-gray-700'
+															}`}
+														></div>
+														<span className="text-[10px] text-gray-500">
+															Quick Accel
+														</span>
+													</div>
+												</div>
 											</div>
-											<div className="flex items-center gap-2">
-												<div
-													className={`w-2 h-2 rounded-full ${
-														playerTuning.finalDriveRatio >
-														4.0
-															? 'bg-red-500 animate-pulse'
-															: 'bg-gray-700'
-													}`}
-												></div>
-												<span className="text-[10px] text-gray-500">
-													Quick Accel
-												</span>
+										</div>
+
+										{/* Gear Ratios */}
+										<div className="mt-6">
+											<label className="text-xs text-gray-500 block mb-3 font-bold">
+												GEAR RATIOS
+											</label>
+											<div className="space-y-2">
+												{[1, 2, 3, 4, 5, 6].map(
+													(gear) => (
+														<div
+															key={gear}
+															className="flex items-center gap-3"
+														>
+															<span className="text-xs text-gray-400 w-12">
+																Gear {gear}:
+															</span>
+															<input
+																type="range"
+																min="0.5"
+																max="4.0"
+																step="0.05"
+																value={
+																	playerTuning
+																		.gearRatios[
+																		gear
+																	]
+																}
+																onChange={(
+																	e
+																) => {
+																	const newRatios =
+																		{
+																			...playerTuning.gearRatios,
+																		};
+																	newRatios[
+																		gear
+																	] =
+																		parseFloat(
+																			e
+																				.target
+																				.value
+																		);
+																	setPlayerTuning(
+																		{
+																			...playerTuning,
+																			gearRatios:
+																				newRatios,
+																		}
+																	);
+																}}
+																className="flex-1 accent-purple-500"
+															/>
+															<span className="text-xs text-white font-mono w-12">
+																{playerTuning.gearRatios[
+																	gear
+																].toFixed(2)}
+															</span>
+														</div>
+													)
+												)}
+											</div>
+										</div>
+
+										{/* Torque Curve */}
+										<div className="mt-6">
+											<label className="text-xs text-gray-500 block mb-3 font-bold">
+												TORQUE CURVE
+											</label>
+											<div className="space-y-2">
+												{playerTuning.torqueCurve.map(
+													(point, idx) => (
+														<div
+															key={idx}
+															className="flex items-center gap-3"
+														>
+															<span className="text-xs text-gray-400 w-20">
+																{point.rpm} RPM:
+															</span>
+															<input
+																type="range"
+																min="0.1"
+																max="1.0"
+																step="0.05"
+																value={
+																	point.factor
+																}
+																onChange={(
+																	e
+																) => {
+																	const newCurve =
+																		[
+																			...playerTuning.torqueCurve,
+																		];
+																	newCurve[
+																		idx
+																	] = {
+																		...point,
+																		factor: parseFloat(
+																			e
+																				.target
+																				.value
+																		),
+																	};
+																	setPlayerTuning(
+																		{
+																			...playerTuning,
+																			torqueCurve:
+																				newCurve,
+																		}
+																	);
+																}}
+																className="flex-1 accent-orange-500"
+															/>
+															<span className="text-xs text-white font-mono w-12">
+																{(
+																	point.factor *
+																	100
+																).toFixed(0)}
+																%
+															</span>
+														</div>
+													)
+												)}
+											</div>
+											<div className="text-[10px] text-gray-600 mt-2">
+												Adjust power delivery at
+												different RPM ranges
+											</div>
+										</div>
+
+										{/* Manage Tunes */}
+										<div className="mt-8 pt-8 border-t border-gray-800">
+											<h3 className="text-sm font-bold text-indigo-400 uppercase mb-4">
+												Manage Tunes
+											</h3>
+
+											<div className="flex gap-2 mb-6">
+												<input
+													type="text"
+													value={tuneName}
+													onChange={(e) =>
+														setTuneName(
+															e.target.value
+														)
+													}
+													placeholder="Tune Name..."
+													className="flex-1 bg-black/50 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+												/>
+												<button
+													onClick={handleSaveTune}
+													disabled={!tuneName.trim()}
+													className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold uppercase rounded hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+												>
+													Save
+												</button>
+											</div>
+
+											<div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+												{savedTunes.length === 0 ? (
+													<div className="text-xs text-gray-600 italic text-center py-4">
+														No saved tunes
+													</div>
+												) : (
+													savedTunes.map((tune) => (
+														<div
+															key={tune.id}
+															className="flex items-center justify-between bg-gray-900/50 p-2 rounded border border-gray-800"
+														>
+															<div className="flex-1">
+																<div className="text-xs font-bold text-gray-300">
+																	{tune.name}
+																</div>
+																<div className="text-[10px] text-gray-600">
+																	{new Date(
+																		tune.date
+																	).toLocaleDateString()}
+																</div>
+															</div>
+															<div className="flex gap-2">
+																<button
+																	onClick={() =>
+																		onLoadTune(
+																			tune
+																		)
+																	}
+																	className="px-2 py-1 bg-green-900/50 text-green-400 text-[10px] uppercase rounded border border-green-900 hover:bg-green-900"
+																>
+																	Load
+																</button>
+																<button
+																	onClick={() =>
+																		handleDeleteTune(
+																			tune.id
+																		)
+																	}
+																	className="px-2 py-1 bg-red-900/50 text-red-400 text-[10px] uppercase rounded border border-red-900 hover:bg-red-900"
+																>
+																	Del
+																</button>
+															</div>
+														</div>
+													))
+												)}
 											</div>
 										</div>
 									</div>
 								</div>
+							) : (
+								<div className="space-y-4 font-mono text-sm">
+									<div className="flex justify-between border-b border-gray-800 pb-2">
+										<span className="text-gray-500">
+											PEAK TORQUE
+										</span>
+										<span className="text-white font-bold">
+											{playerTuning.maxTorque} Nm
+											<StatDiff
+												current={playerTuning.maxTorque}
+												preview={
+													previewTuning?.maxTorque
+												}
+												suffix=" Nm"
+											/>
+										</span>
+									</div>
+									<div className="flex justify-between border-b border-gray-800 pb-2">
+										<span className="text-gray-500">
+											PEAK POWER
+										</span>
+										<span className="text-white font-bold">
+											{Math.round(
+												(playerTuning.maxTorque *
+													playerTuning.redlineRPM) /
+													9549
+											)}{' '}
+											HP
+											<StatDiff
+												current={Math.round(
+													(playerTuning.maxTorque *
+														playerTuning.redlineRPM) /
+														9549
+												)}
+												preview={
+													previewTuning
+														? Math.round(
+																(previewTuning.maxTorque *
+																	previewTuning.redlineRPM) /
+																	9549
+														  )
+														: null
+												}
+												suffix=" HP"
+											/>
+										</span>
+									</div>
+									<div className="flex justify-between border-b border-gray-800 pb-2">
+										<span className="text-gray-500">
+											REDLINE
+										</span>
+										<span className="text-white font-bold">
+											{playerTuning.redlineRPM} RPM
+											<StatDiff
+												current={
+													playerTuning.redlineRPM
+												}
+												preview={
+													previewTuning?.redlineRPM
+												}
+												suffix=" RPM"
+											/>
+										</span>
+									</div>
+									<div className="flex justify-between border-b border-gray-800 pb-2">
+										<span className="text-gray-500">
+											WEIGHT
+										</span>
+										<span className="text-white font-bold">
+											{playerTuning.mass} KG
+											<StatDiff
+												current={playerTuning.mass}
+												preview={previewTuning?.mass}
+												suffix=" KG"
+												invertColor={true}
+											/>
+										</span>
+									</div>
 
-								{/* Gear Ratios */}
-								<div className="mt-6">
-									<label className="text-xs text-gray-500 block mb-3 font-bold">
-										GEAR RATIOS
-									</label>
-									<div className="space-y-2">
-										{[1, 2, 3, 4, 5, 6].map((gear) => (
-											<div
-												key={gear}
-												className="flex items-center gap-3"
-											>
-												<span className="text-xs text-gray-400 w-12">
-													Gear {gear}:
-												</span>
-												<input
-													type="range"
-													min="0.5"
-													max="4.0"
-													step="0.05"
-													value={
-														playerTuning.gearRatios[
-															gear
-														]
-													}
-													onChange={(e) => {
-														const newRatios = {
-															...playerTuning.gearRatios,
-														};
-														newRatios[gear] =
-															parseFloat(
-																e.target.value
-															);
-														setPlayerTuning({
-															...playerTuning,
-															gearRatios:
-																newRatios,
-														});
-													}}
-													className="flex-1 accent-purple-500"
-												/>
-												<span className="text-xs text-white font-mono w-12">
-													{playerTuning.gearRatios[
-														gear
-													].toFixed(2)}
-												</span>
-											</div>
-										))}
-									</div>
+									<PerformanceMetrics
+										tuning={playerTuning}
+										previewTuning={previewTuning}
+									/>
 								</div>
-
-								{/* Torque Curve */}
-								<div className="mt-6">
-									<label className="text-xs text-gray-500 block mb-3 font-bold">
-										TORQUE CURVE
-									</label>
-									<div className="space-y-2">
-										{playerTuning.torqueCurve.map(
-											(point, idx) => (
-												<div
-													key={idx}
-													className="flex items-center gap-3"
-												>
-													<span className="text-xs text-gray-400 w-20">
-														{point.rpm} RPM:
-													</span>
-													<input
-														type="range"
-														min="0.1"
-														max="1.0"
-														step="0.05"
-														value={point.factor}
-														onChange={(e) => {
-															const newCurve = [
-																...playerTuning.torqueCurve,
-															];
-															newCurve[idx] = {
-																...point,
-																factor: parseFloat(
-																	e.target
-																		.value
-																),
-															};
-															setPlayerTuning({
-																...playerTuning,
-																torqueCurve:
-																	newCurve,
-															});
-														}}
-														className="flex-1 accent-orange-500"
-													/>
-													<span className="text-xs text-white font-mono w-12">
-														{(
-															point.factor * 100
-														).toFixed(0)}
-														%
-													</span>
-												</div>
-											)
-										)}
-									</div>
-									<div className="text-[10px] text-gray-600 mt-2">
-										Adjust power delivery at different RPM
-										ranges
-									</div>
-								</div>
-							</div>
+							)}
 
 							{/* Car Preview */}
 							<h3 className="text-xl font-bold text-gray-300 mt-8 mb-4">
@@ -554,7 +813,6 @@ const GameMenu = ({
 									height="180"
 									viewBox="0 0 120 180"
 								>
-									{/* Shadow */}
 									<rect
 										x="35"
 										y="55"
@@ -562,8 +820,6 @@ const GameMenu = ({
 										height="90"
 										fill="rgba(0,0,0,0.3)"
 									/>
-
-									{/* Car Body */}
 									<rect
 										x="30"
 										y="50"
@@ -574,8 +830,6 @@ const GameMenu = ({
 										strokeWidth="2"
 										rx="4"
 									/>
-
-									{/* Roof */}
 									<rect
 										x="35"
 										y="80"
@@ -584,8 +838,6 @@ const GameMenu = ({
 										fill="rgba(0,0,0,0.3)"
 										rx="2"
 									/>
-
-									{/* Front Lights */}
 									<rect
 										x="32"
 										y="52"
@@ -600,8 +852,6 @@ const GameMenu = ({
 										height="6"
 										fill="#fff9c4"
 									/>
-
-									{/* Rear Lights */}
 									<rect
 										x="32"
 										y="142"
@@ -616,8 +866,6 @@ const GameMenu = ({
 										height="4"
 										fill="#ef4444"
 									/>
-
-									{/* Wheels - The 4 circles represent the car's wheels (2 front, 2 rear) */}
 									<circle
 										cx="40"
 										cy="70"
@@ -650,8 +898,6 @@ const GameMenu = ({
 										stroke="#666"
 										strokeWidth="2"
 									/>
-
-									{/* Spoiler (if aero mods installed) */}
 									{ownedMods.some((id) =>
 										[
 											'spoiler',
@@ -676,8 +922,6 @@ const GameMenu = ({
 											/>
 										</>
 									)}
-
-									{/* Turbo/Supercharger indicator */}
 									{(ownedMods.includes('turbo_kit') ||
 										ownedMods.includes('big_turbo') ||
 										ownedMods.includes('supercharger')) && (
@@ -694,8 +938,6 @@ const GameMenu = ({
 												: 'TURBO'}
 										</text>
 									)}
-
-									{/* Nitrous indicator */}
 									{ownedMods.some((id) =>
 										id.startsWith('nitrous_')
 									) && (
@@ -728,6 +970,68 @@ const GameMenu = ({
 								money={money}
 								onToggle={setOwnedMods}
 								onHover={setHoveredMod}
+								disabledMods={disabledMods}
+								onToggleDisable={(id) => {
+									setDisabledMods((prev) => {
+										const isDisabled = prev.includes(id);
+										if (isDisabled) {
+											// Enable: remove from disabled list
+											// AND check for conflicts to disable
+											const mod = MOD_TREE.find(
+												(m) => m.id === id
+											);
+											let newDisabled = prev.filter(
+												(d) => d !== id
+											);
+
+											if (mod && mod.conflictsWith) {
+												// Find conflicting mods that are currently owned AND NOT disabled
+												const conflictsToDisable =
+													mod.conflictsWith.filter(
+														(cId) =>
+															ownedMods.includes(
+																cId
+															) &&
+															!newDisabled.includes(
+																cId
+															)
+													);
+												newDisabled = [
+													...newDisabled,
+													...conflictsToDisable,
+												];
+											}
+											return newDisabled;
+										} else {
+											const toDisable = [id];
+											const queue = [id];
+											while (queue.length > 0) {
+												const current = queue.shift();
+												const children =
+													MOD_TREE.filter(
+														(m) =>
+															m.parentId ===
+															current
+													);
+												children.forEach((child) => {
+													if (
+														ownedMods.includes(
+															child.id
+														)
+													) {
+														toDisable.push(
+															child.id
+														);
+														queue.push(child.id);
+													}
+												});
+											}
+											return Array.from(
+												new Set([...prev, ...toDisable])
+											);
+										}
+									});
+								}}
 							/>
 						</div>
 					</div>
@@ -1205,12 +1509,16 @@ const ModTreeVisuals = ({
 	money,
 	onToggle,
 	onHover,
+	disabledMods,
+	onToggleDisable,
 }: {
 	mods: ModNode[];
 	owned: string[];
 	money: number;
 	onToggle: (m: ModNode) => void;
 	onHover: (m: ModNode | null) => void;
+	disabledMods: string[];
+	onToggleDisable: (id: string) => void;
 }) => {
 	// Calculate canvas size based on nodes
 	const gridSize = 160; // Increased from 120 for better spacing
@@ -1300,8 +1608,10 @@ const ModTreeVisuals = ({
 						const parentOwned =
 							!mod.parentId || owned.includes(mod.parentId);
 						// Conflicts?
-						const hasConflict = mod.conflictsWith.some((cId) =>
-							owned.includes(cId)
+						const hasConflict = mod.conflictsWith.some(
+							(cId) =>
+								owned.includes(cId) &&
+								!disabledMods.includes(cId)
 						);
 
 						const left = offsetX + mod.x * gridSize;
@@ -1359,8 +1669,32 @@ const ModTreeVisuals = ({
 								</div>
 
 								{isOwned ? (
-									<div className="text-green-400 font-bold text-[10px] text-center bg-green-900/30 rounded py-1">
-										INSTALLED
+									<div className="flex gap-1 mt-2">
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onToggleDisable(mod.id);
+											}}
+											className={`flex-1 text-[10px] font-bold text-center rounded py-1 transition-colors ${
+												disabledMods.includes(mod.id)
+													? 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+													: 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+											}`}
+										>
+											{disabledMods.includes(mod.id)
+												? 'DISABLED'
+												: 'ENABLED'}
+										</button>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onToggle(mod);
+											}}
+											className="px-2 bg-red-900/30 text-red-400 text-[10px] font-bold rounded hover:bg-red-900/50"
+											title="Sell"
+										>
+											$
+										</button>
 									</div>
 								) : (
 									<div
