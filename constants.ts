@@ -74,7 +74,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 0,
 		y: 5,
-		stats: { mass: 1350 },
+		stats: { mass: -50 },
 	},
 	{
 		id: 'trans_root',
@@ -426,7 +426,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 1,
 		y: 5,
-		stats: { mass: 1250 },
+		stats: { mass: -100 },
 	},
 	{
 		id: 'weight3',
@@ -438,7 +438,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 2,
 		y: 5,
-		stats: { mass: 1100 },
+		stats: { mass: -250 },
 	},
 	{
 		id: 'carbon_panels',
@@ -450,7 +450,7 @@ export const MOD_TREE: ModNode[] = [
 		conflictsWith: [],
 		x: 3,
 		y: 5,
-		stats: { mass: 1000 },
+		stats: { mass: -350 },
 	},
 
 	// ===== TIRES BRANCH =====

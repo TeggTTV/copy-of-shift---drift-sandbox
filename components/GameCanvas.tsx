@@ -43,7 +43,7 @@ const GameCanvas: React.FC = () => {
 	const audioInitializedRef = useRef(false);
 
 	// Game Persistence State
-	const [money, setMoney] = useState(500);
+	const [money, setMoney] = useState(999999);
 	const [phase, setPhase] = useState<GamePhase>('MAP');
 
 	// New Inventory System (Array of owned Mod IDs)
@@ -165,22 +165,74 @@ const GameCanvas: React.FC = () => {
 		}
 	}, [phase]);
 
+	// --- Helpers ---
+	// Helper to calculate base tuning from a set of mods
+	const getTuningFromMods = useCallback((modIds: string[]) => {
+		console.log('🛠️ getTuningFromMods called with:', modIds);
+		let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
+		console.log('📦 Starting with BASE_TUNING:', {
+			maxTorque: BASE_TUNING.maxTorque,
+			redlineRPM: BASE_TUNING.redlineRPM,
+			mass: BASE_TUNING.mass,
+		});
+
+		MOD_TREE.forEach((mod) => {
+			if (modIds.includes(mod.id)) {
+				console.log(
+					`✅ Applying mod: ${mod.name} (${mod.id})`,
+					mod.stats
+				);
+
+				// For each stat in the mod, ADD it to the base instead of replacing
+				Object.keys(mod.stats).forEach((key) => {
+					const modValue = (mod.stats as any)[key];
+					const currentValue = (tuning as any)[key];
+
+					// If both are numbers, ADD them
+					if (
+						typeof modValue === 'number' &&
+						typeof currentValue === 'number'
+					) {
+						(tuning as any)[key] = currentValue + modValue;
+						console.log(
+							`  ${key}: ${currentValue} + ${modValue} = ${
+								(tuning as any)[key]
+							}`
+						);
+					} else {
+						// For non-numeric values (arrays, strings), replace
+						(tuning as any)[key] = modValue;
+						console.log(`  ${key}: replaced with`, modValue);
+					}
+				});
+			}
+		});
+
+		console.log('🎯 Final tuning:', {
+			maxTorque: tuning.maxTorque,
+			redlineRPM: tuning.redlineRPM,
+			mass: tuning.mass,
+		});
+		return tuning;
+	}, []);
+
 	// Sync ref
 	useEffect(() => {
 		tuningRef.current = playerTuning;
 	}, [playerTuning]);
 
-	// --- Helpers ---
-	// Helper to calculate base tuning from a set of mods
-	const getTuningFromMods = useCallback((modIds: string[]) => {
-		let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
-		MOD_TREE.forEach((mod) => {
-			if (modIds.includes(mod.id)) {
-				tuning = { ...tuning, ...mod.stats };
-			}
+	// Recalculate playerTuning when owned mods change
+	useEffect(() => {
+		console.log('🔧 Recalculating tuning for mods:', ownedMods);
+		const newTuning = getTuningFromMods(ownedMods);
+		console.log('📊 New tuning calculated:', {
+			maxTorque: newTuning.maxTorque,
+			redlineRPM: newTuning.redlineRPM,
+			mass: newTuning.mass,
+			newTuning,
 		});
-		return tuning;
-	}, []);
+		setPlayerTuning(newTuning);
+	}, [ownedMods, getTuningFromMods]);
 
 	const toggleMod = useCallback(
 		(mod: ModNode) => {
@@ -208,46 +260,10 @@ const GameCanvas: React.FC = () => {
 				newOwnedMods = newOwnedMods.filter((id) => id !== mod.id);
 			}
 
-			// Smart Merge Logic
+			// Update owned mods - useEffect will handle tuning recalculation
 			setOwnedMods(newOwnedMods);
-
-			// 1. Calculate what the tuning WAS (Base + Old Mods)
-			const oldBaseTuning = getTuningFromMods(ownedMods);
-
-			// 2. Calculate what the tuning WOULD BE (Base + New Mods)
-			const newBaseTuning = getTuningFromMods(newOwnedMods);
-
-			// 3. Update playerTuning, preserving custom changes
-			setPlayerTuning((currentTuning) => {
-				const nextTuning = { ...currentTuning };
-
-				// Iterate over all keys in the tuning state
-				(
-					Object.keys(newBaseTuning) as Array<keyof TuningState>
-				).forEach((key) => {
-					const oldBaseValue = oldBaseTuning[key];
-					const newBaseValue = newBaseTuning[key];
-					const currentValue = currentTuning[key];
-
-					// If the base value for this field changed due to the mod...
-					if (
-						JSON.stringify(oldBaseValue) !==
-						JSON.stringify(newBaseValue)
-					) {
-						// ...then we MUST update it to the new base value.
-						// This effectively "resets" this specific field to the mod's value,
-						// which is correct behavior (e.g. installing a new transmission SHOULD reset gear ratios).
-						// @ts-ignore
-						nextTuning[key] = newBaseValue;
-					}
-					// If the base value DID NOT change (e.g. installing a Turbo doesn't change Gear Ratios),
-					// then we leave 'nextTuning[key]' as 'currentValue', preserving the user's custom tune.
-				});
-
-				return nextTuning;
-			});
 		},
-		[money, ownedMods, getTuningFromMods]
+		[money, ownedMods]
 	);
 
 	const startMission = (mission: Mission) => {

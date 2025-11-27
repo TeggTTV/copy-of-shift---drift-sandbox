@@ -66,9 +66,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 				</div>
 			</div>
 
-			{/* Bottom Cluster */}
-			<div className="flex justify-center items-end w-full mb-8">
-				<div className="bg-black/90 p-6 rounded-2xl border border-gray-800 shadow-2xl flex items-center gap-8 relative overflow-hidden">
+			{/* Bottom Cluster - More compact */}
+			<div className="flex justify-center items-end w-full mb-2">
+				<div className="bg-black/80 p-3 rounded-xl border border-gray-800 shadow-2xl flex items-center gap-4 relative overflow-hidden">
 					{/* Shift Light Glow Background */}
 					<div
 						className={`absolute inset-0 transition-opacity duration-100 ${
@@ -82,11 +82,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
 					{/* Gear Display */}
 					<div className="text-center relative z-10">
-						<div className="text-xs text-gray-500 font-mono mb-1">
+						<div className="text-[10px] text-gray-500 font-mono mb-0.5">
 							GEAR
 						</div>
 						<div
-							className={`text-6xl font-black font-mono w-24 h-24 flex items-center justify-center rounded-xl border-4 ${
+							className={`text-4xl font-black font-mono w-16 h-16 flex items-center justify-center rounded-lg border-2 ${
 								isShiftPoint
 									? 'border-yellow-500 text-yellow-500'
 									: 'border-gray-700 text-white'
@@ -97,13 +97,13 @@ const Dashboard: React.FC<DashboardProps> = ({
 					</div>
 
 					{/* Center Tacho */}
-					<div className="relative z-10 w-80">
-						<div className="flex justify-between text-xs font-mono text-gray-400 mb-1">
+					<div className="relative z-10 w-64">
+						<div className="flex justify-between text-[10px] font-mono text-gray-400 mb-0.5">
 							<span>RPM</span>
 							<span className="text-white">{rpm}</span>
 						</div>
-						{/* RPM Bar - Removed transition-all for instant response */}
-						<div className="h-8 bg-gray-800 rounded-lg overflow-hidden border border-gray-700 relative">
+						{/* RPM Bar */}
+						<div className="h-6 bg-gray-800 rounded-lg overflow-hidden border border-gray-700 relative">
 							{/* Tick Marks */}
 							<div className="absolute top-0 left-[25%] bottom-0 w-0.5 bg-gray-700 z-0"></div>
 							<div className="absolute top-0 left-[50%] bottom-0 w-0.5 bg-gray-700 z-0"></div>
@@ -123,7 +123,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 								style={{ width: `${rpmPercent}%` }}
 							></div>
 						</div>
-						<div className="flex justify-between text-[10px] text-gray-600 mt-1 font-mono">
+						<div className="flex justify-between text-[9px] text-gray-600 mt-0.5 font-mono">
 							<span>0</span>
 							<span>{Math.round(redline / 2)}</span>
 							<span className="text-red-500">{redline}</span>
@@ -131,15 +131,15 @@ const Dashboard: React.FC<DashboardProps> = ({
 					</div>
 
 					{/* Speed & Stats */}
-					<div className="text-right relative z-10 w-32 flex flex-col items-end">
-						<div className="text-7xl font-bold italic tracking-tighter text-white leading-none">
+					<div className="text-right relative z-10 w-24 flex flex-col items-end">
+						<div className="text-5xl font-bold italic tracking-tighter text-white leading-none">
 							{speedKmh}
 						</div>
-						<div className="text-xl font-bold text-gray-500 mb-2">
+						<div className="text-sm font-bold text-gray-500 mb-1">
 							KM/H
 						</div>
 
-						<div className="flex items-center gap-2 text-xs font-mono text-gray-400 border-t border-gray-800 pt-2 w-full justify-end">
+						<div className="flex items-center gap-1 text-[10px] font-mono text-gray-400 border-t border-gray-800 pt-1 w-full justify-end">
 							<span>DIST</span>
 							<span className="text-white">
 								{Math.floor(carState.y)}m

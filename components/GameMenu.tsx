@@ -44,11 +44,28 @@ const GameMenu = ({
 	// Calculate preview tuning for hover
 	const previewTuning = useMemo(() => {
 		if (!hoveredMod) return null;
-		// Simple override for preview
-		return {
-			...playerTuning,
-			...hoveredMod.stats,
-		};
+
+		// Create a copy of current tuning
+		const preview = { ...playerTuning };
+
+		// Add the hovered mod's stats (additive logic)
+		Object.keys(hoveredMod.stats).forEach((key) => {
+			const modValue = (hoveredMod.stats as any)[key];
+			const currentValue = (preview as any)[key];
+
+			// If both are numbers, ADD them
+			if (
+				typeof modValue === 'number' &&
+				typeof currentValue === 'number'
+			) {
+				(preview as any)[key] = currentValue + modValue;
+			} else {
+				// For non-numeric values (arrays, strings), replace
+				(preview as any)[key] = modValue;
+			}
+		});
+
+		return preview;
 	}, [playerTuning, hoveredMod]);
 
 	if (phase === 'VERSUS' && selectedMission && onConfirmRace) {
@@ -67,7 +84,7 @@ const GameMenu = ({
 		return (
 			<div className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center text-white z-50">
 				<h1 className="text-6xl font-black italic tracking-tighter text-indigo-500 mb-2">
-					SHIFT & DRAG
+					Drag
 				</h1>
 				<p className="text-gray-400 mb-12 font-mono">
 					VERTICAL DRAG RACING SIMULATOR

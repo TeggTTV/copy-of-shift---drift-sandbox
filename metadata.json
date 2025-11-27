@@ -1,5 +1,5 @@
 {
-  "name": "Copy of Shift & Drift Sandbox",
-  "description": "A physics-based car sandbox featuring realistic manual transmission mechanics, gradual steering, and torque simulation.",
-  "requestFramePermissions": []
+	"name": "Drag",
+	"description": "A physics-based car sandbox featuring realistic manual transmission mechanics, gradual steering, and torque simulation.",
+	"requestFramePermissions": []
 }
