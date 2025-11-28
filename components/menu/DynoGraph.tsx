@@ -12,296 +12,215 @@ import { TuningState } from '../../types';
 import { BASE_TUNING } from '../../constants';
 import { interpolateTorque } from '../../utils/physics';
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+	if (active && payload && payload.length) {
+		return (
+			<div className="bg-black/90 border border-gray-700 p-3 rounded shadow-xl font-mono text-sm">
+				<p className="text-gray-400 mb-1">RPM: {label}</p>
+				{payload.map((entry: any, index: number) => (
+					<p key={index} style={{ color: entry.color }}>
+						{entry.name}: {Math.round(entry.value)}
+					</p>
+				))}
+			</div>
+		);
+	}
+	return null;
+};
+
+const PeakDot = (props: any) => {
+	const { cx, cy, stroke, payload, value } = props;
+	// Only show dot for peak values if we calculated them,
+	// but for simple graph rendering we might just let Recharts handle it or custom logic.
+	// For now, let's just render a simple dot if it's a significant point or just standard dots.
+	// Actually, let's just use standard dots for now to keep it simple and robust.
+	return (
+		<circle
+			cx={cx}
+			cy={cy}
+			r={4}
+			stroke={stroke}
+			strokeWidth={2}
+			fill="#111"
+		/>
+	);
+};
+
 const DynoGraph = React.memo(
 	({
 		tuning,
 		previewTuning,
+		liveData,
+		previousData,
 	}: {
 		tuning: TuningState;
 		previewTuning?: TuningState | null;
+		liveData?: { rpm: number; torque: number; hp: number }[];
+		previousData?: { rpm: number; torque: number; hp: number }[];
 	}) => {
-		const data = useMemo(() => {
-			const points = [];
-			// Use the higher redline if preview has higher redline
-			const maxRpm = previewTuning
-				? Math.max(tuning.redlineRPM, previewTuning.redlineRPM)
-				: tuning.redlineRPM;
+		// If we have live data, we prioritize showing that.
+		// If we have previous data, we show that as comparison.
+		// If neither, we show "NO DATA".
 
-			for (let r = 0; r <= maxRpm; r += 500) {
-				const factor = interpolateTorque(r, tuning.torqueCurve);
-				const torque = tuning.maxTorque * factor;
-				const hp = (torque * r) / 7023;
+		const hasLiveData = liveData && liveData.length > 0;
+		const hasPreviousData = previousData && previousData.length > 0;
 
-				// Stock baseline for comparison
-				const stockFactor = interpolateTorque(
-					r,
-					BASE_TUNING.torqueCurve
-				);
-				const stockTorque = BASE_TUNING.maxTorque * stockFactor;
-				const stockHp = (stockTorque * r) / 7023;
+		if (!hasLiveData && !hasPreviousData) {
+			return (
+				<div className="flex items-center justify-center h-full text-gray-500 font-mono text-sm border border-dashed border-gray-700 rounded">
+					NO DYNO DATA - RUN TEST
+				</div>
+			);
+		}
 
-				// Preview
-				let previewTorque = null;
-				let previewHp = null;
-				if (previewTuning) {
-					const pFactor = interpolateTorque(
-						r,
-						previewTuning.torqueCurve
-					);
-					previewTorque = previewTuning.maxTorque * pFactor;
-					previewHp = (previewTorque * r) / 7023;
-				}
+		// We use the data that is available.
+		// If liveData is building up, we show it.
+		// If we only have previous data (e.g. right after load but before new run), we could show it,
+		// but typically we want to show the "current" run.
+		// However, if we are just viewing the graph, showing the last run is good.
 
-				points.push({
-					rpm: r,
-					torque,
-					hp,
-					stockTorque,
-					stockHp,
-					previewTorque,
-					previewHp,
+		// Let's merge data for visualization if needed, but Recharts can handle multiple lines with different data sources if we structure it right,
+		// OR we can just pass the same dataset if they share X-axis.
+		// Since RPM points might differ slightly if sampling differs, it's best to treat them as independent lines or map them to a common X-axis.
+		// For simplicity, we will assume standard RPM steps or just let Recharts plot them.
+		// Recharts `data` prop usually expects an array of objects.
+		// If we want two lines from different datasets, we might need to merge them or use multiple data sources?
+		// Recharts `LineChart` takes `data`. If we have two separate arrays, it's harder.
+		// We should probably merge them into a single array keyed by RPM if possible, OR just use the `data` prop on `Line`?
+		// No, `Line` inherits data from `LineChart` usually, but can accept its own `data` prop?
+		// Actually, Recharts `Line` can accept a `data` prop!
+		// Let's try passing `liveData` to the main chart and `previousData` to a specific Line, or vice versa.
+
+		// Actually, to ensure X-axis is correct, it's best if the `data` prop on LineChart contains the union of X values.
+		// But since our Dyno run is consistent (1000 to Redline), the RPM points should be roughly aligned or we can just overlay them.
+
+		// Let's try using `data={liveData}` for the chart, and if we have `previousData`, we might need to merge it or just pass it to the second set of lines.
+		// Wait, if `liveData` is empty (start of run), we can't use it as the base data.
+
+		// Strategy:
+		// Merge liveData and previousData into a single array keyed by RPM.
+		// This ensures Recharts sees the full range of data for auto-scaling.
+
+		const chartData = useMemo(() => {
+			const merged: any[] = [];
+
+			// Create a map of all RPM points
+			const rpmMap = new Set<number>();
+			if (liveData) liveData.forEach((d) => rpmMap.add(d.rpm));
+			if (previousData) previousData.forEach((d) => rpmMap.add(d.rpm));
+
+			const sortedRpms = Array.from(rpmMap).sort((a, b) => a - b);
+
+			sortedRpms.forEach((rpm) => {
+				const livePoint = liveData?.find((d) => d.rpm === rpm);
+				const prevPoint = previousData?.find((d) => d.rpm === rpm);
+
+				merged.push({
+					rpm,
+					torque: livePoint?.torque,
+					hp: livePoint?.hp,
+					prevTorque: prevPoint?.torque,
+					prevHp: prevPoint?.hp,
 				});
-			}
-			return points;
-		}, [tuning, previewTuning]);
-
-		// Find peaks
-		const peakTorque = useMemo(() => {
-			let max = 0;
-			let maxRpm = 0;
-			data.forEach((p) => {
-				if (p.torque > max) {
-					max = p.torque;
-					maxRpm = p.rpm;
-				}
 			});
-			return { value: max, rpm: maxRpm };
-		}, [data]);
 
-		const peakHP = useMemo(() => {
-			let max = 0;
-			let maxRpm = 0;
-			data.forEach((p) => {
-				if (p.hp > max) {
-					max = p.hp;
-					maxRpm = p.rpm;
-				}
-			});
-			return { value: max, rpm: maxRpm };
-		}, [data]);
-
-		// Custom tooltip
-		const CustomTooltip = ({ active, payload }: any) => {
-			if (active && payload && payload.length) {
-				const data = payload[0].payload;
-				return (
-					<div className="bg-black/95 border border-indigo-500 p-3 rounded shadow-lg z-50">
-						<div className="text-white font-mono text-xs space-y-1">
-							<div className="text-indigo-400 font-bold mb-2">
-								{data.rpm} RPM
-							</div>
-							<div className="flex justify-between gap-4">
-								<span className="text-blue-400">Torque:</span>
-								<span className="text-white font-bold">
-									{data.torque.toFixed(1)} Nm
-								</span>
-							</div>
-							<div className="flex justify-between gap-4">
-								<span className="text-green-400">Power:</span>
-								<span className="text-white font-bold">
-									{data.hp.toFixed(1)} HP
-								</span>
-							</div>
-							{data.previewTorque !== null && (
-								<>
-									<div className="border-t border-gray-700 my-1"></div>
-									<div className="flex justify-between gap-4 text-gray-400">
-										<span>Preview Tq:</span>
-										<span className="text-blue-300 font-bold">
-											{data.previewTorque.toFixed(1)} Nm
-										</span>
-									</div>
-									<div className="flex justify-between gap-4 text-gray-400">
-										<span>Preview HP:</span>
-										<span className="text-green-300 font-bold">
-											{data.previewHp.toFixed(1)} HP
-										</span>
-									</div>
-								</>
-							)}
-							{data.stockTorque > 0 && (
-								<>
-									<div className="border-t border-gray-700 my-1"></div>
-									<div className="flex justify-between gap-4 text-gray-500">
-										<span>Stock Torque:</span>
-										<span>
-											{data.stockTorque.toFixed(1)} Nm
-										</span>
-									</div>
-									<div className="flex justify-between gap-4 text-gray-500">
-										<span>Stock Power:</span>
-										<span>
-											{data.stockHp.toFixed(1)} HP
-										</span>
-									</div>
-								</>
-							)}
-						</div>
-					</div>
-				);
-			}
-			return null;
-		};
-
-		// Custom dot for peak markers
-		const PeakDot = (props: any) => {
-			const { cx, cy, payload } = props;
-			const isTorquePeak =
-				payload.rpm === peakTorque.rpm &&
-				payload.torque === peakTorque.value;
-			const isHpPeak =
-				payload.rpm === peakHP.rpm && payload.hp === peakHP.value;
-
-			if (isTorquePeak || isHpPeak) {
-				return (
-					<g>
-						<circle
-							cx={cx}
-							cy={cy}
-							r={4}
-							fill={isTorquePeak ? '#8884d8' : '#82ca9d'}
-							stroke="#fff"
-							strokeWidth={2}
-						/>
-					</g>
-				);
-			}
-			return null;
-		};
+			return merged;
+		}, [liveData, previousData]);
 
 		return (
 			<ResponsiveContainer width="100%" height="100%">
-				<LineChart data={data}>
+				<LineChart data={chartData}>
 					<CartesianGrid strokeDasharray="3 3" stroke="#333" />
 					<XAxis
 						dataKey="rpm"
 						stroke="#666"
-						tick={{ fill: '#666', fontSize: 10 }}
-						label={{
-							value: 'RPM',
-							position: 'insideBottom',
-							offset: -5,
-							fontSize: 10,
-							fill: '#999',
-						}}
+						tick={{ fill: '#666' }}
+						type="number"
+						domain={['dataMin', 'dataMax']}
+						tickCount={8}
 					/>
 					<YAxis
 						yAxisId="left"
-						stroke="#8884d8"
-						tick={{ fill: '#8884d8', fontSize: 10 }}
+						stroke="#ef4444"
+						tick={{ fill: '#ef4444' }}
 						label={{
-							value: 'Torque (Nm)',
+							value: 'Torque (ft-lbs)',
 							angle: -90,
 							position: 'insideLeft',
-							fill: '#8884d8',
-							fontSize: 10,
+							fill: '#ef4444',
 						}}
 					/>
 					<YAxis
 						yAxisId="right"
 						orientation="right"
-						stroke="#82ca9d"
-						tick={{ fill: '#82ca9d', fontSize: 10 }}
+						stroke="#3b82f6"
+						tick={{ fill: '#3b82f6' }}
 						label={{
 							value: 'Power (HP)',
 							angle: 90,
 							position: 'insideRight',
-							fill: '#82ca9d',
-							fontSize: 10,
+							fill: '#3b82f6',
 						}}
 					/>
 					<Tooltip content={<CustomTooltip />} />
-					{/* Stock Baseline */}
-					<Line
-						yAxisId="left"
-						type="monotone"
-						dataKey="stockTorque"
-						stroke="#444"
-						strokeDasharray="3 3"
-						dot={false}
-						strokeWidth={1}
-					/>
-					<Line
-						yAxisId="right"
-						type="monotone"
-						dataKey="stockHp"
-						stroke="#444"
-						strokeDasharray="3 3"
-						dot={false}
-						strokeWidth={1}
-					/>
 
-					{/* Current Tuning */}
-					<Line
-						yAxisId="left"
-						type="monotone"
-						dataKey="torque"
-						stroke="#8884d8"
-						strokeWidth={2}
-						dot={<PeakDot />}
-						activeDot={{ r: 6 }}
-					/>
-					<Line
-						yAxisId="right"
-						type="monotone"
-						dataKey="hp"
-						stroke="#82ca9d"
-						strokeWidth={2}
-						dot={<PeakDot />}
-						activeDot={{ r: 6 }}
-					/>
-
-					{/* Preview Tuning */}
-					{previewTuning && (
+					{/* Previous Run (Dotted) */}
+					{hasPreviousData && (
 						<>
 							<Line
-								yAxisId="left"
 								type="monotone"
-								dataKey="previewTorque"
-								stroke="#8884d8"
-								strokeDasharray="5 5"
-								strokeOpacity={0.7}
-								dot={false}
+								dataKey="prevTorque"
+								stroke="#555"
 								strokeWidth={2}
+								strokeDasharray="5 5"
+								dot={false}
+								yAxisId="left"
+								name="Prev Torque"
+								isAnimationActive={false}
+								connectNulls
 							/>
 							<Line
-								yAxisId="right"
 								type="monotone"
-								dataKey="previewHp"
-								stroke="#82ca9d"
-								strokeDasharray="5 5"
-								strokeOpacity={0.7}
-								dot={false}
+								dataKey="prevHp"
+								stroke="#555"
 								strokeWidth={2}
+								strokeDasharray="5 5"
+								dot={false}
+								yAxisId="right"
+								name="Prev HP"
+								isAnimationActive={false}
+								connectNulls
 							/>
 						</>
 					)}
 
-					{/* Redline indicator */}
-					<line
-						x1="0"
-						y1="0"
-						x2="0"
-						y2="100%"
-						stroke="#ef4444"
-						strokeWidth={2}
-						strokeDasharray="4 4"
-						style={{
-							transform: `translateX(${
-								(tuning.redlineRPM / tuning.redlineRPM) * 100
-							}%)`,
-						}}
-					/>
+					{/* Current Run (Solid) */}
+					{hasLiveData && (
+						<>
+							<Line
+								type="monotone"
+								dataKey="torque"
+								stroke="#ef4444"
+								strokeWidth={3}
+								dot={false}
+								yAxisId="left"
+								name="Torque"
+								isAnimationActive={false}
+								connectNulls
+							/>
+							<Line
+								type="monotone"
+								dataKey="hp"
+								stroke="#3b82f6"
+								strokeWidth={3}
+								dot={false}
+								yAxisId="right"
+								name="HP"
+								isAnimationActive={false}
+								connectNulls
+							/>
+						</>
+					)}
 				</LineChart>
 			</ResponsiveContainer>
 		);

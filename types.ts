@@ -12,6 +12,8 @@ export interface InputState {
 	shiftUp: boolean;
 	shiftDown: boolean;
 	clutch: boolean;
+	steerLeft?: boolean;
+	steerRight?: boolean;
 }
 
 // Replaces the old linear levels
@@ -108,6 +110,12 @@ export interface CarState {
 	gear: number; // 0: N, 1-6: Forward
 	finished: boolean;
 	finishTime: number;
+
+	// Circuit Mode (Optional)
+	x?: number;
+	angle?: number;
+	steerAngle?: number;
+	lateralVelocity?: number;
 }
 
 export interface Opponent {
@@ -154,3 +162,8 @@ export type ToastType =
 	| 'WARNING'
 	| 'PAINT'
 	| 'ECU';
+
+export interface WeatherState {
+	type: 'SUNNY' | 'RAIN';
+	intensity: number; // 0-1
+}

@@ -8,6 +8,7 @@ interface VersusScreenProps {
 	onConfirmRace: () => void;
 	onBack: () => void;
 	ownedMods: string[];
+	dynoHistory: { rpm: number; torque: number; hp: number }[];
 }
 
 const VersusScreen: React.FC<VersusScreenProps> = ({
@@ -16,6 +17,7 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	onConfirmRace,
 	onBack,
 	ownedMods,
+	dynoHistory,
 }) => {
 	const { play } = useSound();
 	const CarModel = ({
@@ -126,13 +128,34 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 		oVal,
 		unit,
 		inverse = false,
+		noData = false,
 	}: {
 		label: string;
-		pVal: number;
+		pVal: number | null;
 		oVal: number;
 		unit: string;
 		inverse?: boolean;
+		noData?: boolean;
 	}) => {
+		if (noData || pVal === null) {
+			return (
+				<div className="flex justify-between items-center py-2 border-b border-gray-800">
+					<div className="w-1/3 text-right font-mono font-bold text-xl text-gray-600">
+						{oVal.toFixed(1)}
+					</div>
+					<div className="w-1/3 text-center text-xs text-gray-500 uppercase tracking-widest">
+						{label}
+						<span className="block text-[9px] opacity-50">
+							{unit}
+						</span>
+					</div>
+					<div className="w-1/3 text-left font-mono font-bold text-xl text-gray-500 italic">
+						NO DATA
+					</div>
+				</div>
+			);
+		}
+
 		const pBetter = inverse ? pVal < oVal : pVal > oVal;
 		const oBetter = inverse ? oVal < pVal : oVal > pVal;
 		const equal = Math.abs(pVal - oVal) < 0.1;
@@ -170,7 +193,16 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	};
 
 	// Calculate Stats
-	const pPower = (playerTuning.maxTorque * playerTuning.redlineRPM) / 7023;
+	// Use measured dyno data if available
+	let pPower: number | null = null;
+	let pTorque: number | null = null;
+
+	if (dynoHistory && dynoHistory.length > 0) {
+		pPower = Math.max(...dynoHistory.map((d) => d.hp));
+		pTorque = Math.max(...dynoHistory.map((d) => d.torque));
+	}
+
+	// const pPower = (playerTuning.maxTorque * playerTuning.redlineRPM) / 7023;
 	const oPower =
 		(mission.opponent.tuning.maxTorque *
 			mission.opponent.tuning.redlineRPM) /
@@ -245,12 +277,14 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 							pVal={pPower}
 							oVal={oPower}
 							unit="HP"
+							noData={pPower === null}
 						/>
 						<StatRow
 							label="Torque"
-							pVal={playerTuning.maxTorque}
+							pVal={pTorque}
 							oVal={mission.opponent.tuning.maxTorque}
 							unit="Nm"
+							noData={pTorque === null}
 						/>
 						<StatRow
 							label="Weight"

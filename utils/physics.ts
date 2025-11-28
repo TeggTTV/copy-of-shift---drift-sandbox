@@ -27,7 +27,8 @@ export const updateCarPhysics = (
 	raceStatus: string,
 	raceStartTime: number,
 	currentGhostRecording?: { current: any[] },
-	aiStats?: Opponent
+	aiStats?: Opponent,
+	frictionMultiplier: number = 1.0
 ) => {
 	const isLocked = raceStatus === 'COUNTDOWN';
 
@@ -141,6 +142,30 @@ export const updateCarPhysics = (
 	if (isLocked) {
 		car.velocity = 0;
 	} else {
+		// Traction Limit
+		const gravity = 9.81;
+		// Base grip is ~1.0. Slick tires might be 1.2. Rain reduces this.
+		const maxTractionForce =
+			t.mass * gravity * t.tireGrip * frictionMultiplier;
+
+		// If driveForce exceeds traction, we spin (lose force)
+		// Simple model: Cap the force, and maybe spike RPM (already handled by clutch slip logic? No, that's clutch)
+		// If wheels spin, effective drive force is REDUCED (kinetic friction < static friction)
+
+		if (driveForce > maxTractionForce) {
+			// Wheel spin!
+			// Force is capped at kinetic friction (say 0.8 of static)
+			driveForce = maxTractionForce * 0.8;
+
+			// We should also spike the RPM to show spin, but RPM is coupled to velocity in 'else' block of clutch logic.
+			// To simulate spin, we would need to decouple RPM from Velocity.
+			// For now, just capping the force makes the car slower, which is the main gameplay effect.
+			// To make it feel like "spin", we could allow RPM to rise faster than velocity implies.
+			// But that requires changing the 'coupled' logic.
+
+			// Let's just cap the force for now.
+		}
+
 		const dragForce =
 			0.5 * 1.225 * car.velocity * car.velocity * t.dragCoefficient * 2.0;
 		const rollingRes = 150;

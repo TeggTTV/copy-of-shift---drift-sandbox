@@ -6,6 +6,7 @@ import VersusScreen from './menu/VersusScreen';
 import UpgradesTab from './menu/UpgradesTab';
 import TuningTab from './menu/TuningTab';
 import DynoGraph from './menu/DynoGraph';
+import DynoTab from './menu/DynoTab';
 import { ModTreeVisuals } from './menu/ModTreeVisuals';
 import { useSound } from '../contexts/SoundContext';
 
@@ -26,6 +27,13 @@ const GameMenu = ({
 	modSettings,
 	setModSettings,
 	onLoadTune,
+	weather,
+	setWeather,
+	showToast,
+	dynoHistory,
+	setDynoHistory,
+	previousDynoHistory,
+	onDynoRunStart,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -45,9 +53,20 @@ const GameMenu = ({
 		React.SetStateAction<Record<string, Record<string, number>>>
 	>;
 	onLoadTune: (tune: SavedTune) => void;
+	weather: { type: 'SUNNY' | 'RAIN'; intensity: number };
+	setWeather: React.Dispatch<
+		React.SetStateAction<{ type: 'SUNNY' | 'RAIN'; intensity: number }>
+	>;
+	showToast: (msg: string, type: any) => void;
+	dynoHistory: { rpm: number; torque: number; hp: number }[];
+	setDynoHistory: React.Dispatch<
+		React.SetStateAction<{ rpm: number; torque: number; hp: number }[]>
+	>;
+	previousDynoHistory: { rpm: number; torque: number; hp: number }[];
+	onDynoRunStart: () => void;
 }) => {
 	const { play } = useSound();
-	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING'>(
+	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING' | 'DYNO'>(
 		'UPGRADES'
 	);
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
@@ -145,6 +164,7 @@ const GameMenu = ({
 					setPhase('MAP');
 				}}
 				ownedMods={ownedMods}
+				dynoHistory={dynoHistory}
 			/>
 		);
 	}
@@ -177,6 +197,24 @@ const GameMenu = ({
 						className="py-4 bg-gray-800 text-white font-bold text-xl border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 transition-all skew-x-[-10deg]"
 					>
 						GARAGE
+					</button>
+
+					<button
+						onClick={() => {
+							setWeather((prev) => ({
+								type: prev.type === 'SUNNY' ? 'RAIN' : 'SUNNY',
+								intensity: prev.type === 'SUNNY' ? 0.8 : 0,
+							}));
+							showToast(
+								weather.type === 'SUNNY'
+									? 'Weather set to RAIN'
+									: 'Weather set to SUNNY',
+								'INFO'
+							);
+						}}
+						className="py-2 bg-black/50 text-gray-400 font-mono text-sm border border-gray-800 hover:text-white hover:border-gray-500 transition-all"
+					>
+						WEATHER: {weather.type}
 					</button>
 				</div>
 			</div>
@@ -232,6 +270,8 @@ const GameMenu = ({
 								<DynoGraph
 									tuning={playerTuning}
 									previewTuning={previewTuning}
+									liveData={dynoHistory}
+									previousData={previousDynoHistory}
 								/>
 							</div>
 
@@ -262,6 +302,19 @@ const GameMenu = ({
 								>
 									Tuning
 								</button>
+								<button
+									onClick={() => {
+										// play('click');
+										setActiveTab('DYNO');
+									}}
+									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+										activeTab === 'DYNO'
+											? 'bg-indigo-600 text-white'
+											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+									}`}
+								>
+									Dyno
+								</button>
 							</div>
 
 							{activeTab === 'UPGRADES' ? (
@@ -274,7 +327,7 @@ const GameMenu = ({
 									setDisabledMods={setDisabledMods}
 									previewTuning={previewTuning}
 								/>
-							) : (
+							) : activeTab === 'TUNING' ? (
 								<TuningTab
 									ownedMods={ownedMods}
 									disabledMods={disabledMods}
@@ -283,6 +336,12 @@ const GameMenu = ({
 									playerTuning={playerTuning}
 									setPlayerTuning={setPlayerTuning}
 									onLoadTune={onLoadTune}
+								/>
+							) : (
+								<DynoTab
+									playerTuning={playerTuning}
+									onUpdateHistory={setDynoHistory}
+									onRunStart={onDynoRunStart}
 								/>
 							)}
 						</div>

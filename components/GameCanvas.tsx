@@ -14,6 +14,7 @@ import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
 import Dashboard from './Dashboard';
 import GameMenu from './GameMenu';
 import { AudioEngine } from './AudioEngine';
+import { ParticleSystem } from '../utils/ParticleSystem';
 import { interpolateTorque, updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { useGamePersistence } from '../hooks/useGamePersistence';
@@ -33,6 +34,9 @@ const GameCanvas: React.FC = () => {
 	const opponentAudioRef = useRef<AudioEngine>(new AudioEngine());
 	const audioInitializedRef = useRef(false);
 
+	// Particle System
+	const particleSystemRef = useRef<ParticleSystem>(new ParticleSystem());
+
 	// Game Persistence State
 	const [money, setMoney] = useState(0);
 	const [phase, setPhase] = useState<GamePhase>('MAP');
@@ -45,6 +49,29 @@ const GameCanvas: React.FC = () => {
 	>({});
 	// Missions state to track best times
 	const [missions, setMissions] = useState<Mission[]>(MISSIONS);
+
+	// Weather State
+	const [weather, setWeather] = useState<{
+		type: 'SUNNY' | 'RAIN';
+		intensity: number;
+	}>({
+		type: 'SUNNY',
+		intensity: 0,
+	});
+
+	// Dyno History State
+	const [dynoHistory, setDynoHistory] = useState<
+		{ rpm: number; torque: number; hp: number }[]
+	>([]);
+	const [previousDynoHistory, setPreviousDynoHistory] = useState<
+		{ rpm: number; torque: number; hp: number }[]
+	>([]);
+
+	const handleDynoRunStart = useCallback(() => {
+		if (dynoHistory.length > 0) {
+			setPreviousDynoHistory(dynoHistory);
+		}
+	}, [dynoHistory]);
 
 	// Current Tuning (Calculated from Base + Mods)
 	const [playerTuning, setPlayerTuning] = useState<TuningState>(() => {
@@ -65,7 +92,7 @@ const GameCanvas: React.FC = () => {
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
 
 	// Persistence Hook
-	useGamePersistence(
+	const isGameLoaded = useGamePersistence(
 		money,
 		setMoney,
 		ownedMods,
@@ -77,7 +104,11 @@ const GameCanvas: React.FC = () => {
 		missions,
 		setMissions,
 		playerTuning,
-		setPlayerTuning
+		setPlayerTuning,
+		dynoHistory,
+		setDynoHistory,
+		previousDynoHistory,
+		setPreviousDynoHistory
 	);
 
 	// Current Mission
@@ -121,6 +152,7 @@ const GameCanvas: React.FC = () => {
 	// Logic Refs
 	const shiftDebounce = useRef(false);
 	const lastTimeRef = useRef<number>(0);
+	const lastGearRef = useRef<number>(0);
 
 	// State for React UI
 	const [uiState, setUiState] = useState<{
@@ -382,8 +414,24 @@ const GameCanvas: React.FC = () => {
 	// --- Toast Logic ---
 	const prevMoneyRef = useRef(money);
 	const prevOwnedModsRef = useRef(ownedMods);
+	const initialLoadHandled = useRef(false);
+	const [seenAffordableMods, setSeenAffordableMods] = useState<Set<string>>(
+		() => {
+			const saved = localStorage.getItem('seenAffordableMods');
+			return saved ? new Set(JSON.parse(saved)) : new Set();
+		}
+	);
 
 	useEffect(() => {
+		if (!isGameLoaded) return;
+
+		if (!initialLoadHandled.current) {
+			initialLoadHandled.current = true;
+			prevOwnedModsRef.current = ownedMods;
+			prevMoneyRef.current = money;
+			return;
+		}
+
 		// Check for money thresholds
 		if (money > prevMoneyRef.current) {
 			// Find mods that were not affordable before but are now
@@ -391,8 +439,8 @@ const GameCanvas: React.FC = () => {
 				(mod) =>
 					!ownedMods.includes(mod.id) &&
 					mod.cost <= money &&
-					mod.cost > prevMoneyRef.current &&
-					(!mod.parentId || ownedMods.includes(mod.parentId))
+					(!mod.parentId || ownedMods.includes(mod.parentId)) &&
+					!seenAffordableMods.has(mod.id)
 			);
 
 			if (newlyAffordable.length > 0) {
@@ -402,6 +450,17 @@ const GameCanvas: React.FC = () => {
 						`${mod.name} is now available for purchase in the shop`,
 						mod.type as any
 					);
+				});
+
+				// Mark as seen
+				setSeenAffordableMods((prev) => {
+					const next = new Set(prev);
+					newlyAffordable.forEach((m) => next.add(m.id));
+					localStorage.setItem(
+						'seenAffordableMods',
+						JSON.stringify(Array.from(next))
+					);
+					return next;
 				});
 			}
 		}
@@ -418,7 +477,7 @@ const GameCanvas: React.FC = () => {
 			}
 		}
 		prevOwnedModsRef.current = ownedMods;
-	}, [money, ownedMods, showToast]);
+	}, [money, ownedMods, showToast, isGameLoaded, seenAffordableMods]);
 
 	const startMission = (mission: Mission) => {
 		missionRef.current = mission;
@@ -535,7 +594,9 @@ const GameCanvas: React.FC = () => {
 						audioRef.current,
 						raceStatus,
 						raceStartTimeRef.current,
-						currentGhostRecording
+						currentGhostRecording,
+						undefined,
+						weather.type === 'RAIN' ? 0.6 : 1.0
 					);
 
 					// Reset shift inputs after processing (they should only trigger once per key press)
@@ -567,7 +628,8 @@ const GameCanvas: React.FC = () => {
 						raceStatus,
 						raceStartTimeRef.current,
 						undefined,
-						m.opponent
+						m.opponent,
+						weather.type === 'RAIN' ? 0.6 : 1.0
 					);
 					if (o.y >= m.distance) {
 						o.finished = true;
@@ -756,7 +818,80 @@ const GameCanvas: React.FC = () => {
 					}
 				}
 
+				// Update and Draw Particles
+				particleSystemRef.current.update(dt);
+				particleSystemRef.current.draw(ctx, 0); // Camera Y is handled by context transform
+
+				// Emit Particles Logic
+				// Tire Smoke (Burnout or Launch)
+				// Simple logic: If high RPM and low speed (burnout)
+				if (p.rpm > 4000 && p.velocity < 5 && inputsRef.current.gas) {
+					// Burnout smoke
+					particleSystemRef.current.emit(
+						trackWidth / 4 / PPM - 0.5, // Left tire (meters)
+						p.y,
+						2,
+						'SMOKE',
+						{
+							size: 5,
+							life: 1.5,
+							speed: 2,
+							angle: Math.PI / 2,
+							spread: 0.5,
+							color: '#eeeeee',
+						}
+					);
+				}
+
+				// Exhaust Flames (Shift)
+				if (p.gear > lastGearRef.current && p.rpm > 5000) {
+					// Backfire / Flame
+					particleSystemRef.current.emit(
+						trackWidth / 4 / PPM, // Center of car (approx exhaust location)
+						p.y - 1.5, // Behind car (approx)
+						10,
+						'FLAME',
+						{
+							size: 8,
+							life: 0.5,
+							speed: 5,
+							angle: Math.PI * 1.5,
+							spread: 0.5,
+							color: '#ff5500',
+						}
+					);
+				}
+				lastGearRef.current = p.gear;
+
 				ctx.restore();
+
+				// Rain Visuals
+				if (weather.type === 'RAIN') {
+					ctx.save();
+					ctx.strokeStyle = 'rgba(170, 190, 255, 0.5)';
+					ctx.lineWidth = 1;
+					ctx.beginPath();
+					const rainCount = 100;
+					const timeOffset = time * 1000; // Speed
+					for (let i = 0; i < rainCount; i++) {
+						// Random positions that loop
+						const x =
+							(((Math.sin(i) * 10000) % canvas.width) +
+								canvas.width) %
+							canvas.width;
+						const y =
+							(((Math.cos(i) * 10000 + timeOffset) %
+								canvas.height) +
+								canvas.height) %
+							canvas.height;
+						const len = 10 + (i % 10);
+
+						ctx.moveTo(x, y);
+						ctx.lineTo(x - 2, y + len); // Slanted rain
+					}
+					ctx.stroke();
+					ctx.restore();
+				}
 
 				setUiState({ player: { ...p }, opponent: { ...o } });
 			} else {
@@ -890,6 +1025,13 @@ const GameCanvas: React.FC = () => {
 						setDisabledMods={setDisabledMods}
 						modSettings={modSettings}
 						setModSettings={setModSettings}
+						weather={weather}
+						setWeather={setWeather}
+						showToast={showToast}
+						dynoHistory={dynoHistory}
+						setDynoHistory={setDynoHistory}
+						previousDynoHistory={previousDynoHistory}
+						onDynoRunStart={handleDynoRunStart}
 					/>
 				</SoundProvider>
 			)}

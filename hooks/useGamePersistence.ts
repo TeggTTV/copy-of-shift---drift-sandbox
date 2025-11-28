@@ -13,7 +13,15 @@ export const useGamePersistence = (
 	missions: Mission[],
 	setMissions: (missions: Mission[]) => void,
 	playerTuning: TuningState,
-	setPlayerTuning: (tuning: TuningState) => void
+	setPlayerTuning: (tuning: TuningState) => void,
+	dynoHistory: { rpm: number; torque: number; hp: number }[],
+	setDynoHistory: (
+		history: { rpm: number; torque: number; hp: number }[]
+	) => void,
+	previousDynoHistory: { rpm: number; torque: number; hp: number }[],
+	setPreviousDynoHistory: (
+		history: { rpm: number; torque: number; hp: number }[]
+	) => void
 ) => {
 	const [loaded, setLoaded] = useState(false);
 
@@ -45,6 +53,20 @@ export const useGamePersistence = (
 					'shift_drift_missions'
 				);
 				if (savedMissions) setMissions(JSON.parse(savedMissions));
+
+				const savedDynoHistory = localStorage.getItem(
+					'shift_drift_dynoHistory'
+				);
+				if (savedDynoHistory)
+					setDynoHistory(JSON.parse(savedDynoHistory));
+
+				const savedPreviousDynoHistory = localStorage.getItem(
+					'shift_drift_previousDynoHistory'
+				);
+				if (savedPreviousDynoHistory)
+					setPreviousDynoHistory(
+						JSON.parse(savedPreviousDynoHistory)
+					);
 
 				// We don't load playerTuning directly because it's calculated from mods.
 				// However, we might want to save manual tuning overrides if we had them separate.
@@ -123,6 +145,22 @@ export const useGamePersistence = (
 			JSON.stringify(manualTuning)
 		);
 	}, [playerTuning, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_dynoHistory',
+			JSON.stringify(dynoHistory)
+		);
+	}, [dynoHistory, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_previousDynoHistory',
+			JSON.stringify(previousDynoHistory)
+		);
+	}, [previousDynoHistory, loaded]);
 
 	return loaded;
 };

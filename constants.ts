@@ -56,7 +56,7 @@ export const MOD_TREE: ModNode[] = [
 				id: 'rev_limiter',
 				name: 'Rev Limiter',
 				min: 5000,
-				max: 9000,
+				max: 15000,
 				step: 100,
 				defaultValue: 6800,
 				unit: 'RPM',
