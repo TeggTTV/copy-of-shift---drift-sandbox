@@ -60,17 +60,35 @@ const Junkyard: React.FC<JunkyardProps> = ({
 								? 'text-yellow-500'
 								: 'text-red-500';
 
+						const isRare = (car.originalPrice || 0) > 20000;
+
 						return (
 							<div
 								key={car.id}
-								className="pixel-panel p-4 bg-black border-orange-900/50 relative group hover:border-orange-500 transition-colors"
+								className={`pixel-panel p-4 bg-black border-orange-900/50 relative group hover:border-orange-500 transition-colors ${
+									isRare
+										? 'border-purple-900/50 hover:border-purple-500'
+										: ''
+								}`}
 							>
-								<div className="absolute top-2 right-2 bg-orange-900/80 text-orange-200 text-[10px] px-2 py-1 rounded">
-									JUNK
+								<div
+									className={`absolute top-2 right-2 text-[10px] px-2 py-1 rounded ${
+										isRare
+											? 'bg-purple-900/80 text-purple-200 animate-pulse'
+											: 'bg-orange-900/80 text-orange-200'
+									}`}
+								>
+									{isRare ? 'RARE FIND' : 'JUNK'}
 								</div>
 
 								<div className="mb-4">
-									<h3 className="text-xl text-white pixel-text mb-1">
+									<h3
+										className={`text-xl pixel-text mb-1 ${
+											isRare
+												? 'text-purple-400'
+												: 'text-white'
+										}`}
+									>
 										{car.name}
 									</h3>
 									<div className="flex items-center gap-2 text-xs text-gray-400">
@@ -109,6 +127,23 @@ const Junkyard: React.FC<JunkyardProps> = ({
 												}%`,
 											}}
 										></div>
+									</div>
+									<div className="mt-2 text-[10px] text-center">
+										<span className="text-gray-500">
+											Potential Value:{' '}
+										</span>
+										<span
+											className={
+												isRare
+													? 'text-purple-400'
+													: 'text-gray-300'
+											}
+										>
+											$
+											{(
+												car.originalPrice || 0
+											).toLocaleString()}
+										</span>
 									</div>
 								</div>
 

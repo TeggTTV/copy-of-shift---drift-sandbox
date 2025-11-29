@@ -25,6 +25,8 @@ const ICON_MAP: Record<ToastType, { x: number; y: number }> = {
 	ECU: { x: 1, y: 3 },
 	WARNING: { x: 2, y: 3 },
 	INFO: { x: 3, y: 3 }, // Using Checkmark for Info/Success
+	ERROR: { x: 2, y: 3 }, // Use Warning sign for Error
+	SUCCESS: { x: 3, y: 3 }, // Use Checkmark for Success
 };
 
 export const Toast: React.FC<ToastProps> = ({
@@ -69,7 +71,7 @@ export const Toast: React.FC<ToastProps> = ({
 						backgroundPosition: `-${iconCoords.x * 64}px -${
 							iconCoords.y * 64
 						}px`,
-						imageRendering: 'crisp-edges',
+						// imageRendering: '',
 					}}
 				/>
 				<span>{message}</span>

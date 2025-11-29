@@ -17,6 +17,9 @@ import { MOD_TREE } from '../constants';
 import MissionSelect from './menu/MissionSelect';
 import Junkyard from './menu/Junkyard';
 import VersusScreen from './menu/VersusScreen';
+import { CarBuilder } from '../utils/CarBuilder';
+import { CarGenerator } from '../utils/CarGenerator';
+import { BASE_TUNING } from '../constants';
 import React, { useState, useMemo, useEffect } from 'react';
 
 const GameMenu = ({
@@ -125,24 +128,18 @@ const GameMenu = ({
 	const previewTuning = useMemo(() => {
 		if (!hoveredMod) return null;
 
-		const preview = { ...playerTuning };
+		const previewOwnedMods = [...ownedMods];
+		if (!previewOwnedMods.includes(hoveredMod.id)) {
+			previewOwnedMods.push(hoveredMod.id);
+		}
 
-		Object.keys(hoveredMod.stats).forEach((key) => {
-			const modValue = (hoveredMod.stats as any)[key];
-			const currentValue = (preview as any)[key];
-
-			if (
-				typeof modValue === 'number' &&
-				typeof currentValue === 'number'
-			) {
-				(preview as any)[key] = currentValue + modValue;
-			} else {
-				(preview as any)[key] = modValue;
-			}
-		});
-
-		return preview;
-	}, [playerTuning, hoveredMod]);
+		return CarBuilder.calculateTuning(
+			BASE_TUNING,
+			previewOwnedMods,
+			disabledMods,
+			modSettings
+		);
+	}, [hoveredMod, ownedMods, disabledMods, modSettings]);
 
 	const handleToggleDisable = (id: string) => {
 		// play('click');
@@ -485,7 +482,7 @@ const GameMenu = ({
 														%
 													</span>
 												</div>
-												<div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden">
+												<div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden mb-2">
 													<div
 														className={`h-full ${
 															(car.condition ||
@@ -503,6 +500,17 @@ const GameMenu = ({
 															}%`,
 														}}
 													></div>
+												</div>
+												<div className="flex justify-between text-[10px]">
+													<span className="text-gray-500">
+														Value
+													</span>
+													<span className="text-green-400">
+														$
+														{CarGenerator.calculateValue(
+															car
+														).toLocaleString()}
+													</span>
 												</div>
 											</div>
 
@@ -543,7 +551,18 @@ const GameMenu = ({
 							}}
 						>
 							<ModTreeVisuals
-								mods={MOD_TREE}
+								mods={MOD_TREE.filter((m) => {
+									if (!m.isSpecial) return true;
+									// Special mods are visible if owned OR if their parent is owned (next upgrade step)
+									// Root special mods (parentId=null) are only visible if owned (pre-installed on rare cars)
+									if (ownedMods.includes(m.id)) return true;
+									if (
+										m.parentId &&
+										ownedMods.includes(m.parentId)
+									)
+										return true;
+									return false;
+								})}
 								owned={ownedMods}
 								money={money}
 								onToggle={(mod) => {

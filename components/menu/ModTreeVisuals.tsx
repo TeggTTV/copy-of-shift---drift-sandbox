@@ -225,15 +225,27 @@ export const ModTreeVisuals = ({
 							style={{
 								left,
 								top,
-								borderColor: isOwned
-									? getCategoryColor(mod.type)
-									: undefined,
+								borderColor:
+									mod.rarity === 'EXOTIC'
+										? '#fbbf24' // Gold
+										: isOwned
+										? getCategoryColor(mod.type)
+										: undefined,
 								backgroundColor: isOwned
 									? `${getCategoryColor(mod.type)}20`
 									: undefined,
-								boxShadow: isOwned
-									? `0 0 20px ${getCategoryColor(mod.type)}20`
-									: 'none',
+								boxShadow:
+									mod.rarity === 'EXOTIC'
+										? '0 0 15px rgba(251, 191, 36, 0.5)' // Gold Glow
+										: isOwned
+										? `0 0 20px ${getCategoryColor(
+												mod.type
+										  )}20`
+										: 'none',
+								animation:
+									mod.rarity === 'EXOTIC'
+										? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+										: 'none',
 							}}
 							onClick={(e) => {
 								if (isDraggingRef.current) return;

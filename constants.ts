@@ -34,6 +34,7 @@ export const BASE_TUNING: TuningState = {
 	mass: 1400,
 	dragCoefficient: 0.35,
 	tireGrip: 1.0,
+	brakingForce: 3000, // New default braking force
 	color: '#3b82f6', // Blue
 };
 
@@ -798,6 +799,156 @@ export const MOD_TREE: ModNode[] = [
 		x: 5,
 		y: 2,
 		stats: { tireGrip: 1.15 },
+	},
+
+	// ===== SPECIAL / RARE MODS =====
+	// These are only visible if the car comes with them (Rare Junkyard Finds)
+
+	// --- ROTARY ENGINE TREE ---
+	{
+		id: 'rotary_engine',
+		name: '13B-REW Rotary',
+		description: 'Legendary Rotary Power',
+		cost: 10000,
+		type: 'ENGINE',
+		parentId: null,
+		conflictsWith: ['vtec_engine', 'ecu1'], // Replaces standard engine/ecu
+		x: 10,
+		y: 0,
+		stats: {
+			maxTorque: 180, // Low torque
+			redlineRPM: 9000,
+			idleRPM: 1500,
+			flywheelMass: 0.3,
+			exhaustOpenness: 0.8,
+			backfireAggression: 1.0,
+			cylinders: 0, // Rotary
+			torqueCurve: [
+				{ rpm: 0, factor: 0.1 },
+				{ rpm: 4000, factor: 0.4 },
+				{ rpm: 7000, factor: 0.9 },
+				{ rpm: 9000, factor: 1.0 },
+			],
+		},
+		soundProfile: 'rotary',
+		isSpecial: true,
+	},
+	{
+		id: 'rotary_turbo',
+		name: 'Twin Sequential Turbos',
+		description: 'Boost for the Dorito',
+		cost: 5000,
+		type: 'TURBO',
+		parentId: 'rotary_engine',
+		conflictsWith: [],
+		x: 11,
+		y: 0,
+		stats: {
+			maxTorque: 150,
+			turboIntensity: 0.8,
+			torqueCurve: [
+				{ rpm: 0, factor: 0.2 },
+				{ rpm: 3000, factor: 0.6 },
+				{ rpm: 5000, factor: 1.0 },
+				{ rpm: 8000, factor: 0.9 },
+			],
+		},
+		isSpecial: true,
+	},
+	{
+		id: 'rotary_porting',
+		name: 'Bridge Port',
+		description: 'Brap brap brap',
+		cost: 3000,
+		type: 'ENGINE',
+		parentId: 'rotary_engine',
+		conflictsWith: [],
+		x: 10,
+		y: 1,
+		stats: {
+			redlineRPM: 10500,
+			idleRPM: 2000,
+			maxTorque: 40,
+			exhaustOpenness: 1.0,
+		},
+		isSpecial: true,
+	},
+
+	// --- VTEC ENGINE TREE ---
+	{
+		id: 'vtec_engine',
+		name: 'K20 Type-R',
+		description: 'VTEC just kicked in!',
+		cost: 12000,
+		type: 'ENGINE',
+		parentId: null,
+		conflictsWith: ['rotary_engine', 'ecu1'],
+		x: 10,
+		y: 3,
+		stats: {
+			maxTorque: 200,
+			redlineRPM: 8800,
+			idleRPM: 900,
+			cylinders: 4,
+			torqueCurve: [
+				{ rpm: 0, factor: 0.3 },
+				{ rpm: 5500, factor: 0.6 }, // VTEC crossover
+				{ rpm: 5800, factor: 0.9 },
+				{ rpm: 8800, factor: 1.0 },
+			],
+		},
+		soundProfile: 'vtec',
+		isSpecial: true,
+	},
+	{
+		id: 'vtec_cams',
+		name: 'Stage 3 VTEC Cams',
+		description: 'Screaming high RPM',
+		cost: 2500,
+		type: 'ENGINE',
+		parentId: 'vtec_engine',
+		conflictsWith: [],
+		x: 11,
+		y: 3,
+		stats: {
+			redlineRPM: 9500,
+			maxTorque: 30,
+		},
+		isSpecial: true,
+	},
+
+	// --- AWD CONVERSION ---
+	{
+		id: 'awd_conversion',
+		name: 'AWD Drivetrain',
+		description: 'All-Wheel Drive Swap',
+		cost: 8000,
+		type: 'TRANSMISSION',
+		parentId: null,
+		conflictsWith: [],
+		x: 10,
+		y: 6,
+		stats: {
+			tireGrip: 2.0, // Massive grip boost
+			mass: 100, // Heavy
+			finalDriveRatio: 3.8,
+		},
+		isSpecial: true,
+	},
+	{
+		id: 'active_diff',
+		name: 'Active Center Diff',
+		description: 'Torque vectoring',
+		cost: 4000,
+		type: 'TRANSMISSION',
+		parentId: 'awd_conversion',
+		conflictsWith: [],
+		x: 11,
+		y: 6,
+		stats: {
+			tireGrip: 0.5,
+		},
+		isSpecial: true,
 	},
 	{
 		id: 'sway_bars',

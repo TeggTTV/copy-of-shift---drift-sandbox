@@ -6,7 +6,8 @@ export type GamePhase =
 	| 'VERSUS'
 	| 'RACE'
 	| 'RESULTS'
-	| 'JUNKYARD';
+	| 'JUNKYARD'
+	| 'DEALERSHIP';
 
 export interface InputState {
 	gas: boolean;
@@ -51,6 +52,8 @@ export interface ModNode {
 	// New Tuning System
 	tuningOptions?: TuningOption[];
 	soundProfile?: string; // e.g., 'muffler_sport'
+	isSpecial?: boolean; // If true, only visible if owned or parent is owned
+	rarity?: 'COMMON' | 'RARE' | 'LEGENDARY' | 'EXOTIC';
 }
 
 export interface TuningOption {
@@ -75,6 +78,7 @@ export interface SavedTune {
 	modSettings: ModSettings;
 	manualTuning: Partial<TuningState>;
 	condition?: number; // 0-1 (1 = perfect, 0 = wrecked)
+	originalPrice?: number; // Market value when fully restored
 }
 
 export interface JunkyardCar extends SavedTune {
@@ -104,6 +108,7 @@ export interface TuningState {
 	mass: number;
 	dragCoefficient: number;
 	tireGrip: number;
+	brakingForce: number;
 
 	// Visuals
 	color: string;
@@ -180,7 +185,9 @@ export type ToastType =
 	| 'INFO'
 	| 'WARNING'
 	| 'PAINT'
-	| 'ECU';
+	| 'ECU'
+	| 'ERROR'
+	| 'SUCCESS';
 
 export interface WeatherState {
 	type: 'SUNNY' | 'RAIN';

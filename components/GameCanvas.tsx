@@ -23,6 +23,8 @@ import { AudioEngine } from './AudioEngine';
 import { ParticleSystem } from '../utils/ParticleSystem';
 import { updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
+import { CarBuilder } from '../utils/CarBuilder';
+import { CarGenerator } from '../utils/CarGenerator';
 import { useGamePersistence } from '../hooks/useGamePersistence';
 import GameMenu from './GameMenu';
 import Junkyard from './menu/Junkyard';
@@ -85,21 +87,9 @@ const GameCanvas: React.FC = () => {
 	}, [dynoHistory]);
 
 	// Current Tuning (Calculated from Base + Mods)
-	const [playerTuning, setPlayerTuning] = useState<TuningState>(() => {
-		const saved = localStorage.getItem('shift_drift_manual_tuning');
-		if (saved) {
-			try {
-				const manual = JSON.parse(saved);
-				return {
-					...BASE_TUNING,
-					...manual,
-				};
-			} catch (e) {
-				console.error('Failed to parse saved manual tuning', e);
-			}
-		}
-		return BASE_TUNING;
-	});
+	// Use CarBuilder to calculate initial tuning if needed, or default to BASE_TUNING
+	// We'll update it in useEffect when garage/mods change
+	const [playerTuning, setPlayerTuning] = useState<TuningState>(BASE_TUNING);
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
 	const pendingTuningRef = useRef<Partial<TuningState> | null>(null);
 	const previousCarIndexRef = useRef(0);
@@ -113,37 +103,15 @@ const GameCanvas: React.FC = () => {
 
 	const generateJunkyardCars = useCallback(() => {
 		const cars: JunkyardCar[] = [];
-		const names = [
-			'Rust Bucket',
-			'Project Car',
-			'Barn Find',
-			'Scrap Metal',
-			'Fixer Upper',
-		];
-		const basePrices = [2000, 3500, 5000, 1500, 4000];
-
-		for (let i = 0; i < 3; i++) {
-			const condition = 0.1 + Math.random() * 0.4; // 10% to 50% condition
-			const basePrice =
-				basePrices[Math.floor(Math.random() * basePrices.length)];
-			const price = Math.floor(basePrice * condition);
-
-			cars.push({
-				id: `junk_${Date.now()}_${i}`,
-				name: names[Math.floor(Math.random() * names.length)],
-				date: Date.now(),
-				ownedMods: [],
-				disabledMods: [],
-				modSettings: {},
-				manualTuning: {},
-				condition: condition,
-				price: price,
-			});
+		// Generate more cars since it's the only source now
+		for (let i = 0; i < 6; i++) {
+			cars.push(
+				CarGenerator.generateJunkyardCar(`junk_${Date.now()}_${i}`)
+			);
 		}
 		setJunkyardCars(cars);
 	}, []);
 
-	// Initialize Junkyard on load if empty
 	useEffect(() => {
 		if (junkyardCars.length === 0) {
 			generateJunkyardCars();
@@ -160,11 +128,12 @@ const GameCanvas: React.FC = () => {
 						id: car.id,
 						name: car.name,
 						date: Date.now(),
-						ownedMods: [],
+						ownedMods: car.ownedMods, // Include pre-installed mods
 						disabledMods: [],
 						modSettings: {},
 						manualTuning: {},
 						condition: car.condition,
+						originalPrice: car.originalPrice,
 					},
 				]);
 				setJunkyardCars((prev) => prev.filter((c) => c.id !== car.id));
@@ -198,7 +167,13 @@ const GameCanvas: React.FC = () => {
 			}
 
 			const missing = 1 - currentCondition;
-			const cost = Math.floor(missing * 100 * 100); // $100 per 1%
+			// Cost is proportional to the car's original value
+			// Default value fallback: $10,000
+			const baseValue = car.originalPrice || 10000;
+
+			// Restoration Cost Formula:
+			// Full restore costs ~50% of the car's value
+			const cost = Math.floor(missing * baseValue * 0.5);
 
 			if (money >= cost) {
 				setMoney((m) => m - cost);
@@ -453,79 +428,7 @@ const GameCanvas: React.FC = () => {
 	}, [phase]);
 
 	// --- Helpers ---
-	// Helper to calculate base tuning from a set of mods
-	const getTuningFromMods = useCallback(
-		(
-			modIds: string[],
-			disabled: string[],
-			settings: Record<string, Record<string, number>>
-		) => {
-			let tuning: TuningState = JSON.parse(JSON.stringify(BASE_TUNING));
-
-			MOD_TREE.forEach((mod) => {
-				if (modIds.includes(mod.id) && !disabled.includes(mod.id)) {
-					Object.keys(mod.stats).forEach((key) => {
-						const modValue = (mod.stats as any)[key];
-						const currentValue = (tuning as any)[key];
-
-						// If both are numbers, ADD them
-						if (
-							typeof modValue === 'number' &&
-							typeof currentValue === 'number'
-						) {
-							(tuning as any)[key] = currentValue + modValue;
-						} else {
-							(tuning as any)[key] = modValue;
-						}
-					});
-
-					if (mod.tuningOptions && settings[mod.id]) {
-						mod.tuningOptions.forEach((option) => {
-							const userValue = settings[mod.id][option.id];
-							if (userValue !== undefined) {
-								if (option.statAffected) {
-									(tuning as any)[option.statAffected] =
-										userValue;
-								} else if (option.id === 'boost_pressure') {
-									const deltaBar =
-										userValue - option.defaultValue;
-									tuning.maxTorque += deltaBar * 100;
-									// Also affect turbo intensity
-									tuning.turboIntensity = Math.min(
-										1.0,
-										tuning.turboIntensity + deltaBar * 0.2
-									);
-								} else if (option.id === 'tire_pressure') {
-									// Tire Pressure Logic: Lower = More Grip, More Drag
-									// Default 30 PSI.
-									const deltaPsi = 30 - userValue; // Positive if under-inflated
-									tuning.tireGrip += deltaPsi * 0.01;
-									tuning.dragCoefficient += deltaPsi * 0.002;
-								}
-							}
-						});
-					}
-
-					if (mod.soundProfile) {
-						// We need to store this somewhere, maybe in tuning state?
-						// For now let's assume AudioEngine reads it from tuning or we pass it separately
-						// But wait, AudioEngine config is set in confirmStartRace using tuning props.
-						// So we need to map soundProfile to tuning props if possible, or add soundProfile to TuningState.
-						// Let's check TuningState... it has exhaustOpenness, backfireAggression, turboIntensity.
-						// The soundProfile string itself isn't in TuningState.
-						// We should probably rely on the stats provided by the sound mod (exhaustOpenness etc)
-						// which are already applied above.
-
-						// For now, let's just log it.
-						console.log('Sound profile:', mod.soundProfile);
-					}
-				}
-			});
-
-			return tuning;
-		},
-		[]
-	);
+	// Sync ref is now handled below with effectiveTuning
 
 	// Sync ref is now handled below with effectiveTuning
 
@@ -543,7 +446,8 @@ const GameCanvas: React.FC = () => {
 			torqueCurve: currentTuning.torqueCurve,
 		};
 
-		const newTuning = getTuningFromMods(
+		const newTuning = CarBuilder.calculateTuning(
+			BASE_TUNING,
 			ownedMods,
 			disabledMods,
 			modSettings
@@ -556,7 +460,7 @@ const GameCanvas: React.FC = () => {
 		}
 
 		setPlayerTuning(newTuning);
-	}, [ownedMods, disabledMods, modSettings, getTuningFromMods]);
+	}, [ownedMods, disabledMods, modSettings]);
 
 	// Calculate Effective Tuning (including Condition Penalty)
 	const effectiveTuning = useMemo(() => {
@@ -1249,9 +1153,6 @@ const GameCanvas: React.FC = () => {
 						}
 					);
 				}
-				lastGearRef.current = p.gear;
-
-				ctx.restore();
 
 				// Rain Visuals
 				if (weather.type === 'RAIN') {
@@ -1389,13 +1290,23 @@ const GameCanvas: React.FC = () => {
 				</div>
 			)}
 
+			{/* Junkyard UI */}
+			{phase === 'JUNKYARD' && (
+				<Junkyard
+					cars={junkyardCars}
+					money={money}
+					onBuyCar={buyJunkyardCar}
+					onBack={() => setPhase('MAP')}
+					onRefresh={refreshJunkyard}
+				/>
+			)}
+
 			{/* Menu UI */}
 			{(phase === 'MENU' ||
 				phase === 'GARAGE' ||
 				phase === 'MAP' ||
 				phase === 'MISSION_SELECT' ||
-				phase === 'VERSUS' ||
-				phase === 'JUNKYARD') && (
+				phase === 'VERSUS') && (
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
 				>
