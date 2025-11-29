@@ -90,6 +90,20 @@ export const useGamePersistence = (
 					'shift_drift_currentCarIndex'
 				);
 
+				// Legacy variables
+				const savedOwnedMods = localStorage.getItem(
+					'shift_drift_ownedMods'
+				);
+				const savedDisabledMods = localStorage.getItem(
+					'shift_drift_disabledMods'
+				);
+				const savedModSettings = localStorage.getItem(
+					'shift_drift_modSettings'
+				);
+				const savedManualTuning = localStorage.getItem(
+					'shift_drift_manual_tuning'
+				);
+
 				if (savedGarage) {
 					// Load Garage
 					const parsedGarage = JSON.parse(savedGarage);
@@ -98,8 +112,16 @@ export const useGamePersistence = (
 					let activeIndex = 0;
 					if (savedCarIndex) {
 						activeIndex = parseInt(savedCarIndex);
-						setCurrentCarIndex(activeIndex);
 					}
+
+					// Safety Check: Ensure index is valid
+					if (activeIndex < 0 || activeIndex >= parsedGarage.length) {
+						console.warn(
+							'Invalid car index loaded, defaulting to 0'
+						);
+						activeIndex = 0;
+					}
+					setCurrentCarIndex(activeIndex);
 
 					// Load active car state immediately
 					const activeCar = parsedGarage[activeIndex];
@@ -111,22 +133,23 @@ export const useGamePersistence = (
 							...prev,
 							...activeCar.manualTuning,
 						}));
+					} else if (parsedGarage.length > 0) {
+						// Fallback: Try to load first car if exists
+						console.warn(
+							'Active car not found, falling back to first car'
+						);
+						const firstCar = parsedGarage[0];
+						setCurrentCarIndex(0);
+						setOwnedMods(firstCar.ownedMods);
+						setDisabledMods(firstCar.disabledMods);
+						setModSettings(firstCar.modSettings);
+						setPlayerTuning((prev) => ({
+							...prev,
+							...firstCar.manualTuning,
+						}));
 					}
 				} else {
 					// Migration: Check for legacy single-car save
-					const savedOwnedMods = localStorage.getItem(
-						'shift_drift_ownedMods'
-					);
-					const savedDisabledMods = localStorage.getItem(
-						'shift_drift_disabledMods'
-					);
-					const savedModSettings = localStorage.getItem(
-						'shift_drift_modSettings'
-					);
-					const savedManualTuning = localStorage.getItem(
-						'shift_drift_manual_tuning'
-					);
-
 					if (savedOwnedMods) {
 						// Create initial car from legacy data
 						const initialCar: SavedTune = {

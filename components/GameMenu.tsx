@@ -436,6 +436,14 @@ const GameMenu = ({
 								owned={ownedMods}
 								money={money}
 								onToggle={(mod) => {
+									if (!garage[currentCarIndex]) {
+										showToast(
+											'No active car selected!',
+											'ERROR'
+										);
+										return;
+									}
+
 									if (ownedMods.includes(mod.id)) {
 										// play('click'); // Sell
 									} else if (money >= mod.cost) {

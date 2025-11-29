@@ -233,6 +233,7 @@ const GameCanvas: React.FC = () => {
 	const raceStartTimeRef = useRef(0);
 	const activeGhost = useRef<GhostFrame[] | null>(null);
 	const currentGhostRecording = useRef<GhostFrame[]>([]);
+	const raceFinishedProcessingRef = useRef(false);
 
 	// State for React UI
 	const [uiState, setUiState] = useState<{
@@ -614,7 +615,11 @@ const GameCanvas: React.FC = () => {
 		setCountdownNum(3);
 		countdownStartRef.current = performance.now();
 		raceStartTimeRef.current = 0;
+		setCountdownNum(3);
+		countdownStartRef.current = performance.now();
+		raceStartTimeRef.current = 0;
 		currentGhostRecording.current = [];
+		raceFinishedProcessingRef.current = false;
 
 		// Reset Car States
 		playerRef.current = {
@@ -752,6 +757,9 @@ const GameCanvas: React.FC = () => {
 						p.finished &&
 						(!o.finished || p.finishTime < o.finishTime)
 					) {
+						if (raceFinishedProcessingRef.current) return;
+						raceFinishedProcessingRef.current = true;
+
 						setRaceResult('WIN');
 						setRaceStatus('FINISHED');
 						setMoney(
@@ -760,11 +768,21 @@ const GameCanvas: React.FC = () => {
 
 						// Pink Slip Logic
 						if (m.rewardCar) {
+							// Use functional update for safety against race conditions
+							setGarage((prev) => {
+								const exists = prev.some(
+									(c) => c.id === m.rewardCar!.id
+								);
+								if (exists) return prev;
+								return [...prev, m.rewardCar!];
+							});
+
+							// Check current state for toast (approximation)
 							const alreadyOwned = garage.some(
 								(c) => c.id === m.rewardCar!.id
 							);
+
 							if (!alreadyOwned) {
-								setGarage((prev) => [...prev, m.rewardCar!]);
 								showToast(
 									`YOU WON A NEW CAR: ${m.rewardCar!.name}!`,
 									'UNLOCK'
