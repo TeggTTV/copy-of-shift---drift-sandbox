@@ -5,21 +5,21 @@ import {
 	TuningState,
 	GamePhase,
 	Mission,
-	Opponent,
+	DailyChallenge,
+	SavedTune,
 	ModNode,
 	GhostFrame,
-	SavedTune,
 } from '../types';
-import { BASE_TUNING, CONTROLS, MISSIONS, MOD_TREE } from '../constants';
-import Dashboard from './Dashboard';
-import GameMenu from './GameMenu';
+import { MISSIONS, BASE_TUNING, MOD_TREE, CONTROLS } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 import { AudioEngine } from './AudioEngine';
 import { ParticleSystem } from '../utils/ParticleSystem';
-import { interpolateTorque, updateCarPhysics } from '../utils/physics';
+import { updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { useGamePersistence } from '../hooks/useGamePersistence';
+import GameMenu from './GameMenu';
+import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
-import { useToast } from '../contexts/ToastContext';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
 
@@ -49,6 +49,9 @@ const GameCanvas: React.FC = () => {
 	>({});
 	// Missions state to track best times
 	const [missions, setMissions] = useState<Mission[]>(MISSIONS);
+	const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>(
+		[]
+	);
 
 	// Weather State
 	const [weather, setWeather] = useState<{
@@ -112,6 +115,8 @@ const GameCanvas: React.FC = () => {
 		setModSettings,
 		missions,
 		setMissions,
+		dailyChallenges,
+		setDailyChallenges,
 		playerTuning,
 		setPlayerTuning,
 		dynoHistory,
@@ -414,10 +419,12 @@ const GameCanvas: React.FC = () => {
 		console.log('🔧 Recalculating tuning for mods:', ownedMods);
 
 		// Preserve manual tuning parameters before recalculating
+		// Use ref to avoid dependency loop
+		const currentTuning = tuningRef.current;
 		const manualParams = {
-			finalDriveRatio: playerTuning.finalDriveRatio,
-			gearRatios: playerTuning.gearRatios,
-			torqueCurve: playerTuning.torqueCurve,
+			finalDriveRatio: currentTuning.finalDriveRatio,
+			gearRatios: currentTuning.gearRatios,
+			torqueCurve: currentTuning.torqueCurve,
 		};
 
 		const newTuning = getTuningFromMods(
@@ -432,7 +439,8 @@ const GameCanvas: React.FC = () => {
 			pendingTuningRef.current = null;
 		} else {
 			// Restore manual tuning parameters (unless this is the first load)
-			if (playerTuning.maxTorque !== 0) {
+			// Check against BASE_TUNING or just ensure we have values
+			if (currentTuning.maxTorque !== 0) {
 				newTuning.finalDriveRatio = manualParams.finalDriveRatio;
 				newTuning.gearRatios = manualParams.gearRatios;
 				newTuning.torqueCurve = manualParams.torqueCurve;
@@ -440,15 +448,7 @@ const GameCanvas: React.FC = () => {
 		}
 
 		setPlayerTuning(newTuning);
-	}, [
-		ownedMods,
-		disabledMods,
-		modSettings,
-		getTuningFromMods,
-		playerTuning.finalDriveRatio,
-		playerTuning.gearRatios,
-		playerTuning.torqueCurve,
-	]);
+	}, [ownedMods, disabledMods, modSettings, getTuningFromMods]);
 
 	const handleLoadTune = useCallback(
 		(tune: SavedTune) => {
@@ -492,6 +492,56 @@ const GameCanvas: React.FC = () => {
 			setOwnedMods(newOwnedMods);
 		},
 		[money, ownedMods]
+	);
+	const buyMods = useCallback(
+		(modsToBuy: ModNode[]) => {
+			let totalCost = 0;
+			const newModIds: string[] = [];
+			const conflictsToRemove: string[] = [];
+
+			modsToBuy.forEach((mod) => {
+				if (!ownedMods.includes(mod.id)) {
+					totalCost += mod.cost;
+					newModIds.push(mod.id);
+
+					// Check for conflicts
+					if (mod.conflictsWith) {
+						mod.conflictsWith.forEach((conflictId) => {
+							if (ownedMods.includes(conflictId)) {
+								conflictsToRemove.push(conflictId);
+							}
+						});
+					}
+				}
+			});
+
+			if (money >= totalCost && newModIds.length > 0) {
+				setMoney((m) => m - totalCost);
+				setOwnedMods((prev) => {
+					const filtered = prev.filter(
+						(id) => !conflictsToRemove.includes(id)
+					);
+					return [...filtered, ...newModIds];
+				});
+
+				if (conflictsToRemove.length > 0) {
+					showToast(
+						`Purchased ${newModIds.length} parts. Removed ${conflictsToRemove.length} conflicting parts.`,
+						'SUCCESS'
+					);
+				} else {
+					showToast(
+						`Purchased ${newModIds.length} parts for $${totalCost}`,
+						'SUCCESS'
+					);
+				}
+			} else if (newModIds.length === 0) {
+				// Already owned
+			} else {
+				showToast('Not enough money to buy parts!', 'ERROR');
+			}
+		},
+		[money, ownedMods, showToast]
 	);
 
 	// --- Toast Logic ---
@@ -1164,6 +1214,7 @@ const GameCanvas: React.FC = () => {
 						ownedMods={ownedMods}
 						setOwnedMods={toggleMod}
 						missions={missions}
+						dailyChallenges={dailyChallenges}
 						onStartMission={startMission}
 						onConfirmRace={confirmStartRace}
 						selectedMission={missionRef.current}
@@ -1183,6 +1234,7 @@ const GameCanvas: React.FC = () => {
 						setCurrentCarIndex={setCurrentCarIndex}
 						undergroundLevel={undergroundLevel}
 						setUndergroundLevel={setUndergroundLevel}
+						onBuyMods={buyMods}
 					/>
 				</SoundProvider>
 			)}

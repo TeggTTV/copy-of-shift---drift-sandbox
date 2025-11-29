@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { GamePhase, Mission, SavedTune } from '../../types';
+import { DailyChallenge, GamePhase, Mission, SavedTune } from '../../types';
 import { useSound } from '../../contexts/SoundContext';
 import { generateOpponent } from '../../utils/OpponentGenerator';
 import { BASE_TUNING } from '../../constants';
@@ -8,23 +8,25 @@ interface MissionSelectProps {
 	missions: Mission[];
 	money: number;
 	onStartMission: (m: Mission) => void;
-	setPhase: (p: GamePhase) => void;
+	onBack: () => void;
 	undergroundLevel?: number;
 	garage?: SavedTune[];
+	dailyChallenges?: DailyChallenge[];
 }
 
 const MissionSelect: React.FC<MissionSelectProps> = ({
 	missions,
 	money,
 	onStartMission,
-	setPhase,
+	onBack,
 	undergroundLevel = 1,
 	garage = [],
+	dailyChallenges = [],
 }) => {
 	const { play } = useSound();
-	const [activeTab, setActiveTab] = useState<'CAMPAIGN' | 'UNDERGROUND'>(
-		'CAMPAIGN'
-	);
+	const [activeTab, setActiveTab] = useState<
+		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY'
+	>('CAMPAIGN');
 
 	// Generate the current rival based on level
 	// Memoize so it doesn't change on every render, only when level changes
@@ -50,7 +52,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 			<div className="w-full max-w-4xl px-4">
 				<div className="flex justify-between items-center mb-8">
 					<button
-						onClick={() => setPhase('MAP')}
+						onClick={onBack}
 						className="text-gray-400 hover:text-white text-xs"
 					>
 						&lt; BACK
@@ -76,6 +78,16 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						CAMPAIGN
 					</button>
 					<button
+						onClick={() => setActiveTab('DAILY')}
+						className={`text-lg pixel-text transition-colors ${
+							activeTab === 'DAILY'
+								? 'text-yellow-400'
+								: 'text-gray-600 hover:text-gray-400'
+						}`}
+					>
+						DAILY
+					</button>
+					<button
 						onClick={() => setActiveTab('UNDERGROUND')}
 						className={`text-lg pixel-text transition-colors ${
 							activeTab === 'UNDERGROUND'
@@ -87,7 +99,64 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 					</button>
 				</div>
 
-				{activeTab === 'CAMPAIGN' ? (
+				{activeTab === 'DAILY' ? (
+					<div className="flex flex-col gap-6 animate-in fade-in duration-500">
+						<div className="text-center mb-4">
+							<div className="text-yellow-500 text-xl pixel-text mb-1">
+								DAILY CHALLENGES
+							</div>
+							<div className="text-gray-400 text-xs">
+								Resets in:{' '}
+								{dailyChallenges.length > 0
+									? new Date(
+											dailyChallenges[0].expiresAt -
+												Date.now()
+									  )
+											.toISOString()
+											.substr(11, 8)
+									: '00:00:00'}
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							{dailyChallenges.map((m) => (
+								<div
+									key={m.id}
+									className={`pixel-panel p-4 transition-all group relative overflow-hidden cursor-pointer bg-black border-yellow-900 hover:border-yellow-500`}
+									onClick={() => onStartMission(m)}
+								>
+									<div className="absolute top-0 right-0 bg-yellow-900/50 text-yellow-200 text-[10px] px-2 py-1">
+										{m.difficulty}
+									</div>
+									<div className="flex flex-col h-full justify-between">
+										<div>
+											<h3 className="text-yellow-400 pixel-text mb-2">
+												{m.name}
+											</h3>
+											<p className="text-gray-500 text-[10px] mb-4">
+												{m.description}
+											</p>
+										</div>
+
+										<div className="mt-auto">
+											<div className="flex justify-between items-end mb-3">
+												<div className="text-[10px] text-gray-400">
+													REWARD
+												</div>
+												<div className="text-green-400 font-bold">
+													${m.payout}
+												</div>
+											</div>
+											<button className="w-full pixel-btn bg-yellow-900/20 border-yellow-800 text-yellow-500 hover:bg-yellow-900/40 text-xs py-2">
+												ACCEPT
+											</button>
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				) : activeTab === 'CAMPAIGN' ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						{missions.map((m) => {
 							const isBoss = !!m.rewardCar;

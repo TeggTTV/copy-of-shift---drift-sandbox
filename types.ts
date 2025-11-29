@@ -133,18 +133,29 @@ export interface Opponent {
 	color: string;
 	tuning: TuningState;
 }
-
 export interface Mission {
 	id: number;
 	name: string;
 	description: string;
 	payout: number;
-	difficulty: string;
+	difficulty:
+		| 'EASY'
+		| 'MEDIUM'
+		| 'HARD'
+		| 'EXTREME'
+		| 'IMPOSSIBLE'
+		| 'BOSS'
+		| 'UNDERGROUND';
 	distance: number; // meters
 	opponent: Opponent;
 	bestTime?: number; // Persisted best time
-	bestGhost?: GhostFrame[]; // Recorded ghost data
+	bestGhost?: number[]; // Recorded ghost data
 	rewardCar?: SavedTune; // Car awarded for winning
+}
+
+export interface DailyChallenge extends Mission {
+	expiresAt: number;
+	completed: boolean;
 }
 
 export type ToastType =

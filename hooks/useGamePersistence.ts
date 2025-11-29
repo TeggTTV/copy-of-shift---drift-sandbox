@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Mission, TuningState, SavedTune } from '../types';
+import { Mission, TuningState, SavedTune, DailyChallenge } from '../types';
 import { MISSIONS } from '../constants';
+import { generateDailyChallenges } from '../utils/dailyChallengeUtils';
 
 export const useGamePersistence = (
 	money: number,
@@ -13,6 +14,8 @@ export const useGamePersistence = (
 	setModSettings: (settings: Record<string, Record<string, number>>) => void,
 	missions: Mission[],
 	setMissions: (missions: Mission[]) => void,
+	dailyChallenges: DailyChallenge[],
+	setDailyChallenges: (challenges: DailyChallenge[]) => void,
 	playerTuning: TuningState,
 	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>,
 	dynoHistory: { rpm: number; torque: number; hp: number }[],
@@ -82,6 +85,34 @@ export const useGamePersistence = (
 				);
 				if (savedUndergroundLevel) {
 					setUndergroundLevel(parseInt(savedUndergroundLevel));
+				}
+
+				// Daily Challenges
+				const savedDaily = localStorage.getItem(
+					'shift_drift_dailyChallenges'
+				);
+				if (savedDaily) {
+					const parsedDaily: DailyChallenge[] =
+						JSON.parse(savedDaily);
+					// Check if expired (all expire at same time)
+					if (
+						parsedDaily.length > 0 &&
+						parsedDaily[0].expiresAt > Date.now()
+					) {
+						setDailyChallenges(parsedDaily);
+					} else {
+						// Expired, generate new ones
+						console.log(
+							'Daily challenges expired, generating new ones'
+						);
+						const newChallenges = generateDailyChallenges();
+						setDailyChallenges(newChallenges);
+					}
+				} else {
+					// First time generation
+					console.log('Generating first set of daily challenges');
+					const newChallenges = generateDailyChallenges();
+					setDailyChallenges(newChallenges);
 				}
 
 				// Garage & Current Car Logic
@@ -239,6 +270,14 @@ export const useGamePersistence = (
 			undergroundLevel.toString()
 		);
 	}, [undergroundLevel, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_dailyChallenges',
+			JSON.stringify(dailyChallenges)
+		);
+	}, [dailyChallenges, loaded]);
 
 	return loaded;
 };

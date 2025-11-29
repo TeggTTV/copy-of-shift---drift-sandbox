@@ -13,6 +13,8 @@ interface TuningTabProps {
 	playerTuning: TuningState;
 	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
 	onLoadTune: (tune: SavedTune) => void;
+	onBuyMods: (mods: ModNode[]) => void;
+	money: number;
 }
 
 const TuningTab: React.FC<TuningTabProps> = ({
@@ -23,6 +25,8 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	playerTuning,
 	setPlayerTuning,
 	onLoadTune,
+	onBuyMods,
+	money,
 }) => {
 	const { play } = useSound();
 	// Saved Tunes State
@@ -70,6 +74,39 @@ const TuningTab: React.FC<TuningTabProps> = ({
 		const updatedTunes = savedTunes.filter((t) => t.id !== id);
 		setSavedTunes(updatedTunes);
 		localStorage.setItem('shift_drift_tunes', JSON.stringify(updatedTunes));
+	};
+
+	const handleBuyMissing = (missingIds: string[]) => {
+		// Find mod objects
+		const missingMods = missingIds
+			.map((id) => MOD_TREE.find((m) => m.id === id))
+			.filter((m): m is ModNode => !!m);
+
+		// Sort by X (left to right), then Y
+		missingMods.sort((a, b) => {
+			if (a.x !== b.x) return a.x - b.x;
+			return a.y - b.y;
+		});
+
+		// Calculate affordable subset
+		let currentMoney = money;
+		const affordableMods: ModNode[] = [];
+
+		for (const mod of missingMods) {
+			if (currentMoney >= mod.cost) {
+				affordableMods.push(mod);
+				currentMoney -= mod.cost;
+			} else {
+				break; // Stop if we can't afford the next one in order
+			}
+		}
+
+		if (affordableMods.length > 0) {
+			play('purchase');
+			onBuyMods(affordableMods);
+		} else {
+			play('error');
+		}
 	};
 
 	return (
@@ -332,6 +369,13 @@ const TuningTab: React.FC<TuningTabProps> = ({
 									tune.ownedMods || []
 								).filter((id) => !ownedMods.includes(id));
 								const isLoadable = missingMods.length === 0;
+								const missingCost = missingMods.reduce(
+									(sum, id) =>
+										sum +
+										(MOD_TREE.find((m) => m.id === id)
+											?.cost || 0),
+									0
+								);
 
 								return (
 									<div
@@ -360,26 +404,35 @@ const TuningTab: React.FC<TuningTabProps> = ({
 																)?.name || id
 														)
 														.join(', ')}
+													<div className="text-yellow-500 font-bold">
+														Cost: ${missingCost}
+													</div>
 												</div>
 											)}
 										</div>
 										<div className="flex gap-2">
-											<button
-												onClick={() => {
-													if (isLoadable) {
+											{isLoadable ? (
+												<button
+													onClick={() => {
 														play('confirm');
 														onLoadTune(tune);
+													}}
+													className="px-2 py-1 text-[10px] uppercase rounded border bg-green-900/50 text-green-400 border-green-900 hover:bg-green-900"
+												>
+													Load
+												</button>
+											) : (
+												<button
+													onClick={() =>
+														handleBuyMissing(
+															missingMods
+														)
 													}
-												}}
-												disabled={!isLoadable}
-												className={`px-2 py-1 text-[10px] uppercase rounded border ${
-													isLoadable
-														? 'bg-green-900/50 text-green-400 border-green-900 hover:bg-green-900'
-														: 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
-												}`}
-											>
-												Load
-											</button>
+													className="px-2 py-1 text-[10px] uppercase rounded border bg-yellow-900/50 text-yellow-400 border-yellow-900 hover:bg-yellow-900"
+												>
+													Buy Parts
+												</button>
+											)}
 											<button
 												onClick={() =>
 													handleDeleteTune(tune.id)

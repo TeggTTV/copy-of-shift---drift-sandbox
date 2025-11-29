@@ -1,14 +1,21 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { GamePhase, Mission, ModNode, TuningState, SavedTune } from '../types';
+import DynoGraph from './menu/DynoGraph';
+import DynoTab from './menu/DynoTab';
+import UpgradesTab from './menu/UpgradesTab';
+import TuningTab from './menu/TuningTab';
+import { ModTreeVisuals } from './menu/ModTreeVisuals';
+import { useSound } from '../contexts/SoundContext';
+import {
+	DailyChallenge,
+	GamePhase,
+	Mission,
+	ModNode,
+	SavedTune,
+	TuningState,
+} from '../types';
 import { MOD_TREE } from '../constants';
 import MissionSelect from './menu/MissionSelect';
 import VersusScreen from './menu/VersusScreen';
-import UpgradesTab from './menu/UpgradesTab';
-import TuningTab from './menu/TuningTab';
-import DynoGraph from './menu/DynoGraph';
-import DynoTab from './menu/DynoTab';
-import { ModTreeVisuals } from './menu/ModTreeVisuals';
-import { useSound } from '../contexts/SoundContext';
+import React, { useState, useMemo, useEffect } from 'react';
 
 const GameMenu = ({
 	phase,
@@ -19,6 +26,7 @@ const GameMenu = ({
 	ownedMods,
 	setOwnedMods,
 	missions,
+	dailyChallenges,
 	onStartMission,
 	onConfirmRace,
 	selectedMission,
@@ -38,6 +46,7 @@ const GameMenu = ({
 	currentCarIndex,
 	setCurrentCarIndex,
 	undergroundLevel,
+	onBuyMods,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -47,9 +56,10 @@ const GameMenu = ({
 	ownedMods: string[];
 	setOwnedMods: (mod: ModNode) => void;
 	missions: Mission[];
+	dailyChallenges: DailyChallenge[];
 	onStartMission: (m: Mission) => void;
-	onConfirmRace?: (wager?: number) => void;
-	selectedMission?: Mission | null;
+	onConfirmRace: (wager: number) => void;
+	selectedMission: Mission | null;
 	disabledMods: string[];
 	setDisabledMods: React.Dispatch<React.SetStateAction<string[]>>;
 	modSettings: Record<string, Record<string, number>>;
@@ -73,6 +83,7 @@ const GameMenu = ({
 	setCurrentCarIndex: (index: number) => void;
 	undergroundLevel: number;
 	setUndergroundLevel: (level: number) => void;
+	onBuyMods: (mods: ModNode[]) => void;
 }) => {
 	const { play } = useSound();
 	const [activeTab, setActiveTab] = useState<
@@ -237,18 +248,13 @@ const GameMenu = ({
 		return (
 			<MissionSelect
 				missions={missions}
-				money={money}
-				onStartMission={(m) => {
-					// play('confirm');
-					onStartMission(m);
-				}}
-				setPhase={(p) => {
-					// if (p === 'MAP') play('back');
-					// else play('click');
-					setPhase(p);
+				dailyChallenges={dailyChallenges}
+				onStartMission={onStartMission}
+				onBack={() => {
+					// play('back');
+					setPhase('MAP');
 				}}
 				undergroundLevel={undergroundLevel}
-				garage={garage}
 			/>
 		);
 	}
@@ -375,6 +381,8 @@ const GameMenu = ({
 									playerTuning={playerTuning}
 									setPlayerTuning={setPlayerTuning}
 									onLoadTune={onLoadTune}
+									onBuyMods={onBuyMods}
+									money={money}
 								/>
 							) : activeTab === 'DYNO' ? (
 								<DynoTab
