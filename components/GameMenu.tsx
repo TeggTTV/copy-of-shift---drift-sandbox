@@ -11,9 +11,11 @@ import {
 	ModNode,
 	SavedTune,
 	TuningState,
+	JunkyardCar,
 } from '../types';
 import { MOD_TREE } from '../constants';
 import MissionSelect from './menu/MissionSelect';
+import Junkyard from './menu/Junkyard';
 import VersusScreen from './menu/VersusScreen';
 import React, { useState, useMemo, useEffect } from 'react';
 
@@ -46,7 +48,12 @@ const GameMenu = ({
 	currentCarIndex,
 	setCurrentCarIndex,
 	undergroundLevel,
+	setUndergroundLevel,
 	onBuyMods,
+	junkyardCars,
+	onBuyJunkyardCar,
+	onRefreshJunkyard,
+	onRestoreCar,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -84,6 +91,10 @@ const GameMenu = ({
 	undergroundLevel: number;
 	setUndergroundLevel: (level: number) => void;
 	onBuyMods: (mods: ModNode[]) => void;
+	junkyardCars: JunkyardCar[];
+	onBuyJunkyardCar: (car: JunkyardCar) => void;
+	onRefreshJunkyard: () => void;
+	onRestoreCar: (index: number) => void;
 }) => {
 	const { play } = useSound();
 	const [activeTab, setActiveTab] = useState<
@@ -223,6 +234,20 @@ const GameMenu = ({
 
 					<button
 						onClick={() => {
+							// play('click');
+							setPhase('JUNKYARD');
+						}}
+						className="pixel-btn text-center py-4 text-lg bg-orange-900 border-orange-700 text-orange-500 hover:bg-orange-800"
+						style={{
+							backgroundColor: '#7c2d12',
+							borderColor: '#c2410c',
+						}}
+					>
+						JUNKYARD
+					</button>
+
+					<button
+						onClick={() => {
 							setWeather((prev) => ({
 								type: prev.type === 'SUNNY' ? 'RAIN' : 'SUNNY',
 								intensity: prev.type === 'SUNNY' ? 0.8 : 0,
@@ -257,6 +282,18 @@ const GameMenu = ({
 				undergroundLevel={undergroundLevel}
 				money={money}
 				garage={garage}
+			/>
+		);
+	}
+
+	if (phase === 'JUNKYARD') {
+		return (
+			<Junkyard
+				cars={junkyardCars}
+				money={money}
+				onBuyCar={onBuyJunkyardCar}
+				onBack={() => setPhase('MAP')}
+				onRefresh={onRefreshJunkyard}
 			/>
 		);
 	}
@@ -416,13 +453,77 @@ const GameMenu = ({
 													</span>
 												)}
 											</div>
-											<div className="text-[10px] text-gray-500">
+											<div className="text-[10px] text-gray-500 mb-2">
 												Mods: {car.ownedMods.length} |
 												Date:{' '}
 												{new Date(
 													car.date
 												).toLocaleDateString()}
 											</div>
+
+											{/* Condition Bar */}
+											<div className="mb-2">
+												<div className="flex justify-between text-[10px] mb-1">
+													<span className="text-gray-500">
+														Condition
+													</span>
+													<span
+														className={
+															(car.condition ||
+																1) > 0.7
+																? 'text-green-500'
+																: (car.condition ||
+																		1) > 0.4
+																? 'text-yellow-500'
+																: 'text-red-500'
+														}
+													>
+														{(
+															(car.condition ||
+																1) * 100
+														).toFixed(0)}
+														%
+													</span>
+												</div>
+												<div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden">
+													<div
+														className={`h-full ${
+															(car.condition ||
+																1) > 0.7
+																? 'bg-green-500'
+																: (car.condition ||
+																		1) > 0.4
+																? 'bg-yellow-500'
+																: 'bg-red-500'
+														}`}
+														style={{
+															width: `${
+																(car.condition ||
+																	1) * 100
+															}%`,
+														}}
+													></div>
+												</div>
+											</div>
+
+											{(car.condition || 1) < 1 && (
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														onRestoreCar(index);
+													}}
+													className="w-full pixel-btn bg-green-900/20 border-green-800 text-green-500 hover:bg-green-900/40 text-[10px] py-1"
+												>
+													RESTORE ($
+													{Math.floor(
+														(1 -
+															(car.condition ||
+																1)) *
+															10000
+													).toLocaleString()}
+													)
+												</button>
+											)}
 										</div>
 									))}
 									{garage.length === 0 && (

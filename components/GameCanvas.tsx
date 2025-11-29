@@ -1,4 +1,10 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, {
+	useRef,
+	useEffect,
+	useState,
+	useCallback,
+	useMemo,
+} from 'react';
 import {
 	CarState,
 	InputState,
@@ -9,6 +15,7 @@ import {
 	SavedTune,
 	ModNode,
 	GhostFrame,
+	JunkyardCar,
 } from '../types';
 import { MISSIONS, BASE_TUNING, MOD_TREE, CONTROLS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
@@ -18,6 +25,7 @@ import { updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { useGamePersistence } from '../hooks/useGamePersistence';
 import GameMenu from './GameMenu';
+import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
 
@@ -99,6 +107,116 @@ const GameCanvas: React.FC = () => {
 	// Garage State
 	const [garage, setGarage] = useState<SavedTune[]>([]);
 	const [currentCarIndex, setCurrentCarIndex] = useState(0);
+
+	// Junkyard State
+	const [junkyardCars, setJunkyardCars] = useState<JunkyardCar[]>([]);
+
+	const generateJunkyardCars = useCallback(() => {
+		const cars: JunkyardCar[] = [];
+		const names = [
+			'Rust Bucket',
+			'Project Car',
+			'Barn Find',
+			'Scrap Metal',
+			'Fixer Upper',
+		];
+		const basePrices = [2000, 3500, 5000, 1500, 4000];
+
+		for (let i = 0; i < 3; i++) {
+			const condition = 0.1 + Math.random() * 0.4; // 10% to 50% condition
+			const basePrice =
+				basePrices[Math.floor(Math.random() * basePrices.length)];
+			const price = Math.floor(basePrice * condition);
+
+			cars.push({
+				id: `junk_${Date.now()}_${i}`,
+				name: names[Math.floor(Math.random() * names.length)],
+				date: Date.now(),
+				ownedMods: [],
+				disabledMods: [],
+				modSettings: {},
+				manualTuning: {},
+				condition: condition,
+				price: price,
+			});
+		}
+		setJunkyardCars(cars);
+	}, []);
+
+	// Initialize Junkyard on load if empty
+	useEffect(() => {
+		if (junkyardCars.length === 0) {
+			generateJunkyardCars();
+		}
+	}, []);
+
+	const buyJunkyardCar = useCallback(
+		(car: JunkyardCar) => {
+			if (money >= car.price) {
+				setMoney((m) => m - car.price);
+				setGarage((prev) => [
+					...prev,
+					{
+						id: car.id,
+						name: car.name,
+						date: Date.now(),
+						ownedMods: [],
+						disabledMods: [],
+						modSettings: {},
+						manualTuning: {},
+						condition: car.condition,
+					},
+				]);
+				setJunkyardCars((prev) => prev.filter((c) => c.id !== car.id));
+				showToast(`Bought ${car.name} for $${car.price}`, 'SUCCESS');
+			} else {
+				showToast('Not enough money!', 'ERROR');
+			}
+		},
+		[money, showToast]
+	);
+
+	const refreshJunkyard = useCallback(() => {
+		if (money >= 100) {
+			setMoney((m) => m - 100);
+			generateJunkyardCars();
+			showToast('Junkyard stock refreshed!', 'INFO');
+		} else {
+			showToast('Not enough money to refresh!', 'ERROR');
+		}
+	}, [money, generateJunkyardCars, showToast]);
+
+	const restoreCar = useCallback(
+		(carIndex: number) => {
+			const car = garage[carIndex];
+			if (!car) return;
+
+			const currentCondition = car.condition || 1;
+			if (currentCondition >= 1) {
+				showToast('Car is already in perfect condition!', 'INFO');
+				return;
+			}
+
+			const missing = 1 - currentCondition;
+			const cost = Math.floor(missing * 100 * 100); // $100 per 1%
+
+			if (money >= cost) {
+				setMoney((m) => m - cost);
+				setGarage((prev) => {
+					const newGarage = [...prev];
+					newGarage[carIndex] = {
+						...newGarage[carIndex],
+						condition: 1,
+					};
+					return newGarage;
+				});
+				showToast(`Restored ${car.name} for $${cost}`, 'SUCCESS');
+			} else {
+				showToast(`Need $${cost} to restore!`, 'ERROR');
+			}
+		},
+		[garage, money, showToast]
+	);
 
 	// Underground State
 	const [undergroundLevel, setUndergroundLevel] = useState(1);
@@ -408,10 +526,7 @@ const GameCanvas: React.FC = () => {
 		[]
 	);
 
-	// Sync ref
-	useEffect(() => {
-		tuningRef.current = playerTuning;
-	}, [playerTuning]);
+	// Sync ref is now handled below with effectiveTuning
 
 	// Recalculate playerTuning when owned mods change
 
@@ -437,18 +552,33 @@ const GameCanvas: React.FC = () => {
 		if (pendingTuningRef.current) {
 			Object.assign(newTuning, pendingTuningRef.current);
 			pendingTuningRef.current = null;
-		} else {
-			// Restore manual tuning parameters (unless this is the first load)
-			// Check against BASE_TUNING or just ensure we have values
-			if (currentTuning.maxTorque !== 0) {
-				newTuning.finalDriveRatio = manualParams.finalDriveRatio;
-				newTuning.gearRatios = manualParams.gearRatios;
-				newTuning.torqueCurve = manualParams.torqueCurve;
-			}
 		}
 
 		setPlayerTuning(newTuning);
 	}, [ownedMods, disabledMods, modSettings, getTuningFromMods]);
+
+	// Calculate Effective Tuning (including Condition Penalty)
+	const effectiveTuning = useMemo(() => {
+		const currentCar = garage[currentCarIndex];
+		if (!currentCar || currentCar.condition === undefined)
+			return playerTuning;
+
+		const condition = currentCar.condition;
+		// Penalty: Reduce torque/power by up to 50% based on condition
+		const penaltyFactor = 0.5 + 0.5 * condition;
+
+		// Deep copy to avoid mutating state
+		const newTuning = JSON.parse(JSON.stringify(playerTuning));
+		newTuning.maxTorque *= penaltyFactor;
+		// torqueCurve factors are relative to maxTorque, so they scale automatically.
+
+		return newTuning;
+	}, [playerTuning, garage, currentCarIndex]);
+
+	// Sync ref with EFFECTIVE tuning for physics
+	useEffect(() => {
+		tuningRef.current = effectiveTuning;
+	}, [effectiveTuning]);
 
 	const handleLoadTune = useCallback(
 		(tune: SavedTune) => {
@@ -1200,7 +1330,8 @@ const GameCanvas: React.FC = () => {
 				phase === 'GARAGE' ||
 				phase === 'MAP' ||
 				phase === 'MISSION_SELECT' ||
-				phase === 'VERSUS') && (
+				phase === 'VERSUS' ||
+				phase === 'JUNKYARD') && (
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
 				>
@@ -1235,6 +1366,10 @@ const GameCanvas: React.FC = () => {
 						undergroundLevel={undergroundLevel}
 						setUndergroundLevel={setUndergroundLevel}
 						onBuyMods={buyMods}
+						junkyardCars={junkyardCars}
+						onBuyJunkyardCar={buyJunkyardCar}
+						onRefreshJunkyard={refreshJunkyard}
+						onRestoreCar={restoreCar}
 					/>
 				</SoundProvider>
 			)}

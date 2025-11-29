@@ -5,7 +5,8 @@ export type GamePhase =
 	| 'MISSION_SELECT'
 	| 'VERSUS'
 	| 'RACE'
-	| 'RESULTS';
+	| 'RESULTS'
+	| 'JUNKYARD';
 
 export interface InputState {
 	gas: boolean;
@@ -73,6 +74,11 @@ export interface SavedTune {
 	disabledMods: string[];
 	modSettings: ModSettings;
 	manualTuning: Partial<TuningState>;
+	condition?: number; // 0-1 (1 = perfect, 0 = wrecked)
+}
+
+export interface JunkyardCar extends SavedTune {
+	price: number;
 }
 
 export interface TuningState {
