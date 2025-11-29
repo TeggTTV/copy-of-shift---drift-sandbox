@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Mission, TuningState } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Mission, TuningState, SavedTune } from '../types';
+import { MISSIONS } from '../constants';
 
 export const useGamePersistence = (
 	money: number,
@@ -13,7 +14,7 @@ export const useGamePersistence = (
 	missions: Mission[],
 	setMissions: (missions: Mission[]) => void,
 	playerTuning: TuningState,
-	setPlayerTuning: (tuning: TuningState) => void,
+	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>,
 	dynoHistory: { rpm: number; torque: number; hp: number }[],
 	setDynoHistory: (
 		history: { rpm: number; torque: number; hp: number }[]
@@ -21,7 +22,13 @@ export const useGamePersistence = (
 	previousDynoHistory: { rpm: number; torque: number; hp: number }[],
 	setPreviousDynoHistory: (
 		history: { rpm: number; torque: number; hp: number }[]
-	) => void
+	) => void,
+	garage: SavedTune[],
+	setGarage: (garage: SavedTune[]) => void,
+	currentCarIndex: number,
+	setCurrentCarIndex: (index: number) => void,
+	undergroundLevel: number,
+	setUndergroundLevel: (level: number) => void
 ) => {
 	const [loaded, setLoaded] = useState(false);
 
@@ -32,27 +39,28 @@ export const useGamePersistence = (
 				const savedMoney = localStorage.getItem('shift_drift_money');
 				if (savedMoney) setMoney(parseInt(savedMoney));
 
-				const savedOwnedMods = localStorage.getItem(
-					'shift_drift_ownedMods'
-				);
-				if (savedOwnedMods) setOwnedMods(JSON.parse(savedOwnedMods));
-
-				const savedDisabledMods = localStorage.getItem(
-					'shift_drift_disabledMods'
-				);
-				if (savedDisabledMods)
-					setDisabledMods(JSON.parse(savedDisabledMods));
-
-				const savedModSettings = localStorage.getItem(
-					'shift_drift_modSettings'
-				);
-				if (savedModSettings)
-					setModSettings(JSON.parse(savedModSettings));
-
 				const savedMissions = localStorage.getItem(
 					'shift_drift_missions'
 				);
-				if (savedMissions) setMissions(JSON.parse(savedMissions));
+				if (savedMissions) {
+					const parsedSavedMissions: Mission[] =
+						JSON.parse(savedMissions);
+					// Merge saved progress with current mission definitions
+					const mergedMissions = MISSIONS.map((m) => {
+						const saved = parsedSavedMissions.find(
+							(sm) => sm.id === m.id
+						);
+						if (saved) {
+							return {
+								...m,
+								bestTime: saved.bestTime,
+								bestGhost: saved.bestGhost,
+							};
+						}
+						return m;
+					});
+					setMissions(mergedMissions);
+				}
 
 				const savedDynoHistory = localStorage.getItem(
 					'shift_drift_dynoHistory'
@@ -68,27 +76,89 @@ export const useGamePersistence = (
 						JSON.parse(savedPreviousDynoHistory)
 					);
 
-				// We don't load playerTuning directly because it's calculated from mods.
-				// However, we might want to save manual tuning overrides if we had them separate.
-				// For now, let's assume tuning is derived or saved via "Tunes" feature.
-				// But wait, the user asked to save "everything".
-				// If the user manually tunes gears, that's in playerTuning.
-				// But playerTuning is also recalculated from mods.
-				// The "Saved Tunes" feature handles specific named saves.
-				// For auto-save, we should probably rely on the recalculation from mods + maybe a "current manual override" state?
-				// In GameCanvas, we have `pendingTuningRef` for loading tunes.
-				// If we want to persist the *current* manual tuning state across reloads without explicitly saving a tune:
-				// We would need to save the manual overrides separately.
-				// But `playerTuning` is a mix of base + mods + manual.
-				// Extracting just the manual part is hard without diffing.
-				// Let's stick to saving the "source of truth": mods and settings.
-				// The user can use "Saved Tunes" for specific setups.
-				// Or, we could save the entire `playerTuning` object and apply it *after* mod calculation?
-				// But mod calculation happens on mount/change.
-				// If we load `playerTuning`, it might be overwritten by `useEffect` in GameCanvas.
-				// Let's rely on `ownedMods` and `modSettings` to restore the state.
-				// If the user made manual adjustments without saving a tune, they might be lost.
-				// That's acceptable for now, or we can add `manualTuning` state later.
+				// Underground Level
+				const savedUndergroundLevel = localStorage.getItem(
+					'shift_drift_undergroundLevel'
+				);
+				if (savedUndergroundLevel) {
+					setUndergroundLevel(parseInt(savedUndergroundLevel));
+				}
+
+				// Garage & Current Car Logic
+				const savedGarage = localStorage.getItem('shift_drift_garage');
+				const savedCarIndex = localStorage.getItem(
+					'shift_drift_currentCarIndex'
+				);
+
+				if (savedGarage) {
+					// Load Garage
+					const parsedGarage = JSON.parse(savedGarage);
+					setGarage(parsedGarage);
+
+					let activeIndex = 0;
+					if (savedCarIndex) {
+						activeIndex = parseInt(savedCarIndex);
+						setCurrentCarIndex(activeIndex);
+					}
+
+					// Load active car state immediately
+					const activeCar = parsedGarage[activeIndex];
+					if (activeCar) {
+						setOwnedMods(activeCar.ownedMods);
+						setDisabledMods(activeCar.disabledMods);
+						setModSettings(activeCar.modSettings);
+						setPlayerTuning((prev) => ({
+							...prev,
+							...activeCar.manualTuning,
+						}));
+					}
+				} else {
+					// Migration: Check for legacy single-car save
+					const savedOwnedMods = localStorage.getItem(
+						'shift_drift_ownedMods'
+					);
+					const savedDisabledMods = localStorage.getItem(
+						'shift_drift_disabledMods'
+					);
+					const savedModSettings = localStorage.getItem(
+						'shift_drift_modSettings'
+					);
+					const savedManualTuning = localStorage.getItem(
+						'shift_drift_manual_tuning'
+					);
+
+					if (savedOwnedMods) {
+						// Create initial car from legacy data
+						const initialCar: SavedTune = {
+							id: 'starter_car',
+							name: 'My First Ride',
+							date: Date.now(),
+							ownedMods: JSON.parse(savedOwnedMods),
+							disabledMods: savedDisabledMods
+								? JSON.parse(savedDisabledMods)
+								: [],
+							modSettings: savedModSettings
+								? JSON.parse(savedModSettings)
+								: {},
+							manualTuning: savedManualTuning
+								? JSON.parse(savedManualTuning)
+								: {},
+						};
+
+						setGarage([initialCar]);
+						setCurrentCarIndex(0);
+
+						// Also set the active state immediately for seamless transition
+						setOwnedMods(initialCar.ownedMods);
+						setDisabledMods(initialCar.disabledMods);
+						setModSettings(initialCar.modSettings);
+						// Manual tuning is handled by GameCanvas via playerTuning state
+					} else {
+						// New Game
+						setGarage([]);
+						setCurrentCarIndex(0);
+					}
+				}
 
 				setLoaded(true);
 			} catch (e) {
@@ -106,45 +176,8 @@ export const useGamePersistence = (
 
 	useEffect(() => {
 		if (!loaded) return;
-		localStorage.setItem(
-			'shift_drift_ownedMods',
-			JSON.stringify(ownedMods)
-		);
-	}, [ownedMods, loaded]);
-
-	useEffect(() => {
-		if (!loaded) return;
-		localStorage.setItem(
-			'shift_drift_disabledMods',
-			JSON.stringify(disabledMods)
-		);
-	}, [disabledMods, loaded]);
-
-	useEffect(() => {
-		if (!loaded) return;
-		localStorage.setItem(
-			'shift_drift_modSettings',
-			JSON.stringify(modSettings)
-		);
-	}, [modSettings, loaded]);
-
-	useEffect(() => {
-		if (!loaded) return;
 		localStorage.setItem('shift_drift_missions', JSON.stringify(missions));
 	}, [missions, loaded]);
-
-	useEffect(() => {
-		if (!loaded) return;
-		const manualTuning = {
-			finalDriveRatio: playerTuning.finalDriveRatio,
-			gearRatios: playerTuning.gearRatios,
-			torqueCurve: playerTuning.torqueCurve,
-		};
-		localStorage.setItem(
-			'shift_drift_manual_tuning',
-			JSON.stringify(manualTuning)
-		);
-	}, [playerTuning, loaded]);
 
 	useEffect(() => {
 		if (!loaded) return;
@@ -161,6 +194,28 @@ export const useGamePersistence = (
 			JSON.stringify(previousDynoHistory)
 		);
 	}, [previousDynoHistory, loaded]);
+
+	// Save Garage & Current Index
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem('shift_drift_garage', JSON.stringify(garage));
+	}, [garage, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_currentCarIndex',
+			currentCarIndex.toString()
+		);
+	}, [currentCarIndex, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_undergroundLevel',
+			undergroundLevel.toString()
+		);
+	}, [undergroundLevel, loaded]);
 
 	return loaded;
 };

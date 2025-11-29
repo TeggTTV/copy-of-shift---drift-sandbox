@@ -9,6 +9,7 @@ interface VersusScreenProps {
 	onBack: () => void;
 	ownedMods: string[];
 	dynoHistory: { rpm: number; torque: number; hp: number }[];
+	money: number;
 }
 
 const VersusScreen: React.FC<VersusScreenProps> = ({
@@ -18,8 +19,11 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	onBack,
 	ownedMods,
 	dynoHistory,
+	money,
 }) => {
 	const { play } = useSound();
+	const [wager, setWager] = React.useState(0);
+
 	const CarModel = ({
 		color,
 		tuning,
@@ -317,12 +321,32 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 				>
 					&lt; BACK
 				</button>
+
+				{/* Betting Controls */}
+				<div className="flex flex-col items-center gap-2">
+					<div className="text-green-400 text-xs pixel-text">
+						WAGER: ${wager}
+					</div>
+					<input
+						type="range"
+						min="0"
+						max={money}
+						step="100"
+						value={wager}
+						onChange={(e) => setWager(parseInt(e.target.value))}
+						className="w-48 accent-green-500"
+					/>
+					<div className="text-gray-500 text-[10px]">
+						MAX: ${money}
+					</div>
+				</div>
+
 				<div className="flex items-center gap-6">
 					<div className="text-gray-500 text-xs">
 						Make sure your tune is ready...
 					</div>
 					<button
-						onClick={onConfirmRace}
+						onClick={() => onConfirmRace(wager)}
 						className="pixel-btn bg-white text-black px-12 py-4 text-xl hover:bg-green-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]"
 						style={{ backgroundColor: '#fff', color: '#000' }}
 					>

@@ -40,17 +40,14 @@ export const ModTreeVisuals = ({
 		const minY = Math.min(...ys);
 		const maxY = Math.max(...ys);
 
-		const treeWidth = (maxX - minX) * gridSize + nodeWidth;
-		const treeHeight = (maxY - minY) * gridSize + nodeHeight;
-		const treeCenterX = minX * gridSize + treeWidth / 2;
-		const treeCenterY = minY * gridSize + treeHeight / 2;
-
-		const { clientWidth, clientHeight } = containerRef.current;
+		// Position top-left of the tree at top-left of screen with some padding
+		const padding = 50;
+		const initialScale = 0.8;
 
 		setTransform({
-			x: clientWidth / 2 - treeCenterX,
-			y: clientHeight / 2 - treeCenterY,
-			scale: 0.8, // Start slightly zoomed out to see more
+			x: padding - minX * gridSize * initialScale,
+			y: padding - minY * gridSize * initialScale,
+			scale: initialScale,
 		});
 	}, []);
 

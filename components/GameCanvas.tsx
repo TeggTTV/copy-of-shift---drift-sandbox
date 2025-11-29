@@ -90,6 +90,15 @@ const GameCanvas: React.FC = () => {
 		return BASE_TUNING;
 	});
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
+	const pendingTuningRef = useRef<Partial<TuningState> | null>(null);
+	const previousCarIndexRef = useRef(0);
+
+	// Garage State
+	const [garage, setGarage] = useState<SavedTune[]>([]);
+	const [currentCarIndex, setCurrentCarIndex] = useState(0);
+
+	// Underground State
+	const [undergroundLevel, setUndergroundLevel] = useState(1);
 
 	// Persistence Hook
 	const isGameLoaded = useGamePersistence(
@@ -108,22 +117,88 @@ const GameCanvas: React.FC = () => {
 		dynoHistory,
 		setDynoHistory,
 		previousDynoHistory,
-		setPreviousDynoHistory
+		setPreviousDynoHistory,
+		garage,
+		setGarage,
+		currentCarIndex,
+		setCurrentCarIndex,
+		undergroundLevel,
+		setUndergroundLevel
 	);
+
+	// Sync active car state to garage whenever it changes
+	useEffect(() => {
+		if (!isGameLoaded) return;
+		if (garage.length === 0) return;
+
+		// Prevent syncing if we just switched cars
+		if (previousCarIndexRef.current !== currentCarIndex) {
+			previousCarIndexRef.current = currentCarIndex;
+			return;
+		}
+
+		const currentCar = garage[currentCarIndex];
+		if (!currentCar) return;
+
+		// Check if active state differs from saved state
+		const hasChanged =
+			JSON.stringify(currentCar.ownedMods) !==
+				JSON.stringify(ownedMods) ||
+			JSON.stringify(currentCar.disabledMods) !==
+				JSON.stringify(disabledMods) ||
+			JSON.stringify(currentCar.modSettings) !==
+				JSON.stringify(modSettings) ||
+			JSON.stringify(currentCar.manualTuning) !==
+				JSON.stringify({
+					finalDriveRatio: playerTuning.finalDriveRatio,
+					gearRatios: playerTuning.gearRatios,
+					torqueCurve: playerTuning.torqueCurve,
+				});
+
+		if (hasChanged) {
+			const updatedGarage = [...garage];
+			updatedGarage[currentCarIndex] = {
+				...currentCar,
+				ownedMods,
+				disabledMods,
+				modSettings,
+				manualTuning: {
+					finalDriveRatio: playerTuning.finalDriveRatio,
+					gearRatios: playerTuning.gearRatios,
+					torqueCurve: playerTuning.torqueCurve,
+				},
+			};
+			setGarage(updatedGarage);
+		}
+	}, [
+		isGameLoaded,
+		ownedMods,
+		disabledMods,
+		modSettings,
+		playerTuning.finalDriveRatio,
+		playerTuning.gearRatios,
+		playerTuning.torqueCurve,
+		currentCarIndex,
+	]);
+
+	// Load active car when index changes
+	useEffect(() => {
+		if (!isGameLoaded) return;
+		if (garage.length === 0) return;
+		const car = garage[currentCarIndex];
+		if (car) {
+			console.log('🚗 Switching to car:', car.name);
+			setOwnedMods(car.ownedMods);
+			setDisabledMods(car.disabledMods);
+			setModSettings(car.modSettings);
+			pendingTuningRef.current = car.manualTuning;
+		}
+	}, [currentCarIndex, isGameLoaded, garage]);
 
 	// Current Mission
 	const missionRef = useRef<Mission | null>(null);
 
 	// Ghost Racing Refs
-	const currentGhostRecording = useRef<GhostFrame[]>([]);
-	const activeGhost = useRef<GhostFrame[] | null>(null);
-
-	// Race Logic State
-	const [raceStatus, setRaceStatus] = useState<RaceStatus>('IDLE');
-	const raceStartTimeRef = useRef<number>(0);
-	const countdownStartRef = useRef<number>(0);
-
-	// Physics States
 	const playerRef = useRef<CarState>({
 		y: 0,
 		velocity: 0,
@@ -153,6 +228,11 @@ const GameCanvas: React.FC = () => {
 	const shiftDebounce = useRef(false);
 	const lastTimeRef = useRef<number>(0);
 	const lastGearRef = useRef<number>(0);
+	const currentWagerRef = useRef(0);
+	const countdownStartRef = useRef(0);
+	const raceStartTimeRef = useRef(0);
+	const activeGhost = useRef<GhostFrame[] | null>(null);
+	const currentGhostRecording = useRef<GhostFrame[]>([]);
 
 	// State for React UI
 	const [uiState, setUiState] = useState<{
@@ -162,6 +242,7 @@ const GameCanvas: React.FC = () => {
 		player: playerRef.current,
 		opponent: opponentRef.current,
 	});
+	const [raceStatus, setRaceStatus] = useState<RaceStatus>('IDLE');
 	const [raceResult, setRaceResult] = useState<'WIN' | 'LOSS' | null>(null);
 	const [playerFinishTime, setPlayerFinishTime] = useState<number>(0);
 	const [opponentFinishTime, setOpponentFinishTime] = useState<number>(0);
@@ -327,7 +408,6 @@ const GameCanvas: React.FC = () => {
 	}, [playerTuning]);
 
 	// Recalculate playerTuning when owned mods change
-	const pendingTuningRef = useRef<Partial<TuningState> | null>(null);
 
 	useEffect(() => {
 		console.log('🔧 Recalculating tuning for mods:', ownedMods);
@@ -372,9 +452,11 @@ const GameCanvas: React.FC = () => {
 	const handleLoadTune = useCallback(
 		(tune: SavedTune) => {
 			pendingTuningRef.current = tune.manualTuning;
-			setOwnedMods(tune.ownedMods);
-			setDisabledMods(tune.disabledMods);
-			setModSettings(tune.modSettings);
+			setOwnedMods(Array.isArray(tune.ownedMods) ? tune.ownedMods : []);
+			setDisabledMods(
+				Array.isArray(tune.disabledMods) ? tune.disabledMods : []
+			);
+			setModSettings(tune.modSettings || {});
 		},
 		[setOwnedMods, setDisabledMods, setModSettings]
 	);
@@ -479,47 +561,34 @@ const GameCanvas: React.FC = () => {
 		prevOwnedModsRef.current = ownedMods;
 	}, [money, ownedMods, showToast, isGameLoaded, seenAffordableMods]);
 
-	const startMission = (mission: Mission) => {
-		missionRef.current = mission;
+	const startMission = (m: Mission) => {
+		missionRef.current = m;
+		setRaceResult(null); // Reset result
+		// Load ghost if available
+		if (m.bestGhost) {
+			activeGhost.current = m.bestGhost;
+		} else {
+			activeGhost.current = null;
+		}
 		setPhase('VERSUS');
 	};
 
-	const confirmStartRace = () => {
+	const confirmStartRace = (wager: number = 0) => {
 		const mission = missionRef.current;
 		if (!mission) return;
 
-		// Reset Cars
-		playerRef.current = {
-			y: 0,
-			velocity: 0,
-			rpm: 1000,
-			gear: 0,
-			finished: false,
-			finishTime: 0,
-		};
-		opponentRef.current = {
-			y: 0,
-			velocity: 0,
-			rpm: 1000,
-			gear: 0,
-			finished: false,
-			finishTime: 0,
-		};
+		currentWagerRef.current = wager;
+		setRaceResult(null); // Reset result
 
-		raceStartTimeRef.current = 0;
-		setRaceResult(null);
-		setPlayerFinishTime(0);
-		setOpponentFinishTime(0);
+		// Deduct wager
+		if (wager > 0) {
+			if (money < wager) {
+				showToast('Not enough money!', 'WARNING');
+				return;
+			}
+			setMoney((m) => m - wager);
+		}
 
-		// Reset Ghost Racing
-		currentGhostRecording.current = [];
-		activeGhost.current = mission.bestGhost || null;
-
-		// Stop any existing audio
-		audioRef.current.stop();
-		opponentAudioRef.current.stop();
-
-		// Reset Audio Config (but don't start playing yet)
 		audioRef.current.setConfiguration(
 			playerTuning.cylinders,
 			playerTuning.exhaustOpenness,
@@ -544,6 +613,34 @@ const GameCanvas: React.FC = () => {
 		setRaceStatus('COUNTDOWN');
 		setCountdownNum(3);
 		countdownStartRef.current = performance.now();
+		raceStartTimeRef.current = 0;
+		currentGhostRecording.current = [];
+
+		// Reset Car States
+		playerRef.current = {
+			y: 0,
+			velocity: 0,
+			rpm: 1000,
+			gear: 0,
+			finished: false,
+			finishTime: 0,
+		};
+		opponentRef.current = {
+			y: 0,
+			velocity: 0,
+			rpm: 1000,
+			gear: 0,
+			finished: false,
+			finishTime: 0,
+		};
+		inputsRef.current = {
+			gas: false,
+			shiftUp: false,
+			shiftDown: false,
+			clutch: false,
+		};
+		lastGearRef.current = 0;
+		shiftDebounce.current = false;
 	};
 
 	// --- Main Loop ---
@@ -657,7 +754,34 @@ const GameCanvas: React.FC = () => {
 					) {
 						setRaceResult('WIN');
 						setRaceStatus('FINISHED');
-						setMoney((prev) => prev + m.payout);
+						setMoney(
+							(prev) => prev + m.payout + currentWagerRef.current
+						);
+
+						// Pink Slip Logic
+						if (m.rewardCar) {
+							const alreadyOwned = garage.some(
+								(c) => c.id === m.rewardCar!.id
+							);
+							if (!alreadyOwned) {
+								setGarage((prev) => [...prev, m.rewardCar!]);
+								showToast(
+									`YOU WON A NEW CAR: ${m.rewardCar!.name}!`,
+									'UNLOCK'
+								);
+							} else {
+								showToast(
+									`You already own the ${m.rewardCar!.name}.`,
+									'INFO'
+								);
+							}
+						}
+
+						// Underground Progression
+						if (m.difficulty === 'UNDERGROUND') {
+							setUndergroundLevel((prev) => prev + 1);
+							showToast('UNDERGROUND RANK INCREASED!', 'UNLOCK');
+						}
 
 						// Update Best Time
 						const currentMissions = [...missions];
@@ -686,6 +810,9 @@ const GameCanvas: React.FC = () => {
 					) {
 						setRaceResult('LOSS');
 						setRaceStatus('FINISHED');
+						setMoney((prev) =>
+							Math.max(0, prev - currentWagerRef.current)
+						);
 						audioRef.current.stop();
 						opponentAudioRef.current.stop();
 					}
@@ -914,7 +1041,7 @@ const GameCanvas: React.FC = () => {
 
 		animId = requestAnimationFrame(render);
 		return () => cancelAnimationFrame(animId);
-	}, [phase, raceStatus, missions]);
+	}, [phase, raceStatus, missions, garage]);
 
 	return (
 		<div className="relative w-full h-full bg-black overflow-hidden font-sans select-none">
@@ -989,6 +1116,7 @@ const GameCanvas: React.FC = () => {
 							onClick={() => {
 								audioRef.current.stop();
 								opponentAudioRef.current.stop();
+								setRaceResult(null);
 								setPhase('MISSION_SELECT');
 							}}
 							className="px-8 py-4 bg-gray-800 text-white font-bold text-xl hover:bg-gray-700 uppercase"
@@ -1032,6 +1160,11 @@ const GameCanvas: React.FC = () => {
 						setDynoHistory={setDynoHistory}
 						previousDynoHistory={previousDynoHistory}
 						onDynoRunStart={handleDynoRunStart}
+						garage={garage}
+						currentCarIndex={currentCarIndex}
+						setCurrentCarIndex={setCurrentCarIndex}
+						undergroundLevel={undergroundLevel}
+						setUndergroundLevel={setUndergroundLevel}
 					/>
 				</SoundProvider>
 			)}

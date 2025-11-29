@@ -1059,6 +1059,60 @@ export const MISSIONS: Mission[] = [
 			},
 		},
 	},
+	{
+		id: 6,
+		name: 'BOSS BATTLE: The Baron',
+		description: 'Win and take his car.',
+		payout: 100000,
+		difficulty: 'BOSS',
+		distance: 804,
+		opponent: {
+			name: 'The Baron (Pink Slip)',
+			difficulty: 1.0,
+			color: '#a855f7',
+			tuning: {
+				...BASE_TUNING,
+				maxTorque: 1400,
+				mass: 1100,
+				tireGrip: 3.5,
+				finalDriveRatio: 3.2,
+				turboIntensity: 1.5,
+			},
+		},
+		rewardCar: {
+			id: 'boss_car_1',
+			name: "Baron's Beast",
+			date: Date.now(),
+			ownedMods: [
+				'ecu1',
+				'turbo_kit',
+				'big_turbo',
+				'intercooler',
+				'tires3',
+				'drag_slicks',
+				'weight3',
+				'carbon_panels',
+				'sequential',
+				'paint_purple',
+			],
+			disabledMods: [],
+			modSettings: {
+				big_turbo: { boost_pressure: 3.0 },
+			},
+			manualTuning: {
+				finalDriveRatio: 3.2,
+				gearRatios: {
+					0: 0,
+					1: 3.2,
+					2: 2.1,
+					3: 1.6,
+					4: 1.2,
+					5: 1.0,
+					6: 0.8,
+				},
+			},
+		},
+	},
 ];
 
 export const CONTROLS = {

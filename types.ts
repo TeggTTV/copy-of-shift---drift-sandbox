@@ -101,6 +101,7 @@ export interface TuningState {
 
 	// Visuals
 	color: string;
+	name?: string; // Car nickname
 }
 
 export interface CarState {
@@ -118,19 +119,19 @@ export interface CarState {
 	lateralVelocity?: number;
 }
 
-export interface Opponent {
-	name: string;
-	difficulty: number;
-	color: string;
-	tuning: TuningState;
-}
-
 export interface GhostFrame {
 	time: number;
 	y: number;
 	velocity: number;
 	rpm: number;
 	gear: number;
+}
+
+export interface Opponent {
+	name: string;
+	difficulty: number;
+	color: string;
+	tuning: TuningState;
 }
 
 export interface Mission {
@@ -143,6 +144,7 @@ export interface Mission {
 	opponent: Opponent;
 	bestTime?: number; // Persisted best time
 	bestGhost?: GhostFrame[]; // Recorded ghost data
+	rewardCar?: SavedTune; // Car awarded for winning
 }
 
 export type ToastType =

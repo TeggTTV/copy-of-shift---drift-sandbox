@@ -34,6 +34,10 @@ const GameMenu = ({
 	setDynoHistory,
 	previousDynoHistory,
 	onDynoRunStart,
+	garage,
+	currentCarIndex,
+	setCurrentCarIndex,
+	undergroundLevel,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -44,7 +48,7 @@ const GameMenu = ({
 	setOwnedMods: (mod: ModNode) => void;
 	missions: Mission[];
 	onStartMission: (m: Mission) => void;
-	onConfirmRace?: () => void;
+	onConfirmRace?: (wager?: number) => void;
 	selectedMission?: Mission | null;
 	disabledMods: string[];
 	setDisabledMods: React.Dispatch<React.SetStateAction<string[]>>;
@@ -64,11 +68,16 @@ const GameMenu = ({
 	>;
 	previousDynoHistory: { rpm: number; torque: number; hp: number }[];
 	onDynoRunStart: () => void;
+	garage: SavedTune[];
+	currentCarIndex: number;
+	setCurrentCarIndex: (index: number) => void;
+	undergroundLevel: number;
+	setUndergroundLevel: (level: number) => void;
 }) => {
 	const { play } = useSound();
-	const [activeTab, setActiveTab] = useState<'UPGRADES' | 'TUNING' | 'DYNO'>(
-		'UPGRADES'
-	);
+	const [activeTab, setActiveTab] = useState<
+		'UPGRADES' | 'TUNING' | 'DYNO' | 'CARS'
+	>('UPGRADES');
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
 
 	// Escape key navigation
@@ -155,9 +164,9 @@ const GameMenu = ({
 			<VersusScreen
 				playerTuning={playerTuning}
 				mission={selectedMission}
-				onConfirmRace={() => {
+				onConfirmRace={(wager) => {
 					// play('confirm');
-					if (onConfirmRace) onConfirmRace();
+					if (onConfirmRace) onConfirmRace(wager);
 				}}
 				onBack={() => {
 					// play('back');
@@ -165,6 +174,7 @@ const GameMenu = ({
 				}}
 				ownedMods={ownedMods}
 				dynoHistory={dynoHistory}
+				money={money}
 			/>
 		);
 	}
@@ -237,6 +247,8 @@ const GameMenu = ({
 					// else play('click');
 					setPhase(p);
 				}}
+				undergroundLevel={undergroundLevel}
+				garage={garage}
 			/>
 		);
 	}
@@ -264,7 +276,7 @@ const GameMenu = ({
 					</div>
 
 					<div className="flex-1 flex overflow-hidden">
-						<div className="w-1/3 bg-black/30 p-6 border-r-4 border-gray-800 overflow-y-auto custom-scrollbar">
+						<div className="w-1/3 bg-black/30 p-6 border-r-4 border-gray-800 overflow-y-auto no-scrollbar">
 							<h3 className="text-sm text-gray-300 mb-4 pixel-text">
 								DYNO GRAPH
 							</h3>
@@ -279,10 +291,7 @@ const GameMenu = ({
 
 							<div className="flex gap-2 mb-4">
 								<button
-									onClick={() => {
-										// play('click');
-										setActiveTab('UPGRADES');
-									}}
+									onClick={() => setActiveTab('UPGRADES')}
 									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'UPGRADES'
 											? ''
@@ -295,13 +304,10 @@ const GameMenu = ({
 												: '#374151',
 									}}
 								>
-									Upgrades
+									Parts
 								</button>
 								<button
-									onClick={() => {
-										// play('click');
-										setActiveTab('TUNING');
-									}}
+									onClick={() => setActiveTab('TUNING')}
 									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'TUNING'
 											? ''
@@ -314,13 +320,10 @@ const GameMenu = ({
 												: '#374151',
 									}}
 								>
-									Tuning
+									Tune
 								</button>
 								<button
-									onClick={() => {
-										// play('click');
-										setActiveTab('DYNO');
-									}}
+									onClick={() => setActiveTab('DYNO')}
 									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'DYNO'
 											? ''
@@ -334,6 +337,22 @@ const GameMenu = ({
 									}}
 								>
 									Dyno
+								</button>
+								<button
+									onClick={() => setActiveTab('CARS')}
+									className={`flex-1 py-3 text-[10px] pixel-btn ${
+										activeTab === 'CARS'
+											? ''
+											: 'bg-gray-700 opacity-50'
+									}`}
+									style={{
+										backgroundColor:
+											activeTab === 'CARS'
+												? undefined
+												: '#374151',
+									}}
+								>
+									Cars
 								</button>
 							</div>
 
@@ -357,17 +376,56 @@ const GameMenu = ({
 									setPlayerTuning={setPlayerTuning}
 									onLoadTune={onLoadTune}
 								/>
-							) : (
+							) : activeTab === 'DYNO' ? (
 								<DynoTab
 									playerTuning={playerTuning}
 									onUpdateHistory={setDynoHistory}
 									onRunStart={onDynoRunStart}
 								/>
+							) : (
+								<div className="flex flex-col gap-4">
+									{garage.map((car, index) => (
+										<div
+											key={car.id + index}
+											className={`pixel-panel p-4 cursor-pointer ${
+												index === currentCarIndex
+													? 'border-indigo-500 bg-indigo-900/20'
+													: 'hover:border-gray-500'
+											}`}
+											onClick={() =>
+												setCurrentCarIndex(index)
+											}
+										>
+											<div className="flex justify-between items-center mb-2">
+												<span className="text-white pixel-text text-sm">
+													{car.name}
+												</span>
+												{index === currentCarIndex && (
+													<span className="text-[10px] text-indigo-400 bg-indigo-900/50 px-2 py-1 rounded">
+														ACTIVE
+													</span>
+												)}
+											</div>
+											<div className="text-[10px] text-gray-500">
+												Mods: {car.ownedMods.length} |
+												Date:{' '}
+												{new Date(
+													car.date
+												).toLocaleDateString()}
+											</div>
+										</div>
+									))}
+									{garage.length === 0 && (
+										<div className="text-gray-500 text-center text-xs py-8">
+											No cars in garage.
+										</div>
+									)}
+								</div>
 							)}
 						</div>
 
 						<div
-							className="flex-1 relative bg-neutral-900 overflow-auto cursor-grab active:cursor-grabbing p-10"
+							className="flex-1 relative bg-neutral-900 overflow-hidden cursor-grab active:cursor-grabbing p-10"
 							style={{
 								scrollbarWidth: 'none',
 								msOverflowStyle: 'none',

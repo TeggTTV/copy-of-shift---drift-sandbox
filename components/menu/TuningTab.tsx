@@ -327,42 +327,71 @@ const TuningTab: React.FC<TuningTabProps> = ({
 								No saved tunes
 							</div>
 						) : (
-							savedTunes.map((tune) => (
-								<div
-									key={tune.id}
-									className="flex items-center justify-between bg-gray-900/50 p-2 rounded border border-gray-800"
-								>
-									<div className="flex-1">
-										<div className="text-xs font-bold text-gray-300">
-											{tune.name}
+							savedTunes.map((tune) => {
+								const missingMods = (
+									tune.ownedMods || []
+								).filter((id) => !ownedMods.includes(id));
+								const isLoadable = missingMods.length === 0;
+
+								return (
+									<div
+										key={tune.id}
+										className="flex items-center justify-between bg-gray-900/50 p-2 rounded border border-gray-800"
+									>
+										<div className="flex-1">
+											<div className="text-xs font-bold text-gray-300">
+												{tune.name}
+											</div>
+											<div className="text-[10px] text-gray-600">
+												{new Date(
+													tune.date
+												).toLocaleDateString()}
+											</div>
+											{!isLoadable && (
+												<div className="text-[10px] text-red-500 mt-1">
+													Missing:{' '}
+													{missingMods
+														.map(
+															(id) =>
+																MOD_TREE.find(
+																	(m) =>
+																		m.id ===
+																		id
+																)?.name || id
+														)
+														.join(', ')}
+												</div>
+											)}
 										</div>
-										<div className="text-[10px] text-gray-600">
-											{new Date(
-												tune.date
-											).toLocaleDateString()}
+										<div className="flex gap-2">
+											<button
+												onClick={() => {
+													if (isLoadable) {
+														play('confirm');
+														onLoadTune(tune);
+													}
+												}}
+												disabled={!isLoadable}
+												className={`px-2 py-1 text-[10px] uppercase rounded border ${
+													isLoadable
+														? 'bg-green-900/50 text-green-400 border-green-900 hover:bg-green-900'
+														: 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
+												}`}
+											>
+												Load
+											</button>
+											<button
+												onClick={() =>
+													handleDeleteTune(tune.id)
+												}
+												className="px-2 py-1 bg-red-900/50 text-red-400 text-[10px] uppercase rounded border border-red-900 hover:bg-red-900"
+											>
+												Del
+											</button>
 										</div>
 									</div>
-									<div className="flex gap-2">
-										<button
-											onClick={() => {
-												play('confirm');
-												onLoadTune(tune);
-											}}
-											className="px-2 py-1 bg-green-900/50 text-green-400 text-[10px] uppercase rounded border border-green-900 hover:bg-green-900"
-										>
-											Load
-										</button>
-										<button
-											onClick={() =>
-												handleDeleteTune(tune.id)
-											}
-											className="px-2 py-1 bg-red-900/50 text-red-400 text-[10px] uppercase rounded border border-red-900 hover:bg-red-900"
-										>
-											Del
-										</button>
-									</div>
-								</div>
-							))
+								);
+							})
 						)}
 					</div>
 				</div>
