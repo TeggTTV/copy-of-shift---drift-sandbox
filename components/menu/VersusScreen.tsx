@@ -215,10 +215,10 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	const oGrip = mission.opponent.tuning.tireGrip;
 
 	return (
-		<div className="absolute inset-0 bg-zinc-950 flex flex-col z-50 animate-in fade-in duration-500">
+		<div className="absolute inset-0 bg-zinc-950 flex flex-col z-50 animate-in fade-in duration-500 font-pixel">
 			{/* Header */}
-			<div className="h-24 flex items-center justify-center relative bg-black/50 border-b border-gray-800">
-				<div className="text-6xl font-black italic tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+			<div className="h-24 flex items-center justify-center relative bg-black/50 border-b-4 border-gray-800">
+				<div className="text-4xl text-white pixel-text drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
 					VS
 				</div>
 			</div>
@@ -226,8 +226,8 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 			{/* Main Content */}
 			<div className="flex-1 flex relative">
 				{/* Opponent Side (Left) */}
-				<div className="flex-1 bg-gradient-to-br from-red-950/20 to-black p-8 flex flex-col items-center justify-center border-r border-gray-800 relative overflow-hidden">
-					<div className="absolute top-4 left-4 text-red-500 font-black text-4xl opacity-20 uppercase tracking-tighter">
+				<div className="flex-1 bg-gradient-to-br from-red-950/20 to-black p-8 flex flex-col items-center justify-center border-r-4 border-gray-800 relative overflow-hidden">
+					<div className="absolute top-4 left-4 text-red-500 text-2xl opacity-20 uppercase pixel-text">
 						Opponent
 					</div>
 					<div className="w-full max-w-md">
@@ -237,10 +237,10 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 							isOpponent
 						/>
 						<div className="text-center mt-8">
-							<h2 className="text-3xl font-bold text-red-500 uppercase tracking-tight mb-1">
+							<h2 className="text-2xl text-red-500 uppercase mb-1 pixel-text">
 								{mission.opponent.name}
 							</h2>
-							<div className="text-gray-500 text-sm font-mono">
+							<div className="text-gray-500 text-xs">
 								DIFFICULTY: {mission.difficulty}
 							</div>
 						</div>
@@ -249,7 +249,7 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 
 				{/* Player Side (Right) */}
 				<div className="flex-1 bg-gradient-to-bl from-indigo-950/20 to-black p-8 flex flex-col items-center justify-center relative overflow-hidden">
-					<div className="absolute top-4 right-4 text-indigo-500 font-black text-4xl opacity-20 uppercase tracking-tighter">
+					<div className="absolute top-4 right-4 text-indigo-500 text-2xl opacity-20 uppercase pixel-text">
 						You
 					</div>
 					<div className="w-full max-w-md">
@@ -259,10 +259,10 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 							ownedMods={ownedMods}
 						/>
 						<div className="text-center mt-8">
-							<h2 className="text-3xl font-bold text-indigo-500 uppercase tracking-tight mb-1">
+							<h2 className="text-2xl text-indigo-500 uppercase mb-1 pixel-text">
 								Player
 							</h2>
-							<div className="text-gray-500 text-sm font-mono">
+							<div className="text-gray-500 text-xs">
 								READY TO RACE
 							</div>
 						</div>
@@ -271,7 +271,7 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 
 				{/* Stats Overlay (Center) */}
 				<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-					<div className="bg-black/80 backdrop-blur-sm border border-gray-800 rounded-xl p-6 w-[500px] shadow-2xl">
+					<div className="bg-black/90 pixel-panel p-6 w-[500px] shadow-2xl">
 						<StatRow
 							label="Power"
 							pVal={pPower}
@@ -310,20 +310,21 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 			</div>
 
 			{/* Footer Actions */}
-			<div className="h-24 bg-black border-t border-gray-800 flex items-center justify-between px-12 gap-6">
+			<div className="h-24 bg-black border-t-4 border-gray-800 flex items-center justify-between px-12 gap-6">
 				<button
 					onClick={onBack}
-					className="text-gray-400 hover:text-white font-bold text-xl"
+					className="text-gray-400 hover:text-white text-sm"
 				>
-					&larr; BACK
+					&lt; BACK
 				</button>
 				<div className="flex items-center gap-6">
-					<div className="text-gray-500 text-sm">
+					<div className="text-gray-500 text-xs">
 						Make sure your tune is ready...
 					</div>
 					<button
 						onClick={onConfirmRace}
-						className="bg-white text-black px-12 py-4 text-2xl font-black italic hover:bg-green-400 hover:scale-105 transition-all skew-x-[-10deg] shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+						className="pixel-btn bg-white text-black px-12 py-4 text-xl hover:bg-green-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+						style={{ backgroundColor: '#fff', color: '#000' }}
 					>
 						START RACE
 					</button>

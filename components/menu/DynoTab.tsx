@@ -19,12 +19,25 @@ const DynoTab: React.FC<DynoTabProps> = ({
 	const [rpm, setRpm] = useState(0);
 	const [peakPower, setPeakPower] = useState(0);
 	const [peakTorque, setPeakTorque] = useState(0);
+	const [estimates, setEstimates] = useState<{
+		zeroToSixty: number;
+		quarterMileTime: number;
+		quarterMileSpeed: number;
+	} | null>(null);
 
 	const animationRef = useRef<number>();
 	const startTimeRef = useRef<number>(0);
 	const historyRef = useRef<{ rpm: number; torque: number; hp: number }[]>(
 		[]
 	);
+
+	useEffect(() => {
+		// Calculate estimates whenever tuning changes
+		import('../../utils/performance').then(({ calculatePerformance }) => {
+			const stats = calculatePerformance(playerTuning);
+			setEstimates(stats);
+		});
+	}, [playerTuning]);
 
 	const runDyno = () => {
 		if (isRunning) return;
@@ -85,17 +98,13 @@ const DynoTab: React.FC<DynoTabProps> = ({
 	}, []);
 
 	return (
-		<div className="flex flex-col h-full text-gray-300 space-y-4">
-			<div className="bg-black/40 p-4 rounded border border-gray-700">
+		<div className="flex flex-col h-full text-gray-300 space-y-4 font-pixel">
+			<div className="pixel-panel p-4">
 				<div className="flex justify-between items-end mb-2">
-					<span className="text-sm font-mono text-gray-400">
-						CURRENT RPM
-					</span>
-					<span className="text-2xl font-mono font-bold text-white">
-						{rpm}
-					</span>
+					<span className="text-xs text-gray-400">CURRENT RPM</span>
+					<span className="text-xl text-white">{rpm}</span>
 				</div>
-				<div className="w-full bg-gray-800 h-2 rounded overflow-hidden">
+				<div className="w-full bg-gray-800 h-4 border-2 border-gray-600 relative">
 					<div
 						className="h-full bg-indigo-500 transition-all duration-75"
 						style={{
@@ -106,42 +115,80 @@ const DynoTab: React.FC<DynoTabProps> = ({
 			</div>
 
 			<div className="grid grid-cols-2 gap-4">
-				<div className="bg-black/40 p-3 rounded border border-gray-700">
-					<div className="text-xs text-gray-500 uppercase">
-						Peak Power
+				<div className="pixel-panel p-4">
+					<div className="text-[10px] text-gray-500 mb-1">
+						PEAK POWER
 					</div>
-					<div className="text-xl font-bold text-green-400">
-						{peakPower.toFixed(1)}{' '}
-						<span className="text-sm text-gray-500">HP</span>
-					</div>
-				</div>
-				<div className="bg-black/40 p-3 rounded border border-gray-700">
-					<div className="text-xs text-gray-500 uppercase">
-						Peak Torque
-					</div>
-					<div className="text-xl font-bold text-blue-400">
-						{peakTorque.toFixed(1)}{' '}
-						<span className="text-sm text-gray-500">Nm</span>
+					<div className="text-xl text-blue-500">
+						{Math.round(peakPower)}{' '}
+						<span className="text-xs">HP</span>
 					</div>
 				</div>
+				<div className="pixel-panel p-4">
+					<div className="text-[10px] text-gray-500 mb-1">
+						PEAK TORQUE
+					</div>
+					<div className="text-xl text-red-500">
+						{Math.round(peakTorque)}{' '}
+						<span className="text-xs">Nm</span>
+					</div>
+				</div>
+			</div>
+
+			{/* Performance Estimates Panel */}
+			<div className="pixel-panel p-4">
+				<h3 className="text-xs text-gray-400 mb-3 border-b-2 border-gray-700 pb-2">
+					PERFORMANCE ESTIMATES
+				</h3>
+				{estimates ? (
+					<div className="grid grid-cols-3 gap-2 text-center">
+						<div>
+							<div className="text-[10px] text-gray-500 mb-1">
+								0-60 MPH
+							</div>
+							<div className="text-sm text-white">
+								{estimates.zeroToSixty > 0
+									? estimates.zeroToSixty + 's'
+									: '---'}
+							</div>
+						</div>
+						<div>
+							<div className="text-[10px] text-gray-500 mb-1">
+								1/4 MILE
+							</div>
+							<div className="text-sm text-white">
+								{estimates.quarterMileTime > 0
+									? estimates.quarterMileTime + 's'
+									: '---'}
+							</div>
+						</div>
+						<div>
+							<div className="text-[10px] text-gray-500 mb-1">
+								TRAP SPEED
+							</div>
+							<div className="text-sm text-white">
+								{estimates.quarterMileSpeed > 0
+									? estimates.quarterMileSpeed + ' mph'
+									: '---'}
+							</div>
+						</div>
+					</div>
+				) : (
+					<div className="text-center text-gray-600 italic text-[10px]">
+						Calculating...
+					</div>
+				)}
 			</div>
 
 			<button
 				onClick={runDyno}
 				disabled={isRunning}
-				className={`w-full py-4 font-bold text-lg uppercase tracking-wider rounded transition-all ${
-					isRunning
-						? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-						: 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-900/20'
+				className={`w-full pixel-btn ${
+					isRunning ? 'opacity-50 cursor-not-allowed' : ''
 				}`}
 			>
-				{isRunning ? 'Running Dyno...' : 'Start Dyno Run'}
+				{isRunning ? 'Running...' : 'Start Run'}
 			</button>
-
-			<div className="text-xs text-gray-500 mt-4 text-center">
-				Run a dyno test to verify your engine's power curve and peak
-				performance.
-			</div>
 		</div>
 	);
 };

@@ -171,21 +171,21 @@ const GameMenu = ({
 
 	if (phase === 'MAP') {
 		return (
-			<div className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center text-white z-50">
-				<h1 className="text-6xl font-black italic tracking-tighter text-indigo-500 mb-2">
-					Drag
+			<div className="absolute inset-0 bg-zinc-900 flex flex-col items-center justify-center text-white z-50 font-pixel">
+				<h1 className="text-4xl md:text-6xl text-indigo-500 mb-4 pixel-text tracking-widest">
+					DRAG
 				</h1>
-				<p className="text-gray-400 mb-12 font-mono">
+				<p className="text-gray-400 mb-12 text-xs md:text-sm">
 					VERTICAL DRAG RACING SIMULATOR
 				</p>
 
-				<div className="flex flex-col gap-4 w-64">
+				<div className="flex flex-col gap-6 w-64">
 					<button
 						onClick={() => {
 							// play('click');
 							setPhase('MISSION_SELECT');
 						}}
-						className="py-4 bg-white text-black font-bold text-xl hover:bg-indigo-400 hover:scale-105 transition-all skew-x-[-10deg]"
+						className="pixel-btn text-center py-4 text-lg"
 					>
 						RACE
 					</button>
@@ -194,7 +194,8 @@ const GameMenu = ({
 							// play('click');
 							setPhase('GARAGE');
 						}}
-						className="py-4 bg-gray-800 text-white font-bold text-xl border border-gray-700 hover:border-indigo-500 hover:text-indigo-400 transition-all skew-x-[-10deg]"
+						className="pixel-btn text-center py-4 text-lg bg-gray-700"
+						style={{ backgroundColor: '#4b5563' }}
 					>
 						GARAGE
 					</button>
@@ -212,7 +213,8 @@ const GameMenu = ({
 								'INFO'
 							);
 						}}
-						className="py-2 bg-black/50 text-gray-400 font-mono text-sm border border-gray-800 hover:text-white hover:border-gray-500 transition-all"
+						className="pixel-btn text-[10px] py-2 bg-black border-gray-600"
+						style={{ backgroundColor: '#000' }}
 					>
 						WEATHER: {weather.type}
 					</button>
@@ -241,32 +243,32 @@ const GameMenu = ({
 
 	if (phase === 'GARAGE') {
 		return (
-			<div className="absolute inset-0 bg-neutral-900 flex flex-col items-center z-50 overflow-hidden">
+			<div className="absolute inset-0 bg-neutral-900 flex flex-col items-center z-50 overflow-hidden font-pixel">
 				<div className="w-full h-full flex flex-col">
-					<div className="flex justify-between items-center p-6 border-b border-gray-800 bg-black/50">
+					<div className="flex justify-between items-center p-6 border-b-4 border-gray-800 bg-black/50">
 						<button
 							onClick={() => {
 								// play('back');
 								setPhase('MAP');
 							}}
-							className="text-gray-400 hover:text-white"
+							className="text-gray-400 hover:text-white text-xs"
 						>
-							&larr; BACK
+							&lt; BACK
 						</button>
-						<h2 className="text-3xl font-bold italic">
-							MODIFICATION SHOP
+						<h2 className="text-xl md:text-2xl text-white pixel-text">
+							MOD SHOP
 						</h2>
-						<div className="font-mono text-green-400 text-2xl">
+						<div className="text-green-400 text-xl pixel-text">
 							${money}
 						</div>
 					</div>
 
 					<div className="flex-1 flex overflow-hidden">
-						<div className="w-1/3 bg-black/30 p-6 border-r border-gray-800 overflow-y-auto">
-							<h3 className="text-xl font-bold text-gray-300 mb-4">
+						<div className="w-1/3 bg-black/30 p-6 border-r-4 border-gray-800 overflow-y-auto custom-scrollbar">
+							<h3 className="text-sm text-gray-300 mb-4 pixel-text">
 								DYNO GRAPH
 							</h3>
-							<div className="h-[280px] w-full bg-black/50 rounded mb-6 border border-gray-800 p-4">
+							<div className="h-[280px] w-full bg-black/50 mb-6 pixel-panel p-2">
 								<DynoGraph
 									tuning={playerTuning}
 									previewTuning={previewTuning}
@@ -281,11 +283,17 @@ const GameMenu = ({
 										// play('click');
 										setActiveTab('UPGRADES');
 									}}
-									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'UPGRADES'
-											? 'bg-indigo-600 text-white'
-											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+											? ''
+											: 'bg-gray-700 opacity-50'
 									}`}
+									style={{
+										backgroundColor:
+											activeTab === 'UPGRADES'
+												? undefined
+												: '#374151',
+									}}
 								>
 									Upgrades
 								</button>
@@ -294,11 +302,17 @@ const GameMenu = ({
 										// play('click');
 										setActiveTab('TUNING');
 									}}
-									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'TUNING'
-											? 'bg-indigo-600 text-white'
-											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+											? ''
+											: 'bg-gray-700 opacity-50'
 									}`}
+									style={{
+										backgroundColor:
+											activeTab === 'TUNING'
+												? undefined
+												: '#374151',
+									}}
 								>
 									Tuning
 								</button>
@@ -307,11 +321,17 @@ const GameMenu = ({
 										// play('click');
 										setActiveTab('DYNO');
 									}}
-									className={`flex-1 py-2 font-bold text-sm uppercase tracking-wider transition-all ${
+									className={`flex-1 py-3 text-[10px] pixel-btn ${
 										activeTab === 'DYNO'
-											? 'bg-indigo-600 text-white'
-											: 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+											? ''
+											: 'bg-gray-700 opacity-50'
 									}`}
+									style={{
+										backgroundColor:
+											activeTab === 'DYNO'
+												? undefined
+												: '#374151',
+									}}
 								>
 									Dyno
 								</button>

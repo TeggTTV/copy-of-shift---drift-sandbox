@@ -134,7 +134,7 @@ const DynoGraph = React.memo(
 					<XAxis
 						dataKey="rpm"
 						stroke="#666"
-						tick={{ fill: '#666' }}
+						tick={{ fill: '#666', fontSize: 10 }}
 						type="number"
 						domain={['dataMin', 'dataMax']}
 						tickCount={8}
@@ -142,24 +142,26 @@ const DynoGraph = React.memo(
 					<YAxis
 						yAxisId="left"
 						stroke="#ef4444"
-						tick={{ fill: '#ef4444' }}
+						tick={{ fill: '#ef4444', fontSize: 10 }}
 						label={{
 							value: 'Torque (ft-lbs)',
 							angle: -90,
 							position: 'insideLeft',
 							fill: '#ef4444',
+							fontSize: 12,
 						}}
 					/>
 					<YAxis
 						yAxisId="right"
 						orientation="right"
 						stroke="#3b82f6"
-						tick={{ fill: '#3b82f6' }}
+						tick={{ fill: '#3b82f6', fontSize: 10 }}
 						label={{
 							value: 'Power (HP)',
 							angle: 90,
 							position: 'insideRight',
 							fill: '#3b82f6',
+							fontSize: 12,
 						}}
 					/>
 					<Tooltip content={<CustomTooltip />} />
