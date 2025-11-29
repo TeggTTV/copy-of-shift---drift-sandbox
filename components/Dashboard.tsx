@@ -6,6 +6,7 @@ interface DashboardProps {
 	tuning: TuningState;
 	opponentState?: CarState;
 	raceDistance: number;
+	missedGear?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -13,6 +14,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 	tuning,
 	opponentState,
 	raceDistance,
+	missedGear,
 }) => {
 	const speedKmh = Math.floor(carState.velocity * 3.6);
 	const rpm = Math.round(carState.rpm);
@@ -150,9 +152,21 @@ const Dashboard: React.FC<DashboardProps> = ({
 			</div>
 
 			{/* Shift Hint */}
-			{isShiftPoint && !isRedline && (
+			{isShiftPoint && !isRedline && !missedGear && (
 				<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-yellow-400 font-black text-6xl italic animate-pulse tracking-widest pointer-events-none drop-shadow-lg opacity-80">
 					SHIFT!
+				</div>
+			)}
+
+			{/* Missed Gear Alert */}
+			{missedGear && (
+				<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-[100]">
+					<div className="text-red-600 font-black text-7xl italic animate-bounce tracking-widest drop-shadow-[0_0_20px_rgba(220,38,38,0.8)]">
+						GRIND!
+					</div>
+					<div className="text-white font-bold text-2xl mt-2 bg-red-900/80 px-4 py-1 rounded">
+						MISSED SHIFT
+					</div>
 				</div>
 			)}
 		</div>

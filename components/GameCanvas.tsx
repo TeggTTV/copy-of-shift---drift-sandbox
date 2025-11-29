@@ -371,6 +371,7 @@ const GameCanvas: React.FC = () => {
 	const [playerFinishTime, setPlayerFinishTime] = useState<number>(0);
 	const [opponentFinishTime, setOpponentFinishTime] = useState<number>(0);
 	const [countdownNum, setCountdownNum] = useState<number | string>('');
+	const [missedGearAlert, setMissedGearAlert] = useState(false);
 
 	// --- Input Handling ---
 	// Track which keys are currently pressed to prevent repeat firing
@@ -867,6 +868,36 @@ const GameCanvas: React.FC = () => {
 
 				// Update Physics
 				if (!p.finished) {
+					// Mechanical Failure Logic (Missed Gears)
+					const currentCar = garage[currentCarIndex];
+					if (
+						currentCar &&
+						currentCar.condition !== undefined &&
+						currentCar.condition < 0.9
+					) {
+						if (
+							inputsRef.current.shiftUp ||
+							inputsRef.current.shiftDown
+						) {
+							// Chance to miss gear: 0% at 0.9 condition, up to 30% at 0 condition
+							const failureChance =
+								(0.9 - currentCar.condition) * 0.3;
+							if (Math.random() < failureChance) {
+								inputsRef.current.shiftUp = false;
+								inputsRef.current.shiftDown = false;
+
+								// Trigger HUD Alert
+								setMissedGearAlert(true);
+								setTimeout(
+									() => setMissedGearAlert(false),
+									1000
+								);
+
+								// Optional: Play grind sound here if available
+							}
+						}
+					}
+
 					updateCarPhysics(
 						p,
 						tuningRef.current,
@@ -1168,6 +1199,38 @@ const GameCanvas: React.FC = () => {
 					);
 				}
 
+				// Engine Smoke (Damage)
+				const currentCar = garage[currentCarIndex];
+				if (
+					currentCar &&
+					currentCar.condition !== undefined &&
+					currentCar.condition < 0.8
+				) {
+					// More smoke for worse condition
+					const damageSeverity = 0.8 - currentCar.condition; // 0.0 to 0.8
+					const smokeChance = damageSeverity * 0.5; // Up to 40% chance per frame
+
+					if (Math.random() < smokeChance) {
+						// Randomize X position to simulate smoke coming from different parts of the engine/hood
+						const xOffset = (Math.random() - 0.5) * 1.5;
+
+						particleSystemRef.current.emit(
+							trackWidth / 4 / PPM + xOffset, // Center of car + random spread
+							p.y, // Front of car (user adjusted)
+							1,
+							'SMOKE',
+							{
+								size: 5 + damageSeverity * 10, // Bigger smoke
+								life: 1.2,
+								speed: 1 + p.velocity * 0.1,
+								angle: Math.PI * 1.5,
+								spread: 1.5, // Much wider spread
+								color: '#555555',
+							}
+						);
+					}
+				}
+
 				// Exhaust Flames (Shift)
 				if (p.gear > lastGearRef.current && p.rpm > 5000) {
 					// Backfire / Flame
@@ -1258,6 +1321,7 @@ const GameCanvas: React.FC = () => {
 						tuning={playerTuning}
 						opponentState={uiState.opponent}
 						raceDistance={missionRef.current.distance}
+						missedGear={missedGearAlert}
 					/>
 					{/* Countdown Overlay */}
 					{countdownNum !== '' && (
