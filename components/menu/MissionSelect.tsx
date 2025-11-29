@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DailyChallenge, GamePhase, Mission, SavedTune } from '../../types';
 import { useSound } from '../../contexts/SoundContext';
 import { generateOpponent } from '../../utils/OpponentGenerator';
@@ -34,6 +34,33 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 		return generateOpponent(undergroundLevel);
 	}, [undergroundLevel]);
 
+	// Timer Logic
+	const [timeRemaining, setTimeRemaining] = useState('--:--:--');
+
+	useEffect(() => {
+		if (activeTab !== 'DAILY' || dailyChallenges.length === 0) return;
+
+		const updateTimer = () => {
+			const now = Date.now();
+			const expires = dailyChallenges[0].expiresAt;
+			const diff = Math.max(0, expires - now);
+
+			const hours = Math.floor(diff / (1000 * 60 * 60));
+			const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+			const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+			setTimeRemaining(
+				`${hours.toString().padStart(2, '0')}:${minutes
+					.toString()
+					.padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+			);
+		};
+
+		updateTimer();
+		const interval = setInterval(updateTimer, 1000);
+		return () => clearInterval(interval);
+	}, [activeTab, dailyChallenges]);
+
 	const handleStartUnderground = () => {
 		const mission: Mission = {
 			id: 999 + undergroundLevel, // Unique ID
@@ -61,7 +88,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						SELECT MISSION
 					</h2>
 					<div className="text-green-400 text-xl pixel-text">
-						${money}
+						${money.toLocaleString()}
 					</div>
 				</div>
 
@@ -106,15 +133,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 								DAILY CHALLENGES
 							</div>
 							<div className="text-gray-400 text-xs">
-								Resets in:{' '}
-								{dailyChallenges.length > 0
-									? new Date(
-											dailyChallenges[0].expiresAt -
-												Date.now()
-									  )
-											.toISOString()
-											.substr(11, 8)
-									: '00:00:00'}
+								Resets in: {timeRemaining}
 							</div>
 						</div>
 

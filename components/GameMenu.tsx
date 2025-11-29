@@ -255,6 +255,8 @@ const GameMenu = ({
 					setPhase('MAP');
 				}}
 				undergroundLevel={undergroundLevel}
+				money={money}
+				garage={garage}
 			/>
 		);
 	}
