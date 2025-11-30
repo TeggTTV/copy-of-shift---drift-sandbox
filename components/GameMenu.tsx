@@ -196,6 +196,8 @@ const GameMenu = ({
 				ownedMods={ownedMods}
 				dynoHistory={dynoHistory}
 				money={money}
+				weather={weather}
+				setWeather={setWeather}
 			/>
 		);
 	}
@@ -250,25 +252,6 @@ const GameMenu = ({
 						className="pixel-btn text-[10px] py-2 bg-gray-800 border-gray-600"
 					>
 						⚙ SETTINGS
-					</button>
-
-					<button
-						onClick={() => {
-							setWeather((prev) => ({
-								type: prev.type === 'SUNNY' ? 'RAIN' : 'SUNNY',
-								intensity: prev.type === 'SUNNY' ? 0.8 : 0,
-							}));
-							showToast(
-								weather.type === 'SUNNY'
-									? 'Weather set to RAIN'
-									: 'Weather set to SUNNY',
-								'INFO'
-							);
-						}}
-						className="pixel-btn text-[10px] py-2 bg-black border-gray-600"
-						style={{ backgroundColor: '#000' }}
-					>
-						WEATHER: {weather.type}
 					</button>
 				</div>
 

@@ -10,11 +10,11 @@ interface DynoTabProps {
 	onRunStart?: () => void;
 }
 
-const DynoTab: React.FC<DynoTabProps> = ({
+export default function DynoTab({
 	playerTuning,
 	onUpdateHistory,
 	onRunStart,
-}) => {
+}: DynoTabProps) {
 	const [isRunning, setIsRunning] = useState(false);
 	const [rpm, setRpm] = useState(0);
 	const [peakPower, setPeakPower] = useState(0);
@@ -180,17 +180,33 @@ const DynoTab: React.FC<DynoTabProps> = ({
 				)}
 			</div>
 
-			<button
-				onClick={runDyno}
-				disabled={isRunning}
-				className={`w-full pixel-btn ${
-					isRunning ? 'opacity-50 cursor-not-allowed' : ''
-				}`}
-			>
-				{isRunning ? 'Running...' : 'Start Run'}
-			</button>
+			<div className="grid grid-cols-2 gap-2">
+				<button
+					onClick={runDyno}
+					disabled={isRunning}
+					className={`pixel-btn ${
+						isRunning ? 'opacity-50 cursor-not-allowed' : ''
+					}`}
+				>
+					{isRunning ? 'Running...' : '▶ Start Run'}
+				</button>
+				<button
+					onClick={() => {
+						historyRef.current = [];
+						onUpdateHistory([]);
+						setPeakPower(0);
+						setPeakTorque(0);
+						setRpm(0);
+						setEstimates(null); // Also reset estimates
+					}}
+					disabled={isRunning}
+					className={`pixel-btn bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700 ${
+						isRunning ? 'opacity-50 cursor-not-allowed' : ''
+					}`}
+				>
+					🔄 Reset
+				</button>
+			</div>
 		</div>
 	);
-};
-
-export default DynoTab;
+}

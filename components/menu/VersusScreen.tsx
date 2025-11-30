@@ -5,11 +5,15 @@ import { useSound } from '../../contexts/SoundContext';
 interface VersusScreenProps {
 	playerTuning: TuningState;
 	mission: Mission;
-	onConfirmRace: () => void;
+	onConfirmRace: (wager: number) => void;
 	onBack: () => void;
 	ownedMods: string[];
 	dynoHistory: { rpm: number; torque: number; hp: number }[];
 	money: number;
+	weather: { type: 'SUNNY' | 'RAIN'; intensity: number };
+	setWeather: React.Dispatch<
+		React.SetStateAction<{ type: 'SUNNY' | 'RAIN'; intensity: number }>
+	>;
 }
 
 const VersusScreen: React.FC<VersusScreenProps> = ({
@@ -20,6 +24,8 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	ownedMods,
 	dynoHistory,
 	money,
+	weather,
+	setWeather,
 }) => {
 	const { play } = useSound();
 	const [wager, setWager] = React.useState(0);
@@ -218,6 +224,16 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 	const pGrip = playerTuning.tireGrip;
 	const oGrip = mission.opponent.tuning.tireGrip;
 
+	// Calculate potential winnings based on difficulty
+	const difficultyMultiplier =
+		mission.difficulty === 'EASY'
+			? 0.5
+			: mission.difficulty === 'MEDIUM'
+			? 1.0
+			: mission.difficulty === 'HARD'
+			? 2.0
+			: 3.0;
+
 	return (
 		<div className="absolute inset-0 bg-zinc-950 flex flex-col z-50 animate-in fade-in duration-500 font-pixel">
 			{/* Header */}
@@ -314,43 +330,165 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 			</div>
 
 			{/* Footer Actions */}
-			<div className="h-24 bg-black border-t-4 border-gray-800 flex items-center justify-between px-12 gap-6">
-				<button
-					onClick={onBack}
-					className="text-gray-400 hover:text-white text-sm"
-				>
-					&lt; BACK
-				</button>
-
-				{/* Betting Controls */}
-				<div className="flex flex-col items-center gap-2">
-					<div className="text-green-400 text-xs pixel-text">
-						WAGER: ${wager}
-					</div>
-					<input
-						type="range"
-						min="0"
-						max={money}
-						step="100"
-						value={wager}
-						onChange={(e) => setWager(parseInt(e.target.value))}
-						className="w-48 accent-green-500"
-					/>
-					<div className="text-gray-500 text-[10px]">
-						MAX: ${money}
-					</div>
-				</div>
-
-				<div className="flex items-center gap-6">
-					<div className="text-gray-500 text-xs">
-						Make sure your tune is ready...
-					</div>
+			<div className="bg-black border-t-4 border-gray-800 px-12 py-6">
+				<div className="flex items-center justify-between gap-8">
 					<button
-						onClick={() => onConfirmRace(wager)}
-						className="pixel-btn bg-white text-black px-12 py-4 text-xl hover:bg-green-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-						style={{ backgroundColor: '#fff', color: '#000' }}
+						onClick={onBack}
+						className="text-gray-400 hover:text-white text-sm pixel-text transition-colors"
 					>
-						START RACE
+						&lt; BACK
+					</button>
+
+					{/* Weather Selector */}
+					<div className="flex flex-col items-center gap-2">
+						<div className="text-gray-400 text-xs pixel-text mb-1">
+							WEATHER CONDITIONS
+						</div>
+						<div className="flex gap-2">
+							<button
+								onClick={() => {
+									setWeather({ type: 'SUNNY', intensity: 0 });
+									play('ui_click');
+								}}
+								className={`pixel-btn px-6 py-2 transition-all ${
+									weather.type === 'SUNNY'
+										? 'bg-yellow-900/50 border-yellow-600 text-yellow-400'
+										: 'bg-gray-800 border-gray-600 text-gray-400 hover:border-yellow-600/50'
+								}`}
+							>
+								☀ SUNNY
+							</button>
+							<button
+								onClick={() => {
+									setWeather({
+										type: 'RAIN',
+										intensity: 0.8,
+									});
+									play('ui_click');
+								}}
+								className={`pixel-btn px-6 py-2 transition-all ${
+									weather.type === 'RAIN'
+										? 'bg-blue-900/50 border-blue-600 text-blue-400'
+										: 'bg-gray-800 border-gray-600 text-gray-400 hover:border-blue-600/50'
+								}`}
+							>
+								🌧 RAIN
+							</button>
+						</div>
+					</div>
+
+					{/* Wager System */}
+					<div className="flex flex-col gap-3 flex-1 max-w-2xl">
+						<div className="flex items-center justify-between">
+							<div className="text-gray-400 text-xs pixel-text">
+								WAGER AMOUNT
+							</div>
+							<div className="text-green-400 text-sm pixel-text">
+								YOUR MONEY: ${money.toLocaleString()}
+							</div>
+						</div>
+
+						{/* Preset Wager Buttons */}
+						<div className="flex gap-2">
+							{[100, 500, 1000, 5000].map((amount) => (
+								<button
+									key={amount}
+									onClick={() => {
+										if (amount <= money) {
+											setWager(amount);
+											play('ui_click');
+										}
+									}}
+									disabled={amount > money}
+									className={`pixel-btn px-4 py-2 text-sm flex-1 transition-all ${
+										wager === amount
+											? 'bg-green-900/50 border-green-500 text-green-400'
+											: amount > money
+											? 'bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed'
+											: 'bg-gray-800 border-gray-600 text-gray-300 hover:border-green-500/50'
+									}`}
+								>
+									${amount}
+								</button>
+							))}
+							<button
+								onClick={() => {
+									setWager(money);
+									play('ui_click');
+								}}
+								disabled={money === 0}
+								className={`pixel-btn px-4 py-2 text-sm flex-1 transition-all ${
+									wager === money && money > 0
+										? 'bg-red-900/50 border-red-500 text-red-400'
+										: money === 0
+										? 'bg-gray-900 border-gray-700 text-gray-600 cursor-not-allowed'
+										: 'bg-gray-800 border-gray-600 text-gray-300 hover:border-red-500/50'
+								}`}
+							>
+								MAX
+							</button>
+						</div>
+
+						{/* Custom Input and Potential Winnings */}
+						<div className="flex gap-4 items-center">
+							<div className="flex-1 flex items-center gap-2">
+								<span className="text-gray-400 text-sm pixel-text">
+									$
+								</span>
+								<input
+									type="number"
+									value={wager}
+									onChange={(e) => {
+										const val = Math.max(
+											0,
+											Math.min(
+												money,
+												parseInt(e.target.value) || 0
+											)
+										);
+										setWager(val);
+									}}
+									className="flex-1 bg-gray-900 border-2 border-gray-700 text-white px-3 py-2 text-sm pixel-text focus:border-green-500 focus:outline-none"
+									placeholder="Enter custom amount..."
+								/>
+							</div>
+							{wager > 0 && (
+								<div className="flex items-center gap-2 px-4 py-2 bg-green-900/20 border-2 border-green-700 rounded">
+									<span className="text-gray-400 text-xs pixel-text">
+										POTENTIAL WIN:
+									</span>
+									<span className="text-green-400 text-lg pixel-text font-bold">
+										$
+										{(
+											wager * difficultyMultiplier
+										).toLocaleString()}
+									</span>
+								</div>
+							)}
+						</div>
+					</div>
+
+					{/* Start Race Button */}
+					<button
+						onClick={() => {
+							if (wager <= money) {
+								play('ui_select');
+								onConfirmRace(wager);
+							}
+						}}
+						disabled={wager > money}
+						className={`pixel-btn px-12 py-4 text-xl transition-all ${
+							wager > money
+								? 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed'
+								: 'bg-white text-black hover:bg-green-400 hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+						}`}
+						style={
+							wager <= money
+								? { backgroundColor: '#fff', color: '#000' }
+								: {}
+						}
+					>
+						{wager === 0 ? 'FREE RACE' : 'START RACE'}
 					</button>
 				</div>
 			</div>
