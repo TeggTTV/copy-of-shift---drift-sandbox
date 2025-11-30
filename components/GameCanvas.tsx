@@ -19,6 +19,7 @@ import {
 } from '../types';
 import { MISSIONS, BASE_TUNING, MOD_TREE, CONTROLS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
+import { useMusic } from '../contexts/MusicContext';
 import { AudioEngine } from './AudioEngine';
 import { ParticleSystem } from '../utils/ParticleSystem';
 import { updateCarPhysics } from '../utils/physics';
@@ -37,6 +38,7 @@ type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 
 const GameCanvas: React.FC = () => {
 	const { showToast } = useToast();
+	const music = useMusic();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	// Audio Refs
@@ -427,6 +429,29 @@ const GameCanvas: React.FC = () => {
 		}
 	}, [phase]);
 
+	// Music Phase Switching
+	useEffect(() => {
+		// Small delay to ensure music context is initialized
+		const timer = setTimeout(() => {
+			switch (phase) {
+				case 'MAP':
+				case 'GARAGE':
+				case 'JUNKYARD':
+					console.log('[GameCanvas] Starting menu music');
+					music.play('menu', 2.0);
+					break;
+				case 'RACE':
+				case 'VERSUS':
+					console.log('[GameCanvas] Starting race music');
+					music.play('race', 1.5);
+					break;
+				// Victory/defeat music handled separately in race result logic
+			}
+		}, 100); // 100ms delay to ensure context is ready
+
+		return () => clearTimeout(timer);
+	}, [phase, music]);
+
 	// --- Helpers ---
 	// Sync ref is now handled below with effectiveTuning
 
@@ -446,11 +471,18 @@ const GameCanvas: React.FC = () => {
 			torqueCurve: currentTuning.torqueCurve,
 		};
 
+		// Safety check: ensure arrays/objects are defined
+		const safeOwnedMods = Array.isArray(ownedMods) ? ownedMods : [];
+		const safeDisabledMods = Array.isArray(disabledMods)
+			? disabledMods
+			: [];
+		const safeModSettings = modSettings || {};
+
 		const newTuning = CarBuilder.calculateTuning(
 			BASE_TUNING,
-			ownedMods,
-			disabledMods,
-			modSettings
+			safeOwnedMods,
+			safeDisabledMods,
+			safeModSettings
 		);
 
 		// If we have pending manual tuning (from loading a preset), apply it
@@ -1181,6 +1213,9 @@ const GameCanvas: React.FC = () => {
 					ctx.stroke();
 					ctx.restore();
 				}
+
+				// Restore canvas transform
+				ctx.restore();
 
 				setUiState({ player: { ...p }, opponent: { ...o } });
 			} else {

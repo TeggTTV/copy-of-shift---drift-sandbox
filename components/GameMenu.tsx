@@ -17,6 +17,7 @@ import { MOD_TREE } from '../constants';
 import MissionSelect from './menu/MissionSelect';
 import Junkyard from './menu/Junkyard';
 import VersusScreen from './menu/VersusScreen';
+import SettingsModal from './menu/SettingsModal';
 import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import { BASE_TUNING } from '../constants';
@@ -104,6 +105,7 @@ const GameMenu = ({
 		'UPGRADES' | 'TUNING' | 'DYNO' | 'CARS'
 	>('UPGRADES');
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
+	const [showSettings, setShowSettings] = useState(false);
 
 	// Escape key navigation
 	useEffect(() => {
@@ -244,6 +246,13 @@ const GameMenu = ({
 					</button>
 
 					<button
+						onClick={() => setShowSettings(true)}
+						className="pixel-btn text-[10px] py-2 bg-gray-800 border-gray-600"
+					>
+						⚙ SETTINGS
+					</button>
+
+					<button
 						onClick={() => {
 							setWeather((prev) => ({
 								type: prev.type === 'SUNNY' ? 'RAIN' : 'SUNNY',
@@ -262,6 +271,11 @@ const GameMenu = ({
 						WEATHER: {weather.type}
 					</button>
 				</div>
+
+				<SettingsModal
+					isOpen={showSettings}
+					onClose={() => setShowSettings(false)}
+				/>
 			</div>
 		);
 	}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import GameCanvas from './components/GameCanvas';
 import { ToastProvider } from './contexts/ToastContext';
+import { MusicProvider } from './contexts/MusicContext';
 
 const App: React.FC = () => {
 	const [windowSize, setWindowSize] = useState({
@@ -18,9 +19,11 @@ const App: React.FC = () => {
 
 	return (
 		<ToastProvider>
-			<div className="w-full h-screen">
-				<GameCanvas key={`${windowSize.w}-${windowSize.h}`} />
-			</div>
+			<MusicProvider>
+				<div className="w-full h-screen">
+					<GameCanvas key={`${windowSize.w}-${windowSize.h}`} />
+				</div>
+			</MusicProvider>
 		</ToastProvider>
 	);
 };
