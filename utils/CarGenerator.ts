@@ -1,4 +1,4 @@
-import { JunkyardCar, ModNode } from '../types';
+import { JunkyardCar, ModNode, Rarity, TuningState } from '../types';
 import { MOD_TREE } from '../constants';
 
 // Car Templates
@@ -55,6 +55,51 @@ export class CarGenerator {
 		return Math.floor(baseValue * condition * 0.8 + modValue * 0.5);
 	}
 
+	static generateRarity(): Rarity {
+		const rand = Math.random();
+		if (rand > 0.999) return 'EXOTIC'; // 0.1%
+		if (rand > 0.99) return 'LEGENDARY'; // 1%
+		if (rand > 0.95) return 'EPIC'; // 4%
+		if (rand > 0.8) return 'RARE'; // 15%
+		if (rand > 0.5) return 'UNCOMMON'; // 30%
+		return 'COMMON'; // 50%
+	}
+
+	static applyRarityBonuses(
+		tuning: Partial<TuningState>,
+		rarity: Rarity
+	): { tuning: Partial<TuningState>; multiplier: number } {
+		let multiplier = 1.0;
+		switch (rarity) {
+			case 'UNCOMMON':
+				multiplier = 1.05;
+				break;
+			case 'RARE':
+				multiplier = 1.1;
+				break;
+			case 'EPIC':
+				multiplier = 1.2;
+				break;
+			case 'LEGENDARY':
+				multiplier = 1.35;
+				break;
+			case 'EXOTIC':
+				multiplier = 1.5;
+				break;
+			default:
+				multiplier = 1.0;
+		}
+
+		// Apply bonuses to base stats if they exist in the partial tuning
+		// Note: Since we don't have the full tuning object here, we just return the multiplier
+		// The actual application happens when the car is loaded/built.
+		// BUT, for the Junkyard display, we might want to show boosted stats?
+		// Actually, let's just store the multiplier and apply it in the CarBuilder or when loading.
+		// For now, let's just return the multiplier.
+
+		return { tuning, multiplier };
+	}
+
 	static generateDealershipCar(idPrefix: string): JunkyardCar {
 		// Weighted random selection for Tier
 		const rand = Math.random();
@@ -102,6 +147,8 @@ export class CarGenerator {
 			condition: condition,
 			price: price,
 			originalPrice: template.baseValue,
+			rarity: 'COMMON', // Dealership cars are standard
+			rarityMultiplier: 1.0,
 		};
 	}
 
@@ -139,6 +186,13 @@ export class CarGenerator {
 			template.baseValue * condition * 0.8 + modValue
 		);
 
+		const rarity = this.generateRarity();
+		const { multiplier } = this.applyRarityBonuses({}, rarity);
+
+		// Adjust price based on rarity?
+		// Rare cars should cost more even if junk
+		const rarityPriceMult = multiplier * multiplier; // Quadratic price increase for rarity
+
 		return {
 			id: `${idPrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
 			name: template.name,
@@ -150,6 +204,8 @@ export class CarGenerator {
 			condition: condition,
 			price: price,
 			originalPrice: template.baseValue,
+			rarity: rarity,
+			rarityMultiplier: multiplier,
 		};
 	}
 

@@ -102,6 +102,7 @@ const GameCanvas: React.FC = () => {
 
 	// Junkyard State
 	const [junkyardCars, setJunkyardCars] = useState<JunkyardCar[]>([]);
+	const [refreshCount, setRefreshCount] = useState(0);
 
 	const generateJunkyardCars = useCallback(() => {
 		const cars: JunkyardCar[] = [];
@@ -148,14 +149,16 @@ const GameCanvas: React.FC = () => {
 	);
 
 	const refreshJunkyard = useCallback(() => {
-		if (money >= 100) {
-			setMoney((m) => m - 100);
+		const cost = 100 + refreshCount * 50;
+		if (money >= cost) {
+			setMoney((m) => m - cost);
+			setRefreshCount((c) => c + 1);
 			generateJunkyardCars();
-			showToast('Junkyard stock refreshed!', 'INFO');
+			showToast(`Junkyard stock refreshed! (-$${cost})`, 'INFO');
 		} else {
-			showToast('Not enough money to refresh!', 'ERROR');
+			showToast(`Not enough money! Need $${cost}`, 'ERROR');
 		}
-	}, [money, generateJunkyardCars, showToast]);
+	}, [money, refreshCount, generateJunkyardCars, showToast]);
 
 	const restoreCar = useCallback(
 		(carIndex: number) => {
@@ -293,7 +296,7 @@ const GameCanvas: React.FC = () => {
 			setModSettings(car.modSettings);
 			pendingTuningRef.current = car.manualTuning;
 		}
-	}, [currentCarIndex, isGameLoaded, garage]);
+	}, [currentCarIndex, isGameLoaded, garage.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Current Mission
 	const missionRef = useRef<Mission | null>(null);
@@ -1331,8 +1334,12 @@ const GameCanvas: React.FC = () => {
 					cars={junkyardCars}
 					money={money}
 					onBuyCar={buyJunkyardCar}
-					onBack={() => setPhase('MAP')}
+					onBack={() => {
+						setPhase('MAP');
+						setRefreshCount(0); // Reset cost on exit
+					}}
 					onRefresh={refreshJunkyard}
+					refreshCost={100 + refreshCount * 50}
 				/>
 			)}
 

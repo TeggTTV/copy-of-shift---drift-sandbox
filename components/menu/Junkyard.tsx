@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { JunkyardCar } from '../../types';
 import { useSound } from '../../contexts/SoundContext';
 
@@ -8,6 +8,7 @@ interface JunkyardProps {
 	onBuyCar: (car: JunkyardCar) => void;
 	onBack: () => void;
 	onRefresh: () => void;
+	refreshCost?: number;
 }
 
 const Junkyard: React.FC<JunkyardProps> = ({
@@ -16,8 +17,74 @@ const Junkyard: React.FC<JunkyardProps> = ({
 	onBuyCar,
 	onBack,
 	onRefresh,
+	refreshCost = 100,
 }) => {
 	const { play } = useSound();
+	const [hoveredCar, setHoveredCar] = useState<string | null>(null);
+
+	const renderParticles = (rarity: string) => {
+		if (rarity !== 'LEGENDARY' && rarity !== 'EXOTIC') return null;
+
+		const particleCount = rarity === 'EXOTIC' ? 16 : 12;
+		const particles = [];
+
+		for (let i = 0; i < particleCount; i++) {
+			let style: React.CSSProperties = {};
+			const delay = Math.random() * 2;
+			const duration = 1.5 + Math.random();
+
+			// Spawn on border for both
+			const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+			const pos = Math.random() * 100;
+			const size = 3 + Math.random() * 3;
+
+			switch (side) {
+				case 0: // Top
+					style = { top: '-6px', left: `${pos}%` };
+					break;
+				case 1: // Right
+					style = { right: '-6px', top: `${pos}%` };
+					break;
+				case 2: // Bottom
+					style = { bottom: '-6px', left: `${pos}%` };
+					break;
+				case 3: // Left
+					style = { left: '-6px', top: `${pos}%` };
+					break;
+			}
+
+			if (rarity === 'EXOTIC') {
+				style = {
+					...style,
+					width: `${size}px`,
+					height: `${size}px`,
+					backgroundColor: '#f472b6', // Pink-400
+					animationName: 'twinkle',
+					animationDuration: `${duration}s`,
+					animationDelay: `${delay}s`,
+					boxShadow: '0 0 4px #ec4899',
+				};
+			} else {
+				// Legendary (Gold)
+				style = {
+					...style,
+					width: `${size}px`,
+					height: `${size}px`,
+					backgroundColor: '#fbbf24', // Gold
+					animationName: 'twinkle',
+					animationDuration: `${duration}s`,
+					animationDelay: `${delay}s`,
+					boxShadow: '0 0 4px #d97706',
+				};
+			}
+
+			particles.push(
+				<div key={i} className="pixel-particle" style={style} />
+			);
+		}
+
+		return <>{particles}</>;
+	};
 
 	return (
 		<div className="absolute inset-0 bg-neutral-900 flex flex-col items-center py-10 text-white z-50 overflow-y-auto font-pixel">
@@ -47,7 +114,7 @@ const Junkyard: React.FC<JunkyardProps> = ({
 						onClick={onRefresh}
 						className="pixel-btn bg-gray-800 text-xs py-2 px-4 hover:bg-gray-700"
 					>
-						REFRESH STOCK ($100)
+						REFRESH STOCK (${refreshCost})
 					</button>
 				</div>
 
@@ -60,34 +127,69 @@ const Junkyard: React.FC<JunkyardProps> = ({
 								? 'text-yellow-500'
 								: 'text-red-500';
 
-						const isRare = (car.originalPrice || 0) > 20000;
+						const rarity = car.rarity || 'COMMON';
+						let borderColor = 'border-gray-800';
+						let rarityColor = 'text-gray-400';
+						let badgeBg = 'bg-gray-800';
+						let cardBg = 'bg-black';
+
+						switch (rarity) {
+							case 'UNCOMMON':
+								borderColor =
+									'border-green-900/50 hover:border-green-500';
+								rarityColor = 'text-green-400';
+								badgeBg = 'bg-green-900/80 text-green-200';
+								break;
+							case 'RARE':
+								borderColor =
+									'border-blue-900/50 hover:border-blue-500';
+								rarityColor = 'text-blue-400';
+								badgeBg = 'bg-blue-900/80 text-blue-200';
+								break;
+							case 'EPIC':
+								borderColor =
+									'border-purple-900/50 hover:border-purple-500';
+								rarityColor = 'text-purple-400';
+								badgeBg = 'bg-purple-900/80 text-purple-200';
+								break;
+							case 'LEGENDARY':
+								borderColor =
+									'rarity-legendary border-transparent';
+								rarityColor = 'text-yellow-400';
+								badgeBg =
+									'bg-yellow-900/80 text-yellow-200 animate-pulse';
+								cardBg = ''; // Handled by CSS
+								break;
+							case 'EXOTIC':
+								borderColor =
+									'rarity-exotic border-transparent';
+								rarityColor = 'text-pink-400';
+								badgeBg =
+									'bg-pink-900/80 text-pink-200 animate-pulse font-bold tracking-wider';
+								cardBg = ''; // Handled by CSS
+								break;
+							default:
+								borderColor =
+									'border-gray-800 hover:border-gray-600';
+						}
 
 						return (
 							<div
 								key={car.id}
-								className={`pixel-panel p-4 bg-black border-orange-900/50 relative group hover:border-orange-500 transition-colors ${
-									isRare
-										? 'border-purple-900/50 hover:border-purple-500'
-										: ''
-								}`}
+								onMouseEnter={() => setHoveredCar(car.id)}
+								onMouseLeave={() => setHoveredCar(null)}
+								className={`pixel-panel p-4 relative group transition-all duration-300 ${borderColor} ${cardBg}`}
 							>
 								<div
-									className={`absolute top-2 right-2 text-[10px] px-2 py-1 rounded ${
-										isRare
-											? 'bg-purple-900/80 text-purple-200 animate-pulse'
-											: 'bg-orange-900/80 text-orange-200'
-									}`}
+									className={`absolute top-2 right-2 text-[10px] px-2 py-1 rounded ${badgeBg} z-10`}
 								>
-									{isRare ? 'RARE FIND' : 'JUNK'}
+									{rarity}
 								</div>
+								{renderParticles(rarity)}
 
 								<div className="mb-4">
 									<h3
-										className={`text-xl pixel-text mb-1 ${
-											isRare
-												? 'text-purple-400'
-												: 'text-white'
-										}`}
+										className={`text-xl pixel-text mb-1 ${rarityColor}`}
 									>
 										{car.name}
 									</h3>
@@ -132,13 +234,7 @@ const Junkyard: React.FC<JunkyardProps> = ({
 										<span className="text-gray-500">
 											Potential Value:{' '}
 										</span>
-										<span
-											className={
-												isRare
-													? 'text-purple-400'
-													: 'text-gray-300'
-											}
-										>
+										<span className={rarityColor}>
 											$
 											{(
 												car.originalPrice || 0

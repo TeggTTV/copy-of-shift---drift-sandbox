@@ -69,6 +69,14 @@ export interface TuningOption {
 
 export type ModSettings = Record<string, Record<string, number>>; // modId -> { settingId: value }
 
+export type Rarity =
+	| 'COMMON'
+	| 'UNCOMMON'
+	| 'RARE'
+	| 'EPIC'
+	| 'LEGENDARY'
+	| 'EXOTIC';
+
 export interface SavedTune {
 	id: string;
 	name: string;
@@ -79,6 +87,8 @@ export interface SavedTune {
 	manualTuning: Partial<TuningState>;
 	condition?: number; // 0-1 (1 = perfect, 0 = wrecked)
 	originalPrice?: number; // Market value when fully restored
+	rarity?: Rarity;
+	rarityMultiplier?: number;
 }
 
 export interface JunkyardCar extends SavedTune {
