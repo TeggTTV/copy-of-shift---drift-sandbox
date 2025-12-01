@@ -567,31 +567,31 @@ export class AudioEngine {
 	async playUISound(
 		type: 'click' | 'hover' | 'confirm' | 'back' | 'error' | 'purchase'
 	) {
-		console.log(`[AudioEngine] playUISound called: ${type}`);
+		// console.log(`[AudioEngine] playUISound called: ${type}`);
 
 		if (!this.isInitialized) {
-			console.log('[AudioEngine] Not initialized, initializing now...');
+			// console.log('[AudioEngine] Not initialized, initializing now...');
 			await this.init();
 		}
 
 		if (!this.ctx || !this.masterGain) {
-			console.error(
-				'[AudioEngine] Context or MasterGain missing after init!'
-			);
+			// console.error(
+			// 	'[AudioEngine] Context or MasterGain missing after init!'
+			// );
 			return;
 		}
 
-		console.log(
-			`[AudioEngine] Context State: ${this.ctx.state}, BaseVolume: ${this.masterVolume}, MasterGain: ${this.masterGain.gain.value}`
-		);
+		// console.log(
+		// 	`[AudioEngine] Context State: ${this.ctx.state}, BaseVolume: ${this.masterVolume}, MasterGain: ${this.masterGain.gain.value}`
+		// );
 
 		// Ensure context is running (it might be suspended if created but not resumed)
 		if (this.ctx.state === 'suspended') {
-			console.log('[AudioEngine] Context suspended, resuming...');
+			// console.log('[AudioEngine] Context suspended, resuming...');
 			await this.ctx.resume();
-			console.log(
-				`[AudioEngine] Context State after resume: ${this.ctx.state}`
-			);
+			// console.log(
+			// 	`[AudioEngine] Context State after resume: ${this.ctx.state}`
+			// );
 		}
 
 		if (type === 'hover') return; // Disabled hover sounds
@@ -603,9 +603,9 @@ export class AudioEngine {
 		osc.connect(gain);
 		gain.connect(this.masterGain);
 
-		console.log(
-			`[AudioEngine] Generating sound for ${type} at time ${now}`
-		);
+		// console.log(
+		// 	`[AudioEngine] Generating sound for ${type} at time ${now}`
+		// );
 
 		switch (type) {
 			case 'click':

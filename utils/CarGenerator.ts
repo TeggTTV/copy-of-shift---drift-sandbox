@@ -4,24 +4,838 @@ import { MOD_TREE } from '../constants';
 // Car Templates
 const CAR_TEMPLATES = [
 	// Daily Drivers (Tier 1)
-	{ name: 'Civic EG Hatch', baseValue: 15000, tier: 1 },
-	{ name: 'Golf GTI Mk4', baseValue: 18000, tier: 1 },
-	{ name: 'Miata NA', baseValue: 16000, tier: 1 },
-	{ name: 'Integra DC2', baseValue: 20000, tier: 1 },
-	{ name: 'E36 328i', baseValue: 22000, tier: 1 },
+	{
+		name: 'Honda Civic EG Hatch',
+		baseValue: 15000,
+		tier: 1,
+		stats: {
+			maxTorque: 140,
+			mass: 1040,
+			dragCoefficient: 0.32,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'VW Golf GTI Mk4',
+		baseValue: 18000,
+		tier: 1,
+		stats: {
+			maxTorque: 210,
+			mass: 1200,
+			dragCoefficient: 0.34,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'Mazda Miata NA',
+		baseValue: 16000,
+		tier: 1,
+		stats: {
+			maxTorque: 130,
+			mass: 990,
+			dragCoefficient: 0.38,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'Acura Integra DC2',
+		baseValue: 20000,
+		tier: 1,
+		stats: {
+			maxTorque: 170,
+			mass: 1100,
+			dragCoefficient: 0.32,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'BMW E36 328i',
+		baseValue: 22000,
+		tier: 1,
+		stats: {
+			maxTorque: 280,
+			mass: 1350,
+			dragCoefficient: 0.3,
+			tireGrip: 1.1,
+		},
+	},
 
 	// Sports Cars (Tier 2)
-	{ name: '350Z', baseValue: 35000, tier: 2 },
-	{ name: 'WRX STI', baseValue: 40000, tier: 2 },
-	{ name: 'Mustang GT', baseValue: 38000, tier: 2 },
-	{ name: 'S2000', baseValue: 42000, tier: 2 },
-	{ name: 'E46 M3', baseValue: 45000, tier: 2 },
+	{
+		name: 'Nissan 350Z',
+		baseValue: 35000,
+		tier: 2,
+		stats: {
+			maxTorque: 360,
+			mass: 1450,
+			dragCoefficient: 0.3,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Subaru WRX STI',
+		baseValue: 40000,
+		tier: 2,
+		stats: {
+			maxTorque: 390,
+			mass: 1500,
+			dragCoefficient: 0.33,
+			tireGrip: 1.3, // AWD advantage simulated
+		},
+	},
+	{
+		name: 'Ford Mustang GT',
+		baseValue: 38000,
+		tier: 2,
+		stats: {
+			maxTorque: 420,
+			mass: 1600,
+			dragCoefficient: 0.36,
+			tireGrip: 1.15,
+		},
+	},
+	{
+		name: 'Honda S2000',
+		baseValue: 42000,
+		tier: 2,
+		stats: {
+			maxTorque: 220,
+			mass: 1250,
+			dragCoefficient: 0.34,
+			tireGrip: 1.25,
+		},
+	},
+	{
+		name: 'BMW E46 M3',
+		baseValue: 45000,
+		tier: 2,
+		stats: {
+			maxTorque: 365,
+			mass: 1549,
+			dragCoefficient: 0.31,
+			tireGrip: 1.25,
+		},
+	},
 
 	// Legends (Tier 3)
-	{ name: 'R32 GTR', baseValue: 85000, tier: 3 },
-	{ name: 'Supra MK4', baseValue: 90000, tier: 3 },
-	{ name: 'NSX', baseValue: 88000, tier: 3 },
-	{ name: 'RX-7 FD', baseValue: 82000, tier: 3 },
+	{
+		name: 'Nissan R32 GTR',
+		baseValue: 85000,
+		tier: 3,
+		stats: {
+			maxTorque: 353,
+			mass: 1430,
+			dragCoefficient: 0.34,
+			tireGrip: 1.4,
+		},
+	},
+	{
+		name: 'Toyota Supra MK4',
+		baseValue: 90000,
+		tier: 3,
+		stats: {
+			maxTorque: 431,
+			mass: 1510,
+			dragCoefficient: 0.32,
+			tireGrip: 1.3,
+		},
+	},
+	{
+		name: 'Honda NSX',
+		baseValue: 88000,
+		tier: 3,
+		stats: {
+			maxTorque: 294,
+			mass: 1370,
+			dragCoefficient: 0.3,
+			tireGrip: 1.35,
+		},
+	},
+	{
+		name: 'Mazda RX-7 FD',
+		baseValue: 82000,
+		tier: 3,
+		stats: {
+			maxTorque: 294,
+			mass: 1260,
+			dragCoefficient: 0.29,
+			tireGrip: 1.3,
+		},
+	},
+	// --- NEW CARS ---
+	// Tier 1
+	{
+		name: 'Toyota AE86 Trueno',
+		baseValue: 12000,
+		tier: 1,
+		stats: {
+			maxTorque: 110,
+			mass: 950,
+			dragCoefficient: 0.36,
+			tireGrip: 0.95,
+		},
+	},
+	{
+		name: 'Nissan Silvia S13',
+		baseValue: 14000,
+		tier: 1,
+		stats: {
+			maxTorque: 160,
+			mass: 1150,
+			dragCoefficient: 0.34,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'Ford Focus RS',
+		baseValue: 25000,
+		tier: 1,
+		stats: {
+			maxTorque: 320,
+			mass: 1400,
+			dragCoefficient: 0.35,
+			tireGrip: 1.1,
+		},
+	},
+	{
+		name: 'Hyundai Veloster N',
+		baseValue: 22000,
+		tier: 1,
+		stats: {
+			maxTorque: 260,
+			mass: 1350,
+			dragCoefficient: 0.33,
+			tireGrip: 1.05,
+		},
+	},
+	// Tier 2
+	{
+		name: 'Nissan Silvia S15',
+		baseValue: 32000,
+		tier: 2,
+		stats: {
+			maxTorque: 274,
+			mass: 1240,
+			dragCoefficient: 0.31,
+			tireGrip: 1.15,
+		},
+	},
+	{
+		name: 'Mitsubishi Lancer Evo IX',
+		baseValue: 45000,
+		tier: 2,
+		stats: {
+			maxTorque: 289,
+			mass: 1400,
+			dragCoefficient: 0.36,
+			tireGrip: 1.35, // AWD
+		},
+	},
+	{
+		name: 'BMW E92 M3',
+		baseValue: 48000,
+		tier: 2,
+		stats: {
+			maxTorque: 295,
+			mass: 1600,
+			dragCoefficient: 0.31,
+			tireGrip: 1.25,
+		},
+	},
+	{
+		name: 'Chevrolet Camaro SS',
+		baseValue: 42000,
+		tier: 2,
+		stats: {
+			maxTorque: 400,
+			mass: 1700,
+			dragCoefficient: 0.37,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Dodge Charger RT',
+		baseValue: 38000,
+		tier: 2,
+		stats: {
+			maxTorque: 390,
+			mass: 1900,
+			dragCoefficient: 0.38,
+			tireGrip: 1.1,
+		},
+	},
+	{
+		name: 'VW Golf R',
+		baseValue: 40000,
+		tier: 2,
+		stats: {
+			maxTorque: 280,
+			mass: 1450,
+			dragCoefficient: 0.32,
+			tireGrip: 1.3, // AWD
+		},
+	},
+	// Tier 3
+	{
+		name: 'Nissan R34 GT-R',
+		baseValue: 120000,
+		tier: 3,
+		stats: {
+			maxTorque: 293, // "Gentleman's Agreement" (actually more)
+			mass: 1560,
+			dragCoefficient: 0.34,
+			tireGrip: 1.45,
+		},
+	},
+	{
+		name: 'Porsche 911 Turbo (996)',
+		baseValue: 95000,
+		tier: 3,
+		stats: {
+			maxTorque: 413,
+			mass: 1540,
+			dragCoefficient: 0.31,
+			tireGrip: 1.5,
+		},
+	},
+	{
+		name: 'Chevrolet Corvette C6 Z06',
+		baseValue: 85000,
+		tier: 3,
+		stats: {
+			maxTorque: 470,
+			mass: 1420,
+			dragCoefficient: 0.34,
+			tireGrip: 1.4,
+		},
+	},
+	{
+		name: 'Mercedes C63 AMG',
+		baseValue: 75000,
+		tier: 3,
+		stats: {
+			maxTorque: 443,
+			mass: 1730,
+			dragCoefficient: 0.32,
+			tireGrip: 1.3,
+		},
+	},
+	{
+		name: 'Dodge Viper GTS',
+		baseValue: 92000,
+		tier: 3,
+		stats: {
+			maxTorque: 490,
+			mass: 1530,
+			dragCoefficient: 0.35,
+			tireGrip: 1.4,
+		},
+	},
+	{
+		name: 'Honda CRX Si',
+		baseValue: 14000,
+		tier: 1,
+		stats: {
+			maxTorque: 130,
+			mass: 910,
+			dragCoefficient: 0.3,
+			tireGrip: 0.95,
+		},
+	},
+	{
+		name: 'Mitsubishi Eclipse GSX',
+		baseValue: 19000,
+		tier: 1,
+		stats: {
+			maxTorque: 290,
+			mass: 1450,
+			dragCoefficient: 0.33,
+			tireGrip: 1.15, // AWD
+		},
+	},
+	{
+		name: 'Toyota Celica GT-Four',
+		baseValue: 21000,
+		tier: 1,
+		stats: {
+			maxTorque: 300,
+			mass: 1390,
+			dragCoefficient: 0.34,
+			tireGrip: 1.15, // AWD
+		},
+	},
+	{
+		name: 'Chevrolet Cobalt SS',
+		baseValue: 16000,
+		tier: 1,
+		stats: {
+			maxTorque: 260,
+			mass: 1300,
+			dragCoefficient: 0.35,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'Dodge Neon SRT-4',
+		baseValue: 17000,
+		tier: 1,
+		stats: {
+			maxTorque: 330,
+			mass: 1350,
+			dragCoefficient: 0.36,
+			tireGrip: 1.0,
+		},
+	},
+	// Tier 2
+	{
+		name: 'Mazda RX-8 R3',
+		baseValue: 28000,
+		tier: 2,
+		stats: {
+			maxTorque: 210,
+			mass: 1300,
+			dragCoefficient: 0.3,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Nissan 300ZX TT',
+		baseValue: 36000,
+		tier: 2,
+		stats: {
+			maxTorque: 380,
+			mass: 1550,
+			dragCoefficient: 0.32,
+			tireGrip: 1.25,
+		},
+	},
+	{
+		name: 'Audi S4 B5',
+		baseValue: 34000,
+		tier: 2,
+		stats: {
+			maxTorque: 400,
+			mass: 1600,
+			dragCoefficient: 0.31,
+			tireGrip: 1.3, // AWD
+		},
+	},
+	{
+		name: 'Pontiac GTO',
+		baseValue: 35000,
+		tier: 2,
+		stats: {
+			maxTorque: 500,
+			mass: 1700,
+			dragCoefficient: 0.34,
+			tireGrip: 1.15,
+		},
+	},
+	{
+		name: 'Hyundai Genesis Coupe 3.8',
+		baseValue: 26000,
+		tier: 2,
+		stats: {
+			maxTorque: 350,
+			mass: 1500,
+			dragCoefficient: 0.33,
+			tireGrip: 1.1,
+		},
+	},
+	// Tier 3
+	{
+		name: 'Ford GT (05)',
+		baseValue: 250000,
+		tier: 3,
+		stats: {
+			maxTorque: 678,
+			mass: 1520,
+			dragCoefficient: 0.35,
+			tireGrip: 1.5,
+		},
+	},
+	{
+		name: 'Nissan R35 GT-R (09)',
+		baseValue: 110000,
+		tier: 3,
+		stats: {
+			maxTorque: 588,
+			mass: 1740,
+			dragCoefficient: 0.27,
+			tireGrip: 1.6, // AWD Tech
+		},
+	},
+	{
+		name: 'Dodge Viper ACR',
+		baseValue: 130000,
+		tier: 3,
+		stats: {
+			maxTorque: 760,
+			mass: 1500,
+			dragCoefficient: 0.38, // High downforce
+			tireGrip: 1.7, // Slicks equivalent
+		},
+	},
+	{
+		name: 'Porsche 911 GT3 RS',
+		baseValue: 180000,
+		tier: 3,
+		stats: {
+			maxTorque: 460,
+			mass: 1370,
+			dragCoefficient: 0.33,
+			tireGrip: 1.65,
+		},
+	},
+	{
+		name: 'Lamborghini Gallardo LP560',
+		baseValue: 140000,
+		tier: 3,
+		stats: {
+			maxTorque: 540,
+			mass: 1500,
+			dragCoefficient: 0.3,
+			tireGrip: 1.55, // AWD
+		},
+	},
+	// --- PHASE 6 EXPANSION ---
+	// JDM Classics
+	{
+		name: 'Mazda RX-7 FC',
+		baseValue: 18000,
+		tier: 1,
+		stats: {
+			maxTorque: 200,
+			mass: 1200,
+			dragCoefficient: 0.31,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'Datsun 240Z',
+		baseValue: 25000,
+		tier: 1,
+		stats: {
+			maxTorque: 150,
+			mass: 1050,
+			dragCoefficient: 0.35,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'Nissan 180SX',
+		baseValue: 15000,
+		tier: 1,
+		stats: {
+			maxTorque: 170,
+			mass: 1200,
+			dragCoefficient: 0.33,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'Honda Prelude SH',
+		baseValue: 12000,
+		tier: 1,
+		stats: {
+			maxTorque: 156,
+			mass: 1300,
+			dragCoefficient: 0.32,
+			tireGrip: 1.0,
+		},
+	},
+	{
+		name: 'Mitsubishi Evo X',
+		baseValue: 35000,
+		tier: 2,
+		stats: {
+			maxTorque: 300,
+			mass: 1550,
+			dragCoefficient: 0.34,
+			tireGrip: 1.3, // AWD
+		},
+	},
+	{
+		name: 'Mitsubishi 3000GT VR4',
+		baseValue: 28000,
+		tier: 2,
+		stats: {
+			maxTorque: 315,
+			mass: 1700,
+			dragCoefficient: 0.33,
+			tireGrip: 1.3, // AWD
+		},
+	},
+	{
+		name: 'Subaru 22B',
+		baseValue: 80000,
+		tier: 3, // Rare legend
+		stats: {
+			maxTorque: 270,
+			mass: 1270,
+			dragCoefficient: 0.35,
+			tireGrip: 1.4,
+		},
+	},
+
+	// Muscle Legends
+	{
+		name: 'Ford Foxbody Mustang',
+		baseValue: 10000,
+		tier: 1,
+		stats: {
+			maxTorque: 280,
+			mass: 1400,
+			dragCoefficient: 0.38,
+			tireGrip: 0.95,
+		},
+	},
+	{
+		name: 'Chevrolet Camaro IROC-Z',
+		baseValue: 12000,
+		tier: 1,
+		stats: {
+			maxTorque: 290,
+			mass: 1500,
+			dragCoefficient: 0.37,
+			tireGrip: 0.95,
+		},
+	},
+	{
+		name: 'Chevrolet C5 Corvette',
+		baseValue: 25000,
+		tier: 2,
+		stats: {
+			maxTorque: 350,
+			mass: 1450,
+			dragCoefficient: 0.29,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Chevrolet Chevelle SS 454',
+		baseValue: 45000,
+		tier: 2,
+		stats: {
+			maxTorque: 500,
+			mass: 1800,
+			dragCoefficient: 0.45,
+			tireGrip: 1.1,
+		},
+	},
+	{
+		name: "Dodge '69 Charger",
+		baseValue: 55000,
+		tier: 2,
+		stats: {
+			maxTorque: 490,
+			mass: 1750,
+			dragCoefficient: 0.44,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'Pontiac Trans Am',
+		baseValue: 20000,
+		tier: 2,
+		stats: {
+			maxTorque: 320,
+			mass: 1600,
+			dragCoefficient: 0.34,
+			tireGrip: 1.1,
+		},
+	},
+	{
+		name: 'Buick GNX',
+		baseValue: 60000,
+		tier: 3,
+		stats: {
+			maxTorque: 360,
+			mass: 1500,
+			dragCoefficient: 0.36,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Dodge Hellcat',
+		baseValue: 70000,
+		tier: 3,
+		stats: {
+			maxTorque: 650,
+			mass: 2000,
+			dragCoefficient: 0.38,
+			tireGrip: 1.3,
+		},
+	},
+	{
+		name: 'Shelby Cobra',
+		baseValue: 150000,
+		tier: 3,
+		stats: {
+			maxTorque: 450,
+			mass: 1000, // Very light
+			dragCoefficient: 0.45, // Brick
+			tireGrip: 1.1, // Scary
+		},
+	},
+
+	// Euro Icons
+	{
+		name: 'VW Golf GTI Mk1',
+		baseValue: 15000,
+		tier: 1,
+		stats: {
+			maxTorque: 100,
+			mass: 840,
+			dragCoefficient: 0.38,
+			tireGrip: 0.95,
+		},
+	},
+	{
+		name: 'Mercedes 190E',
+		baseValue: 18000,
+		tier: 1,
+		stats: {
+			maxTorque: 170,
+			mass: 1300,
+			dragCoefficient: 0.33,
+			tireGrip: 1.05,
+		},
+	},
+	{
+		name: 'BMW E30 M3',
+		baseValue: 65000,
+		tier: 2,
+		stats: {
+			maxTorque: 170,
+			mass: 1200,
+			dragCoefficient: 0.33,
+			tireGrip: 1.2,
+		},
+	},
+	{
+		name: 'Audi RS2',
+		baseValue: 50000,
+		tier: 2,
+		stats: {
+			maxTorque: 300,
+			mass: 1600,
+			dragCoefficient: 0.35,
+			tireGrip: 1.3, // AWD
+		},
+	},
+	{
+		name: 'Lancia Delta',
+		baseValue: 55000,
+		tier: 2,
+		stats: {
+			maxTorque: 220,
+			mass: 1300,
+			dragCoefficient: 0.38,
+			tireGrip: 1.35, // AWD
+		},
+	},
+	{
+		name: 'BMW M5 E39',
+		baseValue: 35000,
+		tier: 2,
+		stats: {
+			maxTorque: 369,
+			mass: 1795,
+			dragCoefficient: 0.31,
+			tireGrip: 1.25,
+		},
+	},
+	{
+		name: 'Porsche 930 Turbo',
+		baseValue: 110000,
+		tier: 3,
+		stats: {
+			maxTorque: 317,
+			mass: 1300,
+			dragCoefficient: 0.36,
+			tireGrip: 1.25, // Widowmaker
+		},
+	},
+	{
+		name: 'Lotus Esprit V8',
+		baseValue: 60000,
+		tier: 3,
+		stats: {
+			maxTorque: 295,
+			mass: 1380,
+			dragCoefficient: 0.3,
+			tireGrip: 1.35,
+		},
+	},
+
+	// Supercars / Exotics
+	{
+		name: 'Ferrari F40',
+		baseValue: 1200000,
+		tier: 3, // Exotic Tier
+		stats: {
+			maxTorque: 425,
+			mass: 1100,
+			dragCoefficient: 0.34,
+			tireGrip: 1.6,
+		},
+	},
+	{
+		name: 'Lamborghini Countach LP5000',
+		baseValue: 600000,
+		tier: 3,
+		stats: {
+			maxTorque: 369,
+			mass: 1490,
+			dragCoefficient: 0.42,
+			tireGrip: 1.5,
+		},
+	},
+	{
+		name: 'McLaren F1',
+		baseValue: 15000000,
+		tier: 3,
+		stats: {
+			maxTorque: 480,
+			mass: 1138,
+			dragCoefficient: 0.32,
+			tireGrip: 1.7,
+		},
+	},
+	{
+		name: 'Porsche Carrera GT',
+		baseValue: 900000,
+		tier: 3,
+		stats: {
+			maxTorque: 435,
+			mass: 1380,
+			dragCoefficient: 0.39,
+			tireGrip: 1.65,
+		},
+	},
+	{
+		name: 'Ferrari Enzo',
+		baseValue: 2500000,
+		tier: 3,
+		stats: {
+			maxTorque: 485,
+			mass: 1255,
+			dragCoefficient: 0.36,
+			tireGrip: 1.7,
+		},
+	},
+	{
+		name: 'Pagani Zonda C12',
+		baseValue: 1800000,
+		tier: 3,
+		stats: {
+			maxTorque: 420,
+			mass: 1250,
+			dragCoefficient: 0.37,
+			tireGrip: 1.6,
+		},
+	},
 ];
 
 type Archetype = 'STOCK' | 'STREET' | 'DRAG' | 'RACE' | 'JUNK';
@@ -55,49 +869,27 @@ export class CarGenerator {
 		return Math.floor(baseValue * condition * 0.8 + modValue * 0.5);
 	}
 
-	static generateRarity(): Rarity {
+	// Generates a multiplier based on a power curve
+	// Higher values are exponentially rarer
+	static generateWeightedMultiplier(): number {
+		// x^12 distribution (Extremely steep curve)
+		// rand 0.1 -> 1e-12
+		// We want most values near 1.0, rare values near 2.0
+		// Let's use: 1.0 + (Math.random() ^ 12) * 0.8
 		const rand = Math.random();
-		if (rand > 0.999) return 'EXOTIC'; // 0.1%
-		if (rand > 0.99) return 'LEGENDARY'; // 1%
-		if (rand > 0.95) return 'EPIC'; // 4%
-		if (rand > 0.8) return 'RARE'; // 15%
-		if (rand > 0.5) return 'UNCOMMON'; // 30%
-		return 'COMMON'; // 50%
+		// Bias towards 0
+		const bias = Math.pow(rand, 12); // x^12 (Much steeper curve for rarity)
+		// Map 0..1 to 0..0.8 (max 1.8x multiplier)
+		return 1.0 + bias * 0.8;
 	}
 
-	static applyRarityBonuses(
-		tuning: Partial<TuningState>,
-		rarity: Rarity
-	): { tuning: Partial<TuningState>; multiplier: number } {
-		let multiplier = 1.0;
-		switch (rarity) {
-			case 'UNCOMMON':
-				multiplier = 1.05;
-				break;
-			case 'RARE':
-				multiplier = 1.1;
-				break;
-			case 'EPIC':
-				multiplier = 1.2;
-				break;
-			case 'LEGENDARY':
-				multiplier = 1.35;
-				break;
-			case 'EXOTIC':
-				multiplier = 1.5;
-				break;
-			default:
-				multiplier = 1.0;
-		}
-
-		// Apply bonuses to base stats if they exist in the partial tuning
-		// Note: Since we don't have the full tuning object here, we just return the multiplier
-		// The actual application happens when the car is loaded/built.
-		// BUT, for the Junkyard display, we might want to show boosted stats?
-		// Actually, let's just store the multiplier and apply it in the CarBuilder or when loading.
-		// For now, let's just return the multiplier.
-
-		return { tuning, multiplier };
+	static getRarityFromMultiplier(multiplier: number): Rarity {
+		if (multiplier > 1.5) return 'EXOTIC';
+		if (multiplier > 1.35) return 'LEGENDARY';
+		if (multiplier > 1.2) return 'EPIC';
+		if (multiplier > 1.1) return 'RARE';
+		if (multiplier > 1.05) return 'UNCOMMON';
+		return 'COMMON';
 	}
 
 	static generateDealershipCar(idPrefix: string): JunkyardCar {
@@ -186,11 +978,21 @@ export class CarGenerator {
 			template.baseValue * condition * 0.8 + modValue
 		);
 
-		const rarity = this.generateRarity();
-		const { multiplier } = this.applyRarityBonuses({}, rarity);
+		// Generate weighted multiplier for stats
+		const multiplier = this.generateWeightedMultiplier();
+		const rarity = this.getRarityFromMultiplier(multiplier);
 
-		// Adjust price based on rarity?
-		// Rare cars should cost more even if junk
+		// Generate unique base stats
+		const baseStats = this.generateUniqueStats(template, 0.1);
+
+		// Apply weighted multiplier to base stats
+		if (baseStats.maxTorque) baseStats.maxTorque *= multiplier;
+		if (baseStats.tireGrip) baseStats.tireGrip *= multiplier;
+		// Slight mass reduction for high rolls
+		if (baseStats.mass && multiplier > 1.1)
+			baseStats.mass *= 1 - (multiplier - 1) * 0.2;
+
+		// Adjust price based on rarity/performance
 		const rarityPriceMult = multiplier * multiplier; // Quadratic price increase for rarity
 
 		return {
@@ -200,7 +1002,7 @@ export class CarGenerator {
 			ownedMods: mods,
 			disabledMods: [],
 			modSettings: {},
-			manualTuning: {},
+			manualTuning: baseStats,
 			condition: condition,
 			price: price,
 			originalPrice: template.baseValue,
@@ -212,6 +1014,32 @@ export class CarGenerator {
 	private static getRandomTemplate(tier: number) {
 		const pool = CAR_TEMPLATES.filter((t) => t.tier === tier);
 		return pool[Math.floor(Math.random() * pool.length)];
+	}
+
+	private static generateUniqueStats(
+		template: any,
+		variance: number = 0.05
+	): Partial<TuningState> {
+		const stats: Partial<TuningState> = { ...template.stats };
+
+		// Apply variance to numeric stats
+		if (stats.maxTorque)
+			stats.maxTorque *= 1 + (Math.random() * variance * 2 - variance);
+		if (stats.mass)
+			stats.mass *= 1 + (Math.random() * variance * 2 - variance);
+		if (stats.dragCoefficient)
+			stats.dragCoefficient *=
+				1 + (Math.random() * variance * 2 - variance);
+		if (stats.tireGrip)
+			stats.tireGrip *= 1 + (Math.random() * variance * 2 - variance);
+
+		// Factory Freak Chance (5%)
+		if (Math.random() < 0.05) {
+			if (stats.maxTorque) stats.maxTorque *= 1.15; // +15% Torque
+			if (stats.mass) stats.mass *= 0.95; // -5% Weight
+		}
+
+		return stats;
 	}
 
 	private static generateMods(archetype: Archetype, tier: number): string[] {

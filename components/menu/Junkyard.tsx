@@ -22,6 +22,17 @@ const Junkyard: React.FC<JunkyardProps> = ({
 	const { play } = useSound();
 	const [hoveredCar, setHoveredCar] = useState<string | null>(null);
 
+	// Escape key to exit
+	React.useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				onBack();
+			}
+		};
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [onBack]);
+
 	const renderParticles = (rarity: string) => {
 		if (rarity !== 'LEGENDARY' && rarity !== 'EXOTIC') return null;
 

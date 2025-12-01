@@ -48,12 +48,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 				// Preload all tracks
 				await engine.loadAllTracks();
 				setIsInitialized(true);
-				console.log('[MusicContext] Initialized successfully');
+				// console.log('[MusicContext] Initialized successfully');
 			} catch (error) {
-				console.warn(
-					'[MusicContext] Auto-init failed, waiting for user interaction:',
-					error
-				);
+				// console.warn(
+				// 	'[MusicContext] Auto-init failed, waiting for user interaction:',
+				// 	error
+				// );
 			}
 		};
 

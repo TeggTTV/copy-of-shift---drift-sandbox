@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ModNode, SavedTune, TuningState } from '../../types';
 import { MOD_TREE } from '../../constants';
 import { useSound } from '../../contexts/SoundContext';
+import PixelSlider from '../ui/PixelSlider';
 
 interface TuningTabProps {
 	ownedMods: string[];
@@ -110,13 +111,13 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	};
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6 font-pixel">
 			{ownedMods.some(
 				(id) =>
 					!disabledMods.includes(id) &&
 					MOD_TREE.find((m) => m.id === id)?.tuningOptions
 			) && (
-				<h3 className="text-sm font-bold text-indigo-400 uppercase border-b border-indigo-900/50 pb-2 mb-4">
+				<h3 className="text-sm font-bold text-indigo-400 uppercase border-b border-indigo-900/50 pb-2 mb-4 pixel-text">
 					Mod Tuning
 				</h3>
 			)}
@@ -129,9 +130,9 @@ const TuningTab: React.FC<TuningTabProps> = ({
 					return (
 						<div
 							key={mod.id}
-							className="bg-black/40 p-4 rounded border border-gray-800"
+							className="bg-black/40 p-4 rounded border border-gray-800 pixel-panel"
 						>
-							<h4 className="text-indigo-400 font-bold mb-3 text-sm uppercase">
+							<h4 className="text-indigo-400 font-bold mb-3 text-sm uppercase pixel-text">
 								{mod.name}
 							</h4>
 							<div className="space-y-4">
@@ -148,26 +149,22 @@ const TuningTab: React.FC<TuningTabProps> = ({
 													{currentValue} {option.unit}
 												</span>
 											</div>
-											<input
-												type="range"
+											<PixelSlider
 												min={option.min}
 												max={option.max}
 												step={option.step}
 												value={currentValue}
-												onChange={(e) => {
-													const newVal = parseFloat(
-														e.target.value
-													);
+												onChange={(val) => {
 													setModSettings((prev) => ({
 														...prev,
 														[mod.id]: {
 															...(prev[mod.id] ||
 																{}),
-															[option.id]: newVal,
+															[option.id]: val,
 														},
 													}));
 												}}
-												className="w-full accent-indigo-500"
+												color="indigo"
 											/>
 										</div>
 									);
@@ -177,7 +174,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 					);
 				})}
 
-			<h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-800 pb-2 mb-4 mt-8">
+			<h3 className="text-sm font-bold text-gray-400 uppercase border-b border-gray-800 pb-2 mb-4 mt-8 pixel-text">
 				General Tuning
 			</h3>
 
@@ -187,22 +184,18 @@ const TuningTab: React.FC<TuningTabProps> = ({
 						FINAL DRIVE RATIO ({playerTuning.finalDriveRatio})
 					</label>
 					<div className="relative">
-						<input
-							type="range"
-							min="2.0"
-							max="5.0"
-							step="0.1"
+						<PixelSlider
+							min={2.0}
+							max={5.0}
+							step={0.1}
 							value={playerTuning.finalDriveRatio}
-							onChange={(e) =>
+							onChange={(val) =>
 								setPlayerTuning({
 									...playerTuning,
-									finalDriveRatio: parseFloat(e.target.value),
+									finalDriveRatio: val,
 								})
 							}
-							className="w-full accent-indigo-500"
-							style={{
-								background: `linear-gradient(to right, #22c55e 0%, #eab308 50%, #ef4444 100%)`,
-							}}
+							color="cyan"
 						/>
 					</div>
 					<div className="flex justify-between text-[10px] text-gray-600 mt-1">
@@ -264,27 +257,26 @@ const TuningTab: React.FC<TuningTabProps> = ({
 								<span className="text-xs text-gray-400 w-12">
 									Gear {gear}:
 								</span>
-								<input
-									type="range"
-									min="0.5"
-									max="4.0"
-									step="0.05"
-									value={playerTuning.gearRatios[gear]}
-									onChange={(e) => {
-										const newRatios = {
-											...playerTuning.gearRatios,
-										};
-										newRatios[gear] = parseFloat(
-											e.target.value
-										);
-										setPlayerTuning({
-											...playerTuning,
-											gearRatios: newRatios,
-										});
-									}}
-									className="flex-1 accent-purple-500"
-								/>
-								<span className="text-xs text-white font-mono w-12">
+								<div className="flex-1">
+									<PixelSlider
+										min={0.5}
+										max={4.0}
+										step={0.05}
+										value={playerTuning.gearRatios[gear]}
+										onChange={(val) => {
+											const newRatios = {
+												...playerTuning.gearRatios,
+											};
+											newRatios[gear] = val;
+											setPlayerTuning({
+												...playerTuning,
+												gearRatios: newRatios,
+											});
+										}}
+										color="purple"
+									/>
+								</div>
+								<span className="text-xs text-white font-mono w-12 text-right">
 									{playerTuning.gearRatios[gear].toFixed(2)}
 								</span>
 							</div>
@@ -303,28 +295,29 @@ const TuningTab: React.FC<TuningTabProps> = ({
 								<span className="text-xs text-gray-400 w-20">
 									{point.rpm} RPM:
 								</span>
-								<input
-									type="range"
-									min="0.1"
-									max="1.0"
-									step="0.05"
-									value={point.factor}
-									onChange={(e) => {
-										const newCurve = [
-											...playerTuning.torqueCurve,
-										];
-										newCurve[idx] = {
-											...point,
-											factor: parseFloat(e.target.value),
-										};
-										setPlayerTuning({
-											...playerTuning,
-											torqueCurve: newCurve,
-										});
-									}}
-									className="flex-1 accent-orange-500"
-								/>
-								<span className="text-xs text-white font-mono w-12">
+								<div className="flex-1">
+									<PixelSlider
+										min={0.1}
+										max={1.0}
+										step={0.05}
+										value={point.factor}
+										onChange={(val) => {
+											const newCurve = [
+												...playerTuning.torqueCurve,
+											];
+											newCurve[idx] = {
+												...point,
+												factor: val,
+											};
+											setPlayerTuning({
+												...playerTuning,
+												torqueCurve: newCurve,
+											});
+										}}
+										color="orange"
+									/>
+								</div>
+								<span className="text-xs text-white font-mono w-12 text-right">
 									{(point.factor * 100).toFixed(0)}%
 								</span>
 							</div>
@@ -337,7 +330,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 
 				{/* Manage Tunes */}
 				<div className="mt-8 pt-8 border-t border-gray-800">
-					<h3 className="text-sm font-bold text-indigo-400 uppercase mb-4">
+					<h3 className="text-sm font-bold text-indigo-400 uppercase mb-4 pixel-text">
 						Manage Tunes
 					</h3>
 
@@ -347,12 +340,12 @@ const TuningTab: React.FC<TuningTabProps> = ({
 							value={tuneName}
 							onChange={(e) => setTuneName(e.target.value)}
 							placeholder="Tune Name..."
-							className="flex-1 bg-black/50 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+							className="flex-1 bg-black/50 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-pixel"
 						/>
 						<button
 							onClick={handleSaveTune}
 							disabled={!tuneName.trim()}
-							className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold uppercase rounded hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+							className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold uppercase rounded hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed pixel-btn"
 						>
 							Save
 						</button>
@@ -417,7 +410,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 														play('confirm');
 														onLoadTune(tune);
 													}}
-													className="px-2 py-1 text-[10px] uppercase rounded border bg-green-900/50 text-green-400 border-green-900 hover:bg-green-900"
+													className="px-2 py-1 text-[10px] uppercase rounded border bg-green-900/50 text-green-400 border-green-900 hover:bg-green-900 pixel-btn"
 												>
 													Load
 												</button>
@@ -428,7 +421,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 															missingMods
 														)
 													}
-													className="px-2 py-1 text-[10px] uppercase rounded border bg-yellow-900/50 text-yellow-400 border-yellow-900 hover:bg-yellow-900"
+													className="px-2 py-1 text-[10px] uppercase rounded border bg-yellow-900/50 text-yellow-400 border-yellow-900 hover:bg-yellow-900 pixel-btn"
 												>
 													Buy Parts
 												</button>
@@ -437,7 +430,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 												onClick={() =>
 													handleDeleteTune(tune.id)
 												}
-												className="px-2 py-1 bg-red-900/50 text-red-400 text-[10px] uppercase rounded border border-red-900 hover:bg-red-900"
+												className="px-2 py-1 bg-red-900/50 text-red-400 text-[10px] uppercase rounded border border-red-900 hover:bg-red-900 pixel-btn"
 											>
 												Del
 											</button>

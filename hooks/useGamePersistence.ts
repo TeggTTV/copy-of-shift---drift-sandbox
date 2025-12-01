@@ -31,7 +31,11 @@ export const useGamePersistence = (
 	currentCarIndex: number,
 	setCurrentCarIndex: (index: number) => void,
 	undergroundLevel: number,
-	setUndergroundLevel: (level: number) => void
+	setUndergroundLevel: (level: number) => void,
+	xp: number,
+	setXp: (xp: number) => void,
+	level: number,
+	setLevel: (level: number) => void
 ) => {
 	const [loaded, setLoaded] = useState(false);
 
@@ -87,6 +91,13 @@ export const useGamePersistence = (
 					setUndergroundLevel(parseInt(savedUndergroundLevel));
 				}
 
+				// XP & Level
+				const savedXp = localStorage.getItem('shift_drift_xp');
+				if (savedXp) setXp(parseInt(savedXp));
+
+				const savedLevel = localStorage.getItem('shift_drift_level');
+				if (savedLevel) setLevel(parseInt(savedLevel));
+
 				// Daily Challenges
 				const savedDaily = localStorage.getItem(
 					'shift_drift_dailyChallenges'
@@ -102,15 +113,15 @@ export const useGamePersistence = (
 						setDailyChallenges(parsedDaily);
 					} else {
 						// Expired, generate new ones
-						console.log(
-							'Daily challenges expired, generating new ones'
-						);
+						// console.log(
+						// 	'Daily challenges expired, generating new ones'
+						// );
 						const newChallenges = generateDailyChallenges();
 						setDailyChallenges(newChallenges);
 					}
 				} else {
 					// First time generation
-					console.log('Generating first set of daily challenges');
+					// console.log('Generating first set of daily challenges');
 					const newChallenges = generateDailyChallenges();
 					setDailyChallenges(newChallenges);
 				}
@@ -278,6 +289,16 @@ export const useGamePersistence = (
 			JSON.stringify(dailyChallenges)
 		);
 	}, [dailyChallenges, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem('shift_drift_xp', xp.toString());
+	}, [xp, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem('shift_drift_level', level.toString());
+	}, [level, loaded]);
 
 	return loaded;
 };

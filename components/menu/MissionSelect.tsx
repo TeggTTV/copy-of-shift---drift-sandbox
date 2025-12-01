@@ -3,6 +3,7 @@ import { DailyChallenge, GamePhase, Mission, SavedTune } from '../../types';
 import { useSound } from '../../contexts/SoundContext';
 import { generateOpponent } from '../../utils/OpponentGenerator';
 import { BASE_TUNING } from '../../constants';
+import { CarGenerator } from '../../utils/CarGenerator';
 
 interface MissionSelectProps {
 	missions: Mission[];
@@ -12,6 +13,8 @@ interface MissionSelectProps {
 	undergroundLevel?: number;
 	garage?: SavedTune[];
 	dailyChallenges?: DailyChallenge[];
+	activeTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY';
+	setActiveTab: (tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY') => void;
 }
 
 const MissionSelect: React.FC<MissionSelectProps> = ({
@@ -22,16 +25,31 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 	undergroundLevel = 1,
 	garage = [],
 	dailyChallenges = [],
+	activeTab,
+	setActiveTab,
 }) => {
 	const { play } = useSound();
-	const [activeTab, setActiveTab] = useState<
-		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY'
-	>('CAMPAIGN');
 
 	// Generate the current rival based on level
 	// Memoize so it doesn't change on every render, only when level changes
 	const currentRival = useMemo(() => {
-		return generateOpponent(undergroundLevel);
+		const isBoss = undergroundLevel % 10 === 0;
+		return generateOpponent(undergroundLevel, 300, isBoss);
+	}, [undergroundLevel]);
+
+	// Generate Reward Car for Boss
+	const rewardCar = useMemo(() => {
+		if (undergroundLevel % 10 === 0) {
+			// Boss drops a car!
+			// Force Tier 2 or 3
+			// We can use generateDealershipCar but force high tier?
+			// Or just generateJunkyardCar and repair it?
+			// Let's generate a "Dealership" quality car (Clean Title)
+			const car = CarGenerator.generateDealershipCar('boss_reward');
+			// Ensure it's special?
+			return car;
+		}
+		return undefined;
 	}, [undergroundLevel]);
 
 	// Timer Logic
@@ -67,9 +85,10 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 			name: `Underground Rival: ${currentRival.name}`,
 			description: `Defeat ${currentRival.name} to increase your Underground Rank.`,
 			payout: 500 + undergroundLevel * 100, // Scaled payout
-			difficulty: 'UNDERGROUND',
+			difficulty: undergroundLevel % 10 === 0 ? 'BOSS' : 'UNDERGROUND',
 			distance: 402, // Standard 1/4 mile
 			opponent: currentRival,
+			rewardCar: rewardCar, // Pink slip if boss
 		};
 		onStartMission(mission);
 	};
@@ -314,7 +333,8 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 
 						<div className="pixel-panel p-8 bg-black/80 border-purple-900 w-full max-w-md relative overflow-hidden">
 							<div className="absolute top-0 right-0 bg-purple-900 text-white text-xs px-3 py-1">
-								LEVEL {undergroundLevel}
+								LEVEL {undergroundLevel}{' '}
+								{undergroundLevel % 10 === 0 ? '👑 BOSS' : ''}
 							</div>
 
 							<div className="flex flex-col items-center">
@@ -373,6 +393,16 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 											${500 + undergroundLevel * 100}
 										</div>
 									</div>
+									{rewardCar && (
+										<div className="col-span-2 bg-yellow-900/40 p-3 rounded border border-yellow-700 animate-pulse">
+											<div className="text-[10px] text-yellow-500 uppercase font-bold">
+												PINK SLIP REWARD
+											</div>
+											<div className="text-white font-mono">
+												{rewardCar.name}
+											</div>
+										</div>
+									)}
 								</div>
 
 								<button

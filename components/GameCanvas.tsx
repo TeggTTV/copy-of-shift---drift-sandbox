@@ -27,7 +27,7 @@ import { drawCar } from '../utils/renderUtils';
 import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import { useGamePersistence } from '../hooks/useGamePersistence';
-import GameMenu from './GameMenu';
+import { GameMenu } from './GameMenu';
 import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
@@ -64,6 +64,10 @@ const GameCanvas: React.FC = () => {
 	const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>(
 		[]
 	);
+	// Mission Select Tab Persistence
+	const [missionSelectTab, setMissionSelectTab] = useState<
+		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY'
+	>('CAMPAIGN');
 
 	// Weather State
 	const [weather, setWeather] = useState<{
@@ -134,9 +138,11 @@ const GameCanvas: React.FC = () => {
 						ownedMods: car.ownedMods, // Include pre-installed mods
 						disabledMods: [],
 						modSettings: {},
-						manualTuning: {},
+						manualTuning: car.manualTuning || {},
 						condition: car.condition,
 						originalPrice: car.originalPrice,
+						rarity: car.rarity,
+						rarityMultiplier: car.rarityMultiplier,
 					},
 				]);
 				setJunkyardCars((prev) => prev.filter((c) => c.id !== car.id));
@@ -200,6 +206,8 @@ const GameCanvas: React.FC = () => {
 
 	// Underground State
 	const [undergroundLevel, setUndergroundLevel] = useState(1);
+	const [xp, setXp] = useState(0);
+	const [level, setLevel] = useState(1);
 
 	// Persistence Hook
 	const isGameLoaded = useGamePersistence(
@@ -226,7 +234,11 @@ const GameCanvas: React.FC = () => {
 		currentCarIndex,
 		setCurrentCarIndex,
 		undergroundLevel,
-		setUndergroundLevel
+		setUndergroundLevel,
+		xp,
+		setXp,
+		level,
+		setLevel
 	);
 
 	// Sync active car state to garage whenever it changes
@@ -253,6 +265,7 @@ const GameCanvas: React.FC = () => {
 				JSON.stringify(modSettings) ||
 			JSON.stringify(currentCar.manualTuning) !==
 				JSON.stringify({
+					...currentCar.manualTuning,
 					finalDriveRatio: playerTuning.finalDriveRatio,
 					gearRatios: playerTuning.gearRatios,
 					torqueCurve: playerTuning.torqueCurve,
@@ -266,6 +279,7 @@ const GameCanvas: React.FC = () => {
 				disabledMods,
 				modSettings,
 				manualTuning: {
+					...currentCar.manualTuning,
 					finalDriveRatio: playerTuning.finalDriveRatio,
 					gearRatios: playerTuning.gearRatios,
 					torqueCurve: playerTuning.torqueCurve,
@@ -290,7 +304,7 @@ const GameCanvas: React.FC = () => {
 		if (garage.length === 0) return;
 		const car = garage[currentCarIndex];
 		if (car) {
-			console.log('🚗 Switching to car:', car.name);
+			// console.log('🚗 Switching to car:', car.name);
 			setOwnedMods(car.ownedMods);
 			setDisabledMods(car.disabledMods);
 			setModSettings(car.modSettings);
@@ -440,12 +454,12 @@ const GameCanvas: React.FC = () => {
 				case 'MAP':
 				case 'GARAGE':
 				case 'JUNKYARD':
-					console.log('[GameCanvas] Starting menu music');
+					// console.log('[GameCanvas] Starting menu music');
 					music.play('menu', 2.0);
 					break;
 				case 'RACE':
 				case 'VERSUS':
-					console.log('[GameCanvas] Starting race music');
+					// console.log('[GameCanvas] Starting race music');
 					music.play('race', 1.5);
 					break;
 				// Victory/defeat music handled separately in race result logic
@@ -463,7 +477,7 @@ const GameCanvas: React.FC = () => {
 	// Recalculate playerTuning when owned mods change
 
 	useEffect(() => {
-		console.log('🔧 Recalculating tuning for mods:', ownedMods);
+		// console.log('🔧 Recalculating tuning for mods:', ownedMods);
 
 		// Preserve manual tuning parameters before recalculating
 		// Use ref to avoid dependency loop
@@ -481,12 +495,31 @@ const GameCanvas: React.FC = () => {
 			: [];
 		const safeModSettings = modSettings || {};
 
+		// Determine Base Tuning from active car (preserves unique stats)
+		let baseTuning = BASE_TUNING;
+		if (garage.length > 0 && garage[currentCarIndex]) {
+			baseTuning = {
+				...BASE_TUNING,
+				...garage[currentCarIndex].manualTuning,
+			};
+		}
+
 		const newTuning = CarBuilder.calculateTuning(
-			BASE_TUNING,
+			baseTuning,
 			safeOwnedMods,
 			safeDisabledMods,
 			safeModSettings
 		);
+
+		// Re-apply user's manual tuning (sliders) to override mod defaults
+		// This ensures that if I have a transmission mod, my custom gears aren't overwritten by the mod's default gears
+		if (garage.length > 0 && garage[currentCarIndex]) {
+			const saved = garage[currentCarIndex].manualTuning;
+			if (saved.gearRatios) newTuning.gearRatios = saved.gearRatios;
+			if (saved.finalDriveRatio)
+				newTuning.finalDriveRatio = saved.finalDriveRatio;
+			if (saved.torqueCurve) newTuning.torqueCurve = saved.torqueCurve;
+		}
 
 		// If we have pending manual tuning (from loading a preset), apply it
 		if (pendingTuningRef.current) {
@@ -495,7 +528,7 @@ const GameCanvas: React.FC = () => {
 		}
 
 		setPlayerTuning(newTuning);
-	}, [ownedMods, disabledMods, modSettings]);
+	}, [ownedMods, disabledMods, modSettings, garage, currentCarIndex]);
 
 	// Calculate Effective Tuning (including Condition Penalty)
 	const effectiveTuning = useMemo(() => {
@@ -915,6 +948,40 @@ const GameCanvas: React.FC = () => {
 						setMoney(
 							(prev) => prev + m.payout + currentWagerRef.current
 						);
+
+						// XP Gain
+						let xpGain = 20; // Base
+						if (m.difficulty === 'UNDERGROUND') xpGain = 100;
+						if (missionSelectTab === 'DAILY') xpGain = 50;
+
+						setXp((prev) => {
+							const newXp = prev + xpGain;
+							// Level Up Logic: 10 -> 50 -> 200 -> 1000 (Exponential-ish)
+							// Formula: 10 * 5^(level-1)?
+							// Level 1->2: 10
+							// Level 2->3: 50
+							// Level 3->4: 250 (close to 200)
+							// Let's use specific thresholds or a formula.
+							// User said: 10 -> 50 -> 200 -> 1000
+							// Multiplier approx 4x-5x.
+
+							const nextLevelThreshold = (lvl: number) => {
+								if (lvl === 1) return 10;
+								if (lvl === 2) return 50;
+								if (lvl === 3) return 200;
+								return 1000 * Math.pow(2.5, lvl - 4);
+							};
+
+							if (newXp >= nextLevelThreshold(level)) {
+								setLevel((l) => l + 1);
+								showToast(
+									`LEVEL UP! You are now Level ${level + 1}`,
+									'SUCCESS'
+								);
+							}
+
+							return newXp;
+						});
 
 						// Pink Slip Logic
 						if (m.rewardCar) {
@@ -1358,6 +1425,7 @@ const GameCanvas: React.FC = () => {
 						setPhase={setPhase}
 						money={money}
 						playerTuning={playerTuning}
+						effectiveTuning={effectiveTuning}
 						setPlayerTuning={setPlayerTuning}
 						ownedMods={ownedMods}
 						setOwnedMods={toggleMod}
@@ -1366,6 +1434,8 @@ const GameCanvas: React.FC = () => {
 						onStartMission={startMission}
 						onConfirmRace={confirmStartRace}
 						selectedMission={missionRef.current}
+						missionSelectTab={missionSelectTab}
+						setMissionSelectTab={setMissionSelectTab}
 						disabledMods={disabledMods}
 						setDisabledMods={setDisabledMods}
 						modSettings={modSettings}

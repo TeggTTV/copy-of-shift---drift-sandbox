@@ -2,7 +2,10 @@ import DynoGraph from './menu/DynoGraph';
 import DynoTab from './menu/DynoTab';
 import UpgradesTab from './menu/UpgradesTab';
 import TuningTab from './menu/TuningTab';
-import { ModTreeVisuals } from './menu/ModTreeVisuals';
+import {
+	calculatePerformanceRating,
+	getRatingClass,
+} from '../utils/PerformanceRating';
 import { useSound } from '../contexts/SoundContext';
 import {
 	DailyChallenge,
@@ -22,12 +25,14 @@ import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import { BASE_TUNING } from '../constants';
 import React, { useState, useMemo, useEffect } from 'react';
+import { ModTreeVisuals } from './menu/ModTreeVisuals';
 
-const GameMenu = ({
+export const GameMenu = ({
 	phase,
 	setPhase,
 	money,
 	playerTuning,
+	effectiveTuning,
 	setPlayerTuning,
 	ownedMods,
 	setOwnedMods,
@@ -58,11 +63,15 @@ const GameMenu = ({
 	onBuyJunkyardCar,
 	onRefreshJunkyard,
 	onRestoreCar,
+	missionSelectTab,
+	setMissionSelectTab,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
 	money: number;
+
 	playerTuning: TuningState;
+	effectiveTuning: TuningState;
 	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
 	ownedMods: string[];
 	setOwnedMods: (mod: ModNode) => void;
@@ -99,6 +108,8 @@ const GameMenu = ({
 	onBuyJunkyardCar: (car: JunkyardCar) => void;
 	onRefreshJunkyard: () => void;
 	onRestoreCar: (index: number) => void;
+	missionSelectTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY';
+	setMissionSelectTab: (tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY') => void;
 }) => {
 	const { play } = useSound();
 	const [activeTab, setActiveTab] = useState<
@@ -106,6 +117,70 @@ const GameMenu = ({
 	>('UPGRADES');
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
 	const [showSettings, setShowSettings] = useState(false);
+
+	const renderParticles = (rarity: string) => {
+		if (rarity !== 'LEGENDARY' && rarity !== 'EXOTIC') return null;
+
+		const particleCount = rarity === 'EXOTIC' ? 16 : 12;
+		const particles = [];
+
+		for (let i = 0; i < particleCount; i++) {
+			let style: React.CSSProperties = {};
+			const delay = Math.random() * 2;
+			const duration = 1.5 + Math.random();
+
+			// Spawn on border for both
+			const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+			const pos = Math.random() * 100;
+			const size = 3 + Math.random() * 3;
+
+			switch (side) {
+				case 0: // Top
+					style = { top: '-6px', left: `${pos}%` };
+					break;
+				case 1: // Right
+					style = { right: '-6px', top: `${pos}%` };
+					break;
+				case 2: // Bottom
+					style = { bottom: '-6px', left: `${pos}%` };
+					break;
+				case 3: // Left
+					style = { left: '-6px', top: `${pos}%` };
+					break;
+			}
+
+			if (rarity === 'EXOTIC') {
+				style = {
+					...style,
+					width: `${size}px`,
+					height: `${size}px`,
+					backgroundColor: '#f472b6', // Pink-400
+					animationName: 'twinkle',
+					animationDuration: `${duration}s`,
+					animationDelay: `${delay}s`,
+					boxShadow: '0 0 4px #ec4899',
+				};
+			} else {
+				// Legendary (Gold)
+				style = {
+					...style,
+					width: `${size}px`,
+					height: `${size}px`,
+					backgroundColor: '#fbbf24', // Gold
+					animationName: 'twinkle',
+					animationDuration: `${duration}s`,
+					animationDelay: `${delay}s`,
+					boxShadow: '0 0 4px #d97706',
+				};
+			}
+
+			particles.push(
+				<div key={i} className="pixel-particle" style={style} />
+			);
+		}
+
+		return <>{particles}</>;
+	};
 
 	// Escape key navigation
 	useEffect(() => {
@@ -183,7 +258,7 @@ const GameMenu = ({
 	if (phase === 'VERSUS' && selectedMission && onConfirmRace) {
 		return (
 			<VersusScreen
-				playerTuning={playerTuning}
+				playerTuning={effectiveTuning} // Use effective tuning for versus stats
 				mission={selectedMission}
 				onConfirmRace={(wager) => {
 					// play('confirm');
@@ -276,6 +351,8 @@ const GameMenu = ({
 				undergroundLevel={undergroundLevel}
 				money={money}
 				garage={garage}
+				activeTab={missionSelectTab}
+				setActiveTab={setMissionSelectTab}
 			/>
 		);
 	}
@@ -321,7 +398,7 @@ const GameMenu = ({
 							</h3>
 							<div className="h-[280px] w-full bg-black/50 mb-6 pixel-panel p-2">
 								<DynoGraph
-									tuning={playerTuning}
+									tuning={effectiveTuning} // Use effective tuning for Dyno
 									previewTuning={previewTuning}
 									liveData={dynoHistory}
 									previousData={previousDynoHistory}
@@ -419,118 +496,239 @@ const GameMenu = ({
 								/>
 							) : activeTab === 'DYNO' ? (
 								<DynoTab
-									playerTuning={playerTuning}
+									playerTuning={effectiveTuning}
 									onUpdateHistory={setDynoHistory}
 									onRunStart={onDynoRunStart}
 								/>
 							) : (
 								<div className="flex flex-col gap-4">
-									{garage.map((car, index) => (
-										<div
-											key={car.id + index}
-											className={`pixel-panel p-4 cursor-pointer ${
-												index === currentCarIndex
-													? 'border-indigo-500 bg-indigo-900/20'
-													: 'hover:border-gray-500'
-											}`}
-											onClick={() =>
-												setCurrentCarIndex(index)
-											}
-										>
-											<div className="flex justify-between items-center mb-2">
-												<span className="text-white pixel-text text-sm">
-													{car.name}
-												</span>
-												{index === currentCarIndex && (
-													<span className="text-[10px] text-indigo-400 bg-indigo-900/50 px-2 py-1 rounded">
-														ACTIVE
-													</span>
-												)}
-											</div>
-											<div className="text-[10px] text-gray-500 mb-2">
-												Mods: {car.ownedMods.length} |
-												Date:{' '}
-												{new Date(
-													car.date
-												).toLocaleDateString()}
-											</div>
+									{garage.map((car, index) => {
+										const rarity = car.rarity || 'COMMON';
+										let borderColor =
+											index === currentCarIndex
+												? 'border-indigo-500'
+												: 'border-gray-800 hover:border-gray-500';
+										let rarityColor = 'text-white';
+										let badgeBg = 'bg-gray-800';
 
-											{/* Condition Bar */}
-											<div className="mb-2">
-												<div className="flex justify-between text-[10px] mb-1">
-													<span className="text-gray-500">
-														Condition
-													</span>
+										// Override border for special rarities if not active
+										if (index !== currentCarIndex) {
+											switch (rarity) {
+												case 'UNCOMMON':
+													borderColor =
+														'border-green-900/50 hover:border-green-500';
+													rarityColor =
+														'text-green-400';
+													badgeBg =
+														'bg-green-900/80 text-green-200';
+													break;
+												case 'RARE':
+													borderColor =
+														'border-blue-900/50 hover:border-blue-500';
+													rarityColor =
+														'text-blue-400';
+													badgeBg =
+														'bg-blue-900/80 text-blue-200';
+													break;
+												case 'EPIC':
+													borderColor =
+														'border-purple-900/50 hover:border-purple-500';
+													rarityColor =
+														'text-purple-400';
+													badgeBg =
+														'bg-purple-900/80 text-purple-200';
+													break;
+												case 'LEGENDARY':
+													borderColor =
+														'rarity-legendary border-transparent';
+													rarityColor =
+														'text-yellow-400';
+													badgeBg =
+														'bg-yellow-900/80 text-yellow-200 animate-pulse';
+													break;
+												case 'EXOTIC':
+													borderColor =
+														'rarity-exotic border-transparent';
+													rarityColor =
+														'text-pink-400';
+													badgeBg =
+														'bg-pink-900/80 text-pink-200 animate-pulse font-bold tracking-wider';
+													break;
+											}
+										}
+
+										// Calculate Rating
+										const tuning = {
+											...BASE_TUNING,
+											...car.manualTuning,
+										};
+										const rating =
+											calculatePerformanceRating(tuning);
+										const ratingClass =
+											getRatingClass(rating);
+
+										return (
+											<div
+												key={car.id + index}
+												className={`pixel-panel p-4 cursor-pointer relative ${borderColor} ${
+													index === currentCarIndex
+														? 'bg-indigo-900/20'
+														: ''
+												} group`}
+												onClick={() =>
+													setCurrentCarIndex(index)
+												}
+											>
+												{renderParticles(rarity)}
+												<div className="flex justify-between items-center mb-1">
 													<span
-														className={
-															(car.condition ||
-																1) > 0.7
-																? 'text-green-500'
-																: (car.condition ||
-																		1) > 0.4
-																? 'text-yellow-500'
-																: 'text-red-500'
-														}
+														className={`pixel-text text-sm ${rarityColor}`}
 													>
-														{(
-															(car.condition ||
-																1) * 100
-														).toFixed(0)}
-														%
+														{car.name}
+													</span>
+													<span className="text-[10px] bg-gray-800 px-1 rounded text-white border border-gray-600">
+														{ratingClass} {rating}
 													</span>
 												</div>
-												<div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden mb-2">
-													<div
-														className={`h-full ${
-															(car.condition ||
-																1) > 0.7
-																? 'bg-green-500'
-																: (car.condition ||
-																		1) > 0.4
-																? 'bg-yellow-500'
-																: 'bg-red-500'
-														}`}
-														style={{
-															width: `${
+
+												{/* Hover Stats Panel */}
+												<div className="fixed left-[34%] top-1/2 -translate-y-1/2 w-64 bg-black border border-gray-800 p-4 rounded shadow-xl z-[100] pointer-events-none hidden group-hover:block">
+													<div className="text-xs text-gray-400 mb-2 border-b border-gray-800 pb-1">
+														PERFORMANCE
+													</div>
+													<div className="grid grid-cols-2 gap-2 text-[10px]">
+														<div className="text-gray-500">
+															POWER
+														</div>
+														<div className="text-right text-white">
+															{(
+																(tuning.maxTorque *
+																	tuning.redlineRPM) /
+																7023
+															).toFixed(0)}{' '}
+															HP
+														</div>
+														<div className="text-gray-500">
+															WEIGHT
+														</div>
+														<div className="text-right text-white">
+															{tuning.mass.toFixed(
+																0
+															)}{' '}
+															kg
+														</div>
+														<div className="text-gray-500">
+															GRIP
+														</div>
+														<div className="text-right text-white">
+															{tuning.tireGrip.toFixed(
+																2
+															)}
+														</div>
+														<div className="text-gray-500">
+															RATING
+														</div>
+														<div className="text-right text-yellow-500">
+															{rating}
+														</div>
+													</div>
+												</div>
+
+												<div className="flex justify-between items-end">
+													{index ===
+														currentCarIndex && (
+														<span className="text-[10px] text-indigo-400 bg-indigo-900/50 px-2 py-1 rounded">
+															ACTIVE
+														</span>
+													)}
+												</div>
+												<div className="text-[10px] text-gray-500 mb-2">
+													Mods: {car.ownedMods.length}{' '}
+													| Date:{' '}
+													{new Date(
+														car.date
+													).toLocaleDateString()}
+												</div>
+
+												{/* Condition Bar */}
+												<div className="mb-2">
+													<div className="flex justify-between text-[10px] mb-1">
+														<span className="text-gray-500">
+															Condition
+														</span>
+														<span
+															className={
+																(car.condition ||
+																	1) > 0.7
+																	? 'text-green-500'
+																	: (car.condition ||
+																			1) >
+																	  0.4
+																	? 'text-yellow-500'
+																	: 'text-red-500'
+															}
+														>
+															{(
 																(car.condition ||
 																	1) * 100
-															}%`,
-														}}
-													></div>
+															).toFixed(0)}
+															%
+														</span>
+													</div>
+													<div className="w-full bg-gray-800 h-1 rounded-full overflow-hidden mb-2">
+														<div
+															className={`h-full ${
+																(car.condition ||
+																	1) > 0.7
+																	? 'bg-green-500'
+																	: (car.condition ||
+																			1) >
+																	  0.4
+																	? 'bg-yellow-500'
+																	: 'bg-red-500'
+															}`}
+															style={{
+																width: `${
+																	(car.condition ||
+																		1) * 100
+																}%`,
+															}}
+														></div>
+													</div>
+													<div className="flex justify-between text-[10px]">
+														<span className="text-gray-500">
+															Value
+														</span>
+														<span className="text-green-400">
+															$
+															{CarGenerator.calculateValue(
+																car
+															).toLocaleString()}
+														</span>
+													</div>
 												</div>
-												<div className="flex justify-between text-[10px]">
-													<span className="text-gray-500">
-														Value
-													</span>
-													<span className="text-green-400">
-														$
-														{CarGenerator.calculateValue(
-															car
-														).toLocaleString()}
-													</span>
-												</div>
-											</div>
 
-											{(car.condition || 1) < 1 && (
-												<button
-													onClick={(e) => {
-														e.stopPropagation();
-														onRestoreCar(index);
-													}}
-													className="w-full pixel-btn bg-green-900/20 border-green-800 text-green-500 hover:bg-green-900/40 text-[10px] py-1"
-												>
-													RESTORE ($
-													{Math.floor(
-														(1 -
-															(car.condition ||
-																1)) *
-															10000
-													).toLocaleString()}
-													)
-												</button>
-											)}
-										</div>
-									))}
+												{(car.condition || 1) < 1 && (
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															onRestoreCar(index);
+														}}
+														className="w-full pixel-btn bg-green-900/20 border-green-800 text-green-500 hover:bg-green-900/40 text-[10px] py-1"
+													>
+														RESTORE ($
+														{Math.floor(
+															(1 -
+																(car.condition ||
+																	1)) *
+																10000
+														).toLocaleString()}
+														)
+													</button>
+												)}
+											</div>
+										);
+									})}
 									{garage.length === 0 && (
 										<div className="text-gray-500 text-center text-xs py-8">
 											No cars in garage.
@@ -595,5 +793,3 @@ const GameMenu = ({
 
 	return null;
 };
-
-export default GameMenu;

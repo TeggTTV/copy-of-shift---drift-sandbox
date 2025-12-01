@@ -52,7 +52,8 @@ const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 export const generateOpponent = (
 	level: number,
-	playerMaxTorque: number = 300 // Default reference if player stats aren't passed
+	playerMaxTorque: number = 300, // Default reference if player stats aren't passed
+	isBoss: boolean = false
 ): Opponent => {
 	// Base difficulty scales with level
 	// Level 1: 0.8 difficulty
@@ -63,7 +64,9 @@ export const generateOpponent = (
 	// Random variance (+/- 10%)
 	const variance = random(0.9, 1.1);
 
-	const finalDifficulty = difficultyMultiplier * variance;
+	// Boss Difficulty Boost
+	const bossMultiplier = isBoss ? 1.3 : 1.0;
+	const finalDifficulty = difficultyMultiplier * variance * bossMultiplier;
 
 	// Generate Tuning based on difficulty
 	// We scale torque and grip primarily
@@ -88,7 +91,11 @@ export const generateOpponent = (
 	};
 
 	// Name generation
-	const name = `${pick(RIVAL_NAMES)} (Lvl ${level})`;
+	let name = `${pick(RIVAL_NAMES)} (Lvl ${level})`;
+	if (isBoss) {
+		const bossNames = ['The King', 'Baron', 'DK', 'Razor', 'Bull', 'Wolf'];
+		name = `BOSS: ${pick(bossNames)}`;
+	}
 
 	return {
 		name,

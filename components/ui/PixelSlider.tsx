@@ -8,6 +8,14 @@ interface PixelSliderProps {
 	step?: number;
 	disabled?: boolean;
 	showValue?: boolean;
+	color?:
+		| 'cyan'
+		| 'indigo'
+		| 'purple'
+		| 'orange'
+		| 'green'
+		| 'yellow'
+		| 'red';
 }
 
 const PixelSlider: React.FC<PixelSliderProps> = ({
@@ -18,9 +26,32 @@ const PixelSlider: React.FC<PixelSliderProps> = ({
 	step = 1,
 	disabled = false,
 	showValue = false,
+	color = 'cyan',
 }) => {
 	const percentage = ((value - min) / (max - min)) * 100;
 	const segments = 20; // Number of segments in the bar
+
+	const getColorClasses = (c: string) => {
+		switch (c) {
+			case 'indigo':
+				return 'from-indigo-400 to-indigo-600 shadow-[0_0_4px_rgba(129,140,248,0.5)]';
+			case 'purple':
+				return 'from-purple-400 to-purple-600 shadow-[0_0_4px_rgba(192,132,252,0.5)]';
+			case 'orange':
+				return 'from-orange-400 to-orange-600 shadow-[0_0_4px_rgba(251,146,60,0.5)]';
+			case 'green':
+				return 'from-green-400 to-green-600 shadow-[0_0_4px_rgba(74,222,128,0.5)]';
+			case 'yellow':
+				return 'from-yellow-400 to-yellow-600 shadow-[0_0_4px_rgba(250,204,21,0.5)]';
+			case 'red':
+				return 'from-red-400 to-red-600 shadow-[0_0_4px_rgba(248,113,113,0.5)]';
+			case 'cyan':
+			default:
+				return 'from-cyan-400 to-cyan-600 shadow-[0_0_4px_rgba(34,211,238,0.5)]';
+		}
+	};
+
+	const colorClass = getColorClasses(color);
 
 	return (
 		<div className="w-full">
@@ -38,13 +69,13 @@ const PixelSlider: React.FC<PixelSliderProps> = ({
 									isActive
 										? disabled
 											? 'bg-gray-600'
-											: 'bg-gradient-to-b from-cyan-400 to-cyan-600 shadow-[0_0_4px_rgba(34,211,238,0.5)]'
+											: `bg-gradient-to-b ${colorClass}`
 										: 'bg-gray-900/50'
 								}`}
 								style={{
 									boxShadow:
 										isActive && !disabled
-											? '0 0 4px rgba(34, 211, 238, 0.5)'
+											? 'none' // Shadow handled by class now
 											: 'none',
 								}}
 							/>

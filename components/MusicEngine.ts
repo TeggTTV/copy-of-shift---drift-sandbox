@@ -99,18 +99,18 @@ export class MusicEngine {
 			await this.ctx.resume();
 		}
 
-		console.log('[MusicEngine] Initialized');
+		// 	console.log('[MusicEngine] Initialized');
 	}
 
 	async loadTrack(track: MusicTrack): Promise<void> {
 		if (!this.ctx) {
-			console.error('[MusicEngine] Context not initialized');
+			// console.error('[MusicEngine] Context not initialized');
 			return;
 		}
 
 		const config = this.trackConfigs.get(track);
 		if (!config) {
-			console.error(`[MusicEngine] No config for track: ${track}`);
+			// console.error(`[MusicEngine] No config for track: ${track}`);
 			return;
 		}
 
@@ -122,21 +122,21 @@ export class MusicEngine {
 			try {
 				const response = await fetch(url);
 				if (!response.ok) {
-					console.warn(
-						`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
-					);
+					// console.warn(
+					// 	`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
+					// );
 					continue; // Skip this variant, try next
 				}
 
 				const arrayBuffer = await response.arrayBuffer();
 				const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
 				this.tracks.set(key, audioBuffer);
-				console.log(`[MusicEngine] Loaded track: ${key}`);
+				// console.log(`[MusicEngine] Loaded track: ${key}`);
 			} catch (error) {
-				console.warn(
-					`[MusicEngine] Error loading ${track} variant ${i}:`,
-					error
-				);
+				// console.warn(
+				// 	`[MusicEngine] Error loading ${track} variant ${i}:`,
+				// 	error
+				// );
 			}
 		}
 	}
@@ -146,12 +146,12 @@ export class MusicEngine {
 			this.loadTrack(track)
 		);
 		await Promise.all(loadPromises);
-		console.log('[MusicEngine] All tracks loaded');
+		// console.log('[MusicEngine] All tracks loaded');
 	}
 
 	async play(track: MusicTrack, fadeInDuration: number = 1.0) {
 		if (!this.ctx || !this.masterGain || !this.isInitialized) {
-			console.warn('[MusicEngine] Not initialized, initializing now...');
+			// console.warn('[MusicEngine] Not initialized, initializing now...');
 			await this.init();
 		}
 
@@ -161,12 +161,12 @@ export class MusicEngine {
 		if (this.ctx.state === 'suspended') {
 			try {
 				await this.ctx.resume();
-				console.log('[MusicEngine] Audio context resumed');
+				// console.log('[MusicEngine] Audio context resumed');
 			} catch (error) {
-				console.warn(
-					'[MusicEngine] Failed to resume audio context:',
-					error
-				);
+				// console.warn(
+				// 	'[MusicEngine] Failed to resume audio context:',
+				// 	error
+				// );
 				return;
 			}
 		}
@@ -174,7 +174,7 @@ export class MusicEngine {
 		// Find all available variants for this track
 		const config = this.trackConfigs.get(track);
 		if (!config) {
-			console.error(`[MusicEngine] No config for track: ${track}`);
+			// console.error(`[MusicEngine] No config for track: ${track}`);
 			return;
 		}
 
@@ -187,9 +187,9 @@ export class MusicEngine {
 		}
 
 		if (availableVariants.length === 0) {
-			console.warn(
-				`[MusicEngine] No variants loaded for ${track}, attempting to load...`
-			);
+			// console.warn(
+			// 	`[MusicEngine] No variants loaded for ${track}, attempting to load...`
+			// );
 			await this.loadTrack(track);
 			// Retry after loading
 			return this.play(track, fadeInDuration);
@@ -204,13 +204,13 @@ export class MusicEngine {
 		const buffer = this.tracks.get(key);
 
 		if (!buffer) {
-			console.error(`[MusicEngine] Failed to get buffer for: ${key}`);
+			// console.error(`[MusicEngine] Failed to get buffer for: ${key}`);
 			return;
 		}
 
 		// If same track is already playing, don't restart
 		if (this.currentTrack === track && this.isPlaying) {
-			console.log(`[MusicEngine] Track ${track} already playing`);
+			// console.log(`[MusicEngine] Track ${track} already playing`);
 			return;
 		}
 
