@@ -58,7 +58,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 		};
 
 		// Attempt immediate initialization
-		initMusic();
+		// initMusic(); // Removed to prevent AudioContext warning. Waits for interaction.
 
 		// Fallback: Initialize on first interaction if auto-init failed
 		const handleFirstInteraction = () => {

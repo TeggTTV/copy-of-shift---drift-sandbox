@@ -172,6 +172,7 @@ export interface Mission {
 	bestTime?: number; // Persisted best time
 	bestGhost?: number[]; // Recorded ghost data
 	rewardCar?: SavedTune; // Car awarded for winning
+	xpReward?: number;
 }
 
 export interface DailyChallenge extends Mission {

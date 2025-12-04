@@ -124,6 +124,42 @@
 	}
 }
 
+.rarity-rainbow {
+	animation: rainbow-pulse 3s linear infinite;
+	background: linear-gradient(
+		135deg,
+		rgba(20, 0, 0, 1) 0%,
+		rgba(0, 0, 20, 1) 100%
+	);
+}
+
+@keyframes rainbow-pulse {
+	0% {
+		border-color: #ef4444;
+		box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+	}
+	20% {
+		border-color: #eab308;
+		box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+	}
+	40% {
+		border-color: #22c55e;
+		box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+	}
+	60% {
+		border-color: #3b82f6;
+		box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+	}
+	80% {
+		border-color: #a855f7;
+		box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+	}
+	100% {
+		border-color: #ef4444;
+		box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+	}
+}
+
 /* Particle Effects */
 .pixel-particle {
 	position: absolute;
@@ -176,4 +212,72 @@
 .no-scrollbar {
 	-ms-overflow-style: none !important; /* IE and Edge */
 	scrollbar-width: none !important; /* Firefox */
+}
+
+/* Level Up Animations */
+@keyframes slide-up-enter {
+	0% {
+		transform: translateY(100%);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes slide-up-exit {
+	0% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(-100%);
+		opacity: 0;
+	}
+}
+
+.animate-slide-up-enter {
+	animation: slide-up-enter 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-up-exit {
+	animation: slide-up-exit 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes border-fill {
+	0% {
+		clip-path: polygon(50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%);
+	}
+	25% {
+		clip-path: polygon(50% 0%, 100% 0%, 100% 0%, 100% 0%, 100% 0%);
+	}
+	50% {
+		clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 100% 100%, 100% 100%);
+	}
+	75% {
+		clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 100%);
+	}
+	100% {
+		clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%);
+	}
+}
+
+.animate-border-fill {
+	animation: border-fill 1s ease-out forwards;
+}
+
+@keyframes float-fade-up {
+	0% {
+		transform: translateY(0) scale(1);
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(-20px) scale(1.1);
+		opacity: 0;
+	}
+}
+
+.animate-float-fade-up {
+	animation: float-fade-up 1.5s ease-out forwards;
 }

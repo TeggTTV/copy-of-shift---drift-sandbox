@@ -362,7 +362,6 @@ export const MOD_TREE: ModNode[] = [
 		y: 1.2,
 		stats: {
 			maxTorque: 130,
-			redlineRPM: 7500,
 			torqueCurve: [
 				{ rpm: 0, factor: 0.4 },
 				{ rpm: 3000, factor: 0.7 },

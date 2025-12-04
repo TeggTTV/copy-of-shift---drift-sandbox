@@ -26,8 +26,9 @@ import { updateCarPhysics } from '../utils/physics';
 import { drawCar } from '../utils/renderUtils';
 import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
+import { calculateNextLevelXp } from '../utils/progression';
 import { useGamePersistence } from '../hooks/useGamePersistence';
-import { GameMenu } from './GameMenu';
+import { GameMenu, TopBar } from './GameMenu';
 import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
@@ -244,7 +245,6 @@ const GameCanvas: React.FC = () => {
 	// Sync active car state to garage whenever it changes
 	useEffect(() => {
 		if (!isGameLoaded) return;
-		if (garage.length === 0) return;
 
 		// Prevent syncing if we just switched cars
 		if (previousCarIndexRef.current !== currentCarIndex) {
@@ -252,41 +252,47 @@ const GameCanvas: React.FC = () => {
 			return;
 		}
 
-		const currentCar = garage[currentCarIndex];
-		if (!currentCar) return;
+		setGarage((prevGarage) => {
+			if (prevGarage.length === 0) return prevGarage;
 
-		// Check if active state differs from saved state
-		const hasChanged =
-			JSON.stringify(currentCar.ownedMods) !==
-				JSON.stringify(ownedMods) ||
-			JSON.stringify(currentCar.disabledMods) !==
-				JSON.stringify(disabledMods) ||
-			JSON.stringify(currentCar.modSettings) !==
-				JSON.stringify(modSettings) ||
-			JSON.stringify(currentCar.manualTuning) !==
-				JSON.stringify({
-					...currentCar.manualTuning,
-					finalDriveRatio: playerTuning.finalDriveRatio,
-					gearRatios: playerTuning.gearRatios,
-					torqueCurve: playerTuning.torqueCurve,
-				});
+			const currentCar = prevGarage[currentCarIndex];
+			if (!currentCar) return prevGarage;
 
-		if (hasChanged) {
-			const updatedGarage = [...garage];
-			updatedGarage[currentCarIndex] = {
-				...currentCar,
-				ownedMods,
-				disabledMods,
-				modSettings,
-				manualTuning: {
-					...currentCar.manualTuning,
-					finalDriveRatio: playerTuning.finalDriveRatio,
-					gearRatios: playerTuning.gearRatios,
-					torqueCurve: playerTuning.torqueCurve,
-				},
-			};
-			setGarage(updatedGarage);
-		}
+			// Check if active state differs from saved state
+			const hasChanged =
+				JSON.stringify(currentCar.ownedMods) !==
+					JSON.stringify(ownedMods) ||
+				JSON.stringify(currentCar.disabledMods) !==
+					JSON.stringify(disabledMods) ||
+				JSON.stringify(currentCar.modSettings) !==
+					JSON.stringify(modSettings) ||
+				JSON.stringify(currentCar.manualTuning) !==
+					JSON.stringify({
+						...currentCar.manualTuning,
+						finalDriveRatio: playerTuning.finalDriveRatio,
+						gearRatios: playerTuning.gearRatios,
+						torqueCurve: playerTuning.torqueCurve,
+					});
+
+			if (hasChanged) {
+				const updatedGarage = [...prevGarage];
+				updatedGarage[currentCarIndex] = {
+					...currentCar,
+					ownedMods,
+					disabledMods,
+					modSettings,
+					manualTuning: {
+						...currentCar.manualTuning,
+						finalDriveRatio: playerTuning.finalDriveRatio,
+						gearRatios: playerTuning.gearRatios,
+						torqueCurve: playerTuning.torqueCurve,
+					},
+				};
+				return updatedGarage;
+			}
+
+			return prevGarage;
+		});
 	}, [
 		isGameLoaded,
 		ownedMods,
@@ -801,6 +807,14 @@ const GameCanvas: React.FC = () => {
 		shiftDebounce.current = false;
 	};
 
+	// Level Up Logic
+	useEffect(() => {
+		const nextLevelThreshold = calculateNextLevelXp(level);
+		if (xp >= nextLevelThreshold) {
+			setLevel((l) => l + 1);
+		}
+	}, [xp, level, showToast]);
+
 	// --- Main Loop ---
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -945,47 +959,35 @@ const GameCanvas: React.FC = () => {
 
 						setRaceResult('WIN');
 						setRaceStatus('FINISHED');
-						setMoney(
-							(prev) => prev + m.payout + currentWagerRef.current
+
+						// Calculate Wager Winnings based on difficulty
+						const difficultyMultiplier =
+							m.difficulty === 'EASY'
+								? 0.5
+								: m.difficulty === 'MEDIUM'
+								? 1.0
+								: m.difficulty === 'HARD'
+								? 2.0
+								: m.difficulty === 'EXTREME'
+								? 3.0
+								: m.difficulty === 'IMPOSSIBLE'
+								? 4.0
+								: m.difficulty === 'BOSS'
+								? 5.0
+								: m.difficulty === 'UNDERGROUND'
+								? 3.0
+								: 3.0;
+
+						const wagerWinnings = Math.floor(
+							currentWagerRef.current * difficultyMultiplier
 						);
+						const totalPayout =
+							m.payout + currentWagerRef.current + wagerWinnings;
 
-						// XP Gain
-						let xpGain = 20; // Base
-						if (m.difficulty === 'UNDERGROUND') xpGain = 100;
-						if (missionSelectTab === 'DAILY') xpGain = 50;
+						setMoney((prev) => prev + totalPayout);
+						setXp((prev) => prev + (m.xpReward || 100));
 
-						setXp((prev) => {
-							const newXp = prev + xpGain;
-							// Level Up Logic: 10 -> 50 -> 200 -> 1000 (Exponential-ish)
-							// Formula: 10 * 5^(level-1)?
-							// Level 1->2: 10
-							// Level 2->3: 50
-							// Level 3->4: 250 (close to 200)
-							// Let's use specific thresholds or a formula.
-							// User said: 10 -> 50 -> 200 -> 1000
-							// Multiplier approx 4x-5x.
-
-							const nextLevelThreshold = (lvl: number) => {
-								if (lvl === 1) return 10;
-								if (lvl === 2) return 50;
-								if (lvl === 3) return 200;
-								return 1000 * Math.pow(2.5, lvl - 4);
-							};
-
-							if (newXp >= nextLevelThreshold(level)) {
-								setLevel((l) => l + 1);
-								showToast(
-									`LEVEL UP! You are now Level ${level + 1}`,
-									'SUCCESS'
-								);
-							}
-
-							return newXp;
-						});
-
-						// Pink Slip Logic
 						if (m.rewardCar) {
-							// Use functional update for safety against race conditions
 							setGarage((prev) => {
 								const exists = prev.some(
 									(c) => c.id === m.rewardCar!.id
@@ -1349,6 +1351,29 @@ const GameCanvas: React.FC = () => {
 			{/* Race Results Overlay */}
 			{phase === 'RACE' && raceResult && (
 				<div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-[100] animate-in fade-in duration-500">
+					{/* TopBar for XP/Level Animations */}
+					<div className="absolute top-0 left-0 right-0 z-50">
+						<TopBar
+							level={level}
+							xp={xp}
+							money={money}
+							initialXp={
+								raceResult === 'WIN'
+									? xp - (missionRef.current?.xpReward || 100)
+									: xp
+							}
+							initialMoney={
+								raceResult === 'WIN'
+									? money -
+									  (missionRef.current?.payout || 0) -
+									  currentWagerRef.current
+									: raceResult === 'LOSS'
+									? money + currentWagerRef.current
+									: money
+							}
+						/>
+					</div>
+
 					<h1
 						className={`text-8xl font-black italic mb-4 ${
 							raceResult === 'WIN'
@@ -1395,26 +1420,12 @@ const GameCanvas: React.FC = () => {
 				</div>
 			)}
 
-			{/* Junkyard UI */}
-			{phase === 'JUNKYARD' && (
-				<Junkyard
-					cars={junkyardCars}
-					money={money}
-					onBuyCar={buyJunkyardCar}
-					onBack={() => {
-						setPhase('MAP');
-						setRefreshCount(0); // Reset cost on exit
-					}}
-					onRefresh={refreshJunkyard}
-					refreshCost={100 + refreshCount * 50}
-				/>
-			)}
-
 			{/* Menu UI */}
 			{(phase === 'MENU' ||
 				phase === 'GARAGE' ||
 				phase === 'MAP' ||
 				phase === 'MISSION_SELECT' ||
+				phase === 'JUNKYARD' ||
 				phase === 'VERSUS') && (
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
@@ -1457,6 +1468,8 @@ const GameCanvas: React.FC = () => {
 						onBuyJunkyardCar={buyJunkyardCar}
 						onRefreshJunkyard={refreshJunkyard}
 						onRestoreCar={restoreCar}
+						xp={xp}
+						level={level}
 					/>
 				</SoundProvider>
 			)}

@@ -98,28 +98,11 @@ const Junkyard: React.FC<JunkyardProps> = ({
 	};
 
 	return (
-		<div className="absolute inset-0 bg-neutral-900 flex flex-col items-center py-10 text-white z-50 overflow-y-auto font-pixel">
+		<div className="w-full h-full flex flex-col items-center py-6 text-white overflow-y-auto font-pixel animate-in fade-in duration-500">
 			<div className="w-full max-w-6xl px-4">
-				<div className="flex justify-between items-center mb-8">
-					<button
-						onClick={onBack}
-						className="text-gray-400 hover:text-white text-xs"
-					>
-						&lt; BACK
-					</button>
-					<div className="flex flex-col items-center">
-						<h2 className="text-3xl text-orange-600 pixel-text tracking-widest">
-							THE JUNKYARD
-						</h2>
-						<p className="text-gray-500 text-xs">
-							One man's trash is another man's treasure.
-						</p>
-					</div>
-					<div className="text-green-400 text-xl pixel-text">
-						${money.toLocaleString()}
-					</div>
-				</div>
-
+				<h2 className="text-3xl text-center text-orange-500 pixel-text mb-6 tracking-widest opacity-80">
+					JUNKYARD
+				</h2>
 				<div className="flex justify-end mb-4">
 					<button
 						onClick={onRefresh}

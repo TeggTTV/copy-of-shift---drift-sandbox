@@ -6,6 +6,7 @@ interface ToastProps {
 	type: ToastType;
 	index: number;
 	total: number;
+	count?: number;
 }
 
 const ICON_MAP: Record<ToastType, { x: number; y: number }> = {
@@ -34,6 +35,7 @@ export const Toast: React.FC<ToastProps> = ({
 	type,
 	index,
 	total,
+	count = 1,
 }) => {
 	const [visible, setVisible] = useState(false);
 
@@ -62,7 +64,12 @@ export const Toast: React.FC<ToastProps> = ({
 				top: 0,
 			}}
 		>
-			<div className="bg-black border border-white/20 text-white px-6 py-3 rounded-lg shadow-2xl font-bold tracking-wide text-sm uppercase flex items-center gap-4 justify-center">
+			<div className="bg-black border border-white/20 text-white px-6 py-3 rounded-lg shadow-2xl font-bold tracking-wide text-sm uppercase flex items-center gap-4 justify-center relative">
+				{count > 1 && (
+					<div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center border-2 border-black z-10 animate-bounce">
+						x{count}
+					</div>
+				)}
 				<div
 					className="w-16 h-16 flex-shrink-0"
 					style={{

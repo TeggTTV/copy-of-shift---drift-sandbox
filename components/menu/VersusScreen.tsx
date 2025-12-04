@@ -232,6 +232,14 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 			? 1.0
 			: mission.difficulty === 'HARD'
 			? 2.0
+			: mission.difficulty === 'EXTREME'
+			? 3.0
+			: mission.difficulty === 'IMPOSSIBLE'
+			? 4.0
+			: mission.difficulty === 'BOSS'
+			? 5.0
+			: mission.difficulty === 'UNDERGROUND'
+			? 3.0
 			: 3.0;
 
 	return (
