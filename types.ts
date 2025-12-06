@@ -107,6 +107,7 @@ export interface InventoryItem {
 	icon?: string; // Optional icon override
 	equipped?: boolean;
 	parentCategory?: string; // Broad category (e.g. "Engine")
+	spriteIndex?: number;
 }
 
 export interface Crate {

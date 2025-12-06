@@ -303,10 +303,34 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 							>
 								<div className="flex justify-between items-start pointer-events-none">
 									<div
-										className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20"
+										className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20 overflow-hidden relative"
 										style={{ borderColor: 'transparent' }}
 									>
-										{getItemIcon(item.type)}
+										{item.spriteIndex !== undefined ? (
+											<div
+												className="absolute inset-0 bg-no-repeat"
+												style={{
+													backgroundImage:
+														'url(/icons/parts.png)',
+													backgroundSize: '500% 500%',
+													backgroundPosition: `${
+														(item.spriteIndex % 5) *
+														25
+													}% ${
+														Math.floor(
+															item.spriteIndex / 5
+														) * 25
+													}%`,
+													imageRendering: 'pixelated',
+													width: '100%',
+													height: '100%',
+													transform: 'scale(0.8)', // Scale down slightly to fit nicely
+													transformOrigin: 'center',
+												}}
+											/>
+										) : (
+											getItemIcon(item.type)
+										)}
 									</div>
 									<div className="text-right">
 										<div className="text-yellow-400 font-mono font-bold text-xs">
@@ -435,10 +459,34 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 							>
 								<div className="flex justify-between items-start pointer-events-none">
 									<div
-										className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20"
+										className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20 overflow-hidden relative"
 										style={{ borderColor: 'transparent' }}
 									>
-										{getItemIcon(item.type)}
+										{item.spriteIndex !== undefined ? (
+											<div
+												className="absolute inset-0 bg-no-repeat"
+												style={{
+													backgroundImage:
+														'url(/icons/parts.png)',
+													backgroundSize: '500% 500%',
+													backgroundPosition: `${
+														(item.spriteIndex % 5) *
+														25
+													}% ${
+														Math.floor(
+															item.spriteIndex / 5
+														) * 25
+													}%`,
+													imageRendering: 'pixelated',
+													width: '100%',
+													height: '100%',
+													transform: 'scale(0.8)',
+													transformOrigin: 'center',
+												}}
+											/>
+										) : (
+											getItemIcon(item.type)
+										)}
 									</div>
 									<div className="text-right">
 										<div className="text-yellow-400 font-mono font-bold text-xs">

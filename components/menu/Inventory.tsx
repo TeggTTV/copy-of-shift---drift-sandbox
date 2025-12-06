@@ -148,10 +148,29 @@ export const Inventory: React.FC<InventoryProps> = ({
 							onMouseLeave={() => setHoveredItem(null)}
 						>
 							{item && (
-								<div className="flex flex-col items-center justify-center p-1 pointer-events-none">
-									<div className="text-3xl mb-1 filter drop-shadow-md transform group-hover:scale-110 transition-transform">
-										{getItemIcon(item.type)}
-									</div>
+								<div className="flex flex-col items-center justify-center p-1 pointer-events-none w-full h-full">
+									{item.spriteIndex !== undefined ? (
+										<div
+											className="w-[80%] h-[80%] bg-no-repeat transition-transform group-hover:scale-110"
+											style={{
+												backgroundImage:
+													'url(/icons/parts.png)',
+												backgroundSize: '500% 500%',
+												backgroundPosition: `${
+													(item.spriteIndex % 5) * 25
+												}% ${
+													Math.floor(
+														item.spriteIndex / 5
+													) * 25
+												}%`,
+												imageRendering: 'pixelated',
+											}}
+										/>
+									) : (
+										<div className="text-3xl mb-1 filter drop-shadow-md transform group-hover:scale-110 transition-transform">
+											{getItemIcon(item.type)}
+										</div>
+									)}
 									<div className="absolute bottom-1 right-1 text-[8px] px-1 bg-black/50 rounded font-mono text-white">
 										{item.condition}%
 									</div>

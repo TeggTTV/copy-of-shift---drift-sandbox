@@ -10,6 +10,7 @@ export interface ItemDefinition {
 	value: number;
 	category: string; // Specific category (e.g. "Engine & Air")
 	parentCategory: string; // Broad category (e.g. "Engine")
+	spriteIndex?: number; // 0-24 index for 5x5 sprite sheet
 }
 
 export const GAME_ITEMS: ItemDefinition[] = [
@@ -25,6 +26,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 250,
 		category: 'Intake',
 		parentCategory: 'Engine',
+		spriteIndex: 0,
 	},
 	{
 		id: 'perf_panel_filter',
@@ -37,6 +39,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 50,
 		category: 'Intake',
 		parentCategory: 'Engine',
+		spriteIndex: 1,
 	},
 	{
 		id: 'short_ram_intake',
@@ -49,6 +52,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 150,
 		category: 'Intake',
 		parentCategory: 'Engine',
+		spriteIndex: 2,
 	},
 	{
 		id: 'turbo_upgrade',
@@ -60,6 +64,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1200,
 		category: 'Turbo',
 		parentCategory: 'Engine',
+		spriteIndex: 3,
 	},
 	{
 		id: 'supercharger_kit',
@@ -72,6 +77,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1500,
 		category: 'Supercharger',
 		parentCategory: 'Engine',
+		spriteIndex: 4,
 	},
 	{
 		id: 'intercooler_upgrade',
@@ -83,6 +89,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 500,
 		category: 'Cooling',
 		parentCategory: 'Engine',
+		spriteIndex: 5,
 	},
 	{
 		id: 'blow_off_valve',
@@ -94,6 +101,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 200,
 		category: 'Turbo',
 		parentCategory: 'Engine',
+		spriteIndex: 6,
 	},
 	{
 		id: 'throttle_body_upgrade',
@@ -106,6 +114,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 350,
 		category: 'Intake',
 		parentCategory: 'Engine',
+		spriteIndex: 7,
 	},
 	{
 		id: 'intake_manifold',
@@ -117,6 +126,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 800,
 		category: 'Intake',
 		parentCategory: 'Engine',
+		spriteIndex: 8,
 	},
 	{
 		id: 'ported_head',
@@ -128,6 +138,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 2000,
 		category: 'Head',
 		parentCategory: 'Engine',
+		spriteIndex: 9,
 	},
 	{
 		id: 'cams_perf',
@@ -139,6 +150,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 900,
 		category: 'Head',
 		parentCategory: 'Engine',
+		spriteIndex: 10,
 	},
 	{
 		id: 'forged_internals',
@@ -150,6 +162,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1500,
 		category: 'Bottom End',
 		parentCategory: 'Engine',
+		spriteIndex: 11,
 	},
 	{
 		id: 'stroker_kit',
@@ -161,6 +174,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 2500,
 		category: 'Bottom End',
 		parentCategory: 'Engine',
+		spriteIndex: 12,
 	},
 	// --- Fuel & Ignition ---
 	{
@@ -195,6 +209,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 300,
 		category: 'Fuel',
 		parentCategory: 'Engine',
+		spriteIndex: 13,
 	},
 	{
 		id: 'fuel_pump_hf',
@@ -206,6 +221,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 250,
 		category: 'Fuel',
 		parentCategory: 'Engine',
+		spriteIndex: 14,
 	},
 	{
 		id: 'nitrous_system',
@@ -217,6 +233,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 800,
 		category: 'Forced Induction',
 		parentCategory: 'Engine',
+		spriteIndex: 15,
 	},
 	// --- Exhaust ---
 	{
@@ -229,6 +246,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 600,
 		category: 'Exhaust',
 		parentCategory: 'Engine',
+		spriteIndex: 16,
 	},
 	{
 		id: 'catback_exhaust',
@@ -240,6 +258,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 500,
 		category: 'Exhaust',
 		parentCategory: 'Engine',
+		spriteIndex: 17,
 	},
 	{
 		id: 'straight_pipe',
@@ -251,6 +270,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 100,
 		category: 'Exhaust',
 		parentCategory: 'Engine',
+		spriteIndex: 18,
 	},
 	// --- Cooling & Reliability ---
 	{
@@ -263,6 +283,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 300,
 		category: 'Cooling',
 		parentCategory: 'Engine',
+		spriteIndex: 19,
 	},
 	{
 		id: 'oil_cooler',
@@ -274,6 +295,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 400,
 		category: 'Cooling',
 		parentCategory: 'Engine',
+		spriteIndex: 19,
 	},
 	// --- Drivetrain ---
 	{
@@ -286,6 +308,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 450,
 		category: 'Clutch',
 		parentCategory: 'Drivetrain',
+		spriteIndex: 20,
 	},
 	{
 		id: 'lightweight_flywheel',
@@ -297,6 +320,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 350,
 		category: 'Clutch',
 		parentCategory: 'Drivetrain',
+		spriteIndex: 21,
 	},
 	{
 		id: 'short_shifter',
@@ -308,6 +332,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 150,
 		category: 'Shifter',
 		parentCategory: 'Drivetrain',
+		spriteIndex: 24,
 	},
 	{
 		id: 'lsd_diff',
@@ -319,6 +344,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1000,
 		category: 'Differential',
 		parentCategory: 'Drivetrain',
+		spriteIndex: 23,
 	},
 	{
 		id: 'dogbox_trans',
@@ -330,6 +356,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 5000,
 		category: 'Transmission',
 		parentCategory: 'Drivetrain',
+		spriteIndex: 22,
 	},
 	// --- Suspension ---
 	{

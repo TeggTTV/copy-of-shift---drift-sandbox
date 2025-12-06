@@ -146,6 +146,7 @@ export class ItemGenerator {
 			value,
 			icon: (baseItem as any).icon, // Pass icon if exists
 			parentCategory: baseItem.parentCategory,
+			spriteIndex: (baseItem as any).spriteIndex,
 		};
 	}
 
