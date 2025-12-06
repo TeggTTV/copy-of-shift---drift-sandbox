@@ -34,6 +34,7 @@ import { TopBar } from './menu/TopBar';
 import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
+import { GameProvider } from '@/contexts/GameContext';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
 
@@ -1472,51 +1473,59 @@ const GameCanvas: React.FC = () => {
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
 				>
-					<GameMenu
-						onLoadTune={handleLoadTune}
-						phase={phase}
-						setPhase={setPhase}
-						money={money}
-						playerTuning={playerTuning}
-						effectiveTuning={effectiveTuning}
-						setPlayerTuning={setPlayerTuning}
-						ownedMods={ownedMods}
-						setOwnedMods={toggleMod}
-						missions={missions}
-						dailyChallenges={dailyChallenges}
-						onStartMission={startMission}
-						onConfirmRace={confirmStartRace}
-						selectedMission={missionRef.current}
-						missionSelectTab={missionSelectTab}
-						setMissionSelectTab={setMissionSelectTab}
-						disabledMods={disabledMods}
-						setDisabledMods={setDisabledMods}
-						modSettings={modSettings}
-						setModSettings={setModSettings}
-						weather={weather}
-						setWeather={setWeather}
-						showToast={showToast}
-						dynoHistory={dynoHistory}
-						setDynoHistory={setDynoHistory}
-						previousDynoHistory={previousDynoHistory}
-						onDynoRunStart={handleDynoRunStart}
-						garage={garage}
-						currentCarIndex={currentCarIndex}
-						setCurrentCarIndex={setCurrentCarIndex}
-						undergroundLevel={undergroundLevel}
-						setUndergroundLevel={setUndergroundLevel}
-						onBuyMods={buyMods}
-						junkyardCars={junkyardCars}
-						onBuyJunkyardCar={buyJunkyardCar}
-						onRefreshJunkyard={refreshJunkyard}
-						onRestoreCar={restoreCar}
-						xp={xp}
-						level={level}
-						defeatedRivals={defeatedRivals}
-						onChallengeRival={handleChallengeRival}
-						userInventory={inventory}
-						setUserInventory={setInventory}
-					/>
+					<GameProvider
+						value={{
+							phase,
+							setPhase,
+							money,
+							playerTuning,
+							effectiveTuning: playerTuning, // TODO: Compute effective tuning
+							setPlayerTuning,
+							ownedMods,
+							setOwnedMods: (mod) => {
+								if (!ownedMods.includes(mod.id)) {
+									setOwnedMods((prev) => [...prev, mod.id]);
+								}
+							},
+							missions,
+							dailyChallenges,
+							onStartMission: startMission,
+							onConfirmRace: confirmStartRace,
+							selectedMission: missionRef.current,
+							disabledMods,
+							setDisabledMods,
+							modSettings,
+							setModSettings,
+							onLoadTune: handleLoadTune,
+							weather,
+							setWeather,
+							showToast,
+							dynoHistory,
+							setDynoHistory,
+							previousDynoHistory,
+							onDynoRunStart: handleDynoRunStart,
+							garage,
+							currentCarIndex,
+							setCurrentCarIndex: setCurrentCarIndex,
+							undergroundLevel,
+							setUndergroundLevel,
+							onBuyMods: buyMods,
+							junkyardCars,
+							onBuyJunkyardCar: buyJunkyardCar,
+							onRefreshJunkyard: refreshJunkyard,
+							onRestoreCar: restoreCar,
+							missionSelectTab,
+							setMissionSelectTab,
+							xp,
+							level,
+							defeatedRivals,
+							onChallengeRival: handleChallengeRival,
+							userInventory: inventory,
+							setUserInventory: setInventory,
+						}}
+					>
+						<GameMenu />
+					</GameProvider>
 				</SoundProvider>
 			)}
 		</div>

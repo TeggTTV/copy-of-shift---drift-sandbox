@@ -34,109 +34,61 @@ import { AuctionHouse } from './menu/AuctionHouse';
 import { InventoryItem, Crate } from '../types';
 import { ItemGenerator } from '../utils/ItemGenerator';
 
-export const GameMenu = ({
-	phase,
-	setPhase,
-	money,
-	playerTuning,
-	effectiveTuning,
-	setPlayerTuning,
-	ownedMods,
-	setOwnedMods,
-	missions,
-	dailyChallenges,
-	onStartMission,
-	onConfirmRace,
-	selectedMission,
-	disabledMods,
-	setDisabledMods,
-	modSettings,
-	setModSettings,
-	onLoadTune,
-	weather,
-	setWeather,
-	showToast,
-	dynoHistory,
-	setDynoHistory,
-	previousDynoHistory,
-	onDynoRunStart,
-	garage,
-	currentCarIndex,
-	setCurrentCarIndex,
-	undergroundLevel,
-	setUndergroundLevel,
-	onBuyMods,
-	junkyardCars,
-	onBuyJunkyardCar,
-	onRefreshJunkyard,
-	onRestoreCar,
-	missionSelectTab,
-	setMissionSelectTab,
-	xp,
-	level,
-	defeatedRivals,
-	onChallengeRival,
-	userInventory,
-	setUserInventory,
-}: {
-	phase: GamePhase;
-	setPhase: (p: GamePhase) => void;
-	money: number;
-	playerTuning: TuningState;
-	effectiveTuning: TuningState;
-	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
-	ownedMods: string[];
-	setOwnedMods: (mod: ModNode) => void;
-	missions: Mission[];
-	dailyChallenges: DailyChallenge[];
-	onStartMission: (m: Mission) => void;
-	onConfirmRace: (opponent: any) => void;
-	selectedMission: Mission | null;
-	disabledMods: string[];
-	setDisabledMods: React.Dispatch<React.SetStateAction<string[]>>;
-	modSettings: Record<string, Record<string, number>>;
-	setModSettings: (settings: Record<string, Record<string, number>>) => void;
-	onLoadTune: (tune: SavedTune) => void;
-	weather: { type: 'SUNNY' | 'RAIN'; intensity: number };
-	setWeather: (w: { type: 'SUNNY' | 'RAIN'; intensity: number }) => void;
-	showToast: (msg: string, type: any) => void;
-	dynoHistory: { rpm: number; torque: number; hp: number }[];
-	setDynoHistory: React.Dispatch<
-		React.SetStateAction<{ rpm: number; torque: number; hp: number }[]>
-	>;
-	previousDynoHistory: { rpm: number; torque: number; hp: number }[];
-	onDynoRunStart: () => void;
-	garage: SavedTune[];
-	currentCarIndex: number;
-	setCurrentCarIndex: (index: number) => void;
-	undergroundLevel: number;
-	setUndergroundLevel: (level: number) => void;
-	onBuyMods: (mods: ModNode[]) => void;
-	junkyardCars: JunkyardCar[];
-	onBuyJunkyardCar: (car: JunkyardCar) => void;
-	onRefreshJunkyard: () => void;
-	onRestoreCar: (index: number) => void;
-	// missionSelectTab set function missing from props in refactor, adding it back
-	missionSelectTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS';
-	setMissionSelectTab: (
-		tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'
-	) => void;
-	xp: number;
-	level: number;
-	defeatedRivals: string[];
-	onChallengeRival: (rival: Rival) => void;
-	userInventory: InventoryItem[];
-	setUserInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
-}) => {
+import { useGame } from '../contexts/GameContext';
+
+export const GameMenu = () => {
+	const {
+		phase,
+		setPhase,
+		money,
+		playerTuning,
+		effectiveTuning,
+		setPlayerTuning,
+		ownedMods,
+		setOwnedMods,
+		missions,
+		dailyChallenges,
+		onStartMission,
+		onConfirmRace,
+		selectedMission,
+		disabledMods,
+		setDisabledMods,
+		modSettings,
+		setModSettings,
+		onLoadTune,
+		weather,
+		setWeather,
+		showToast,
+		dynoHistory,
+		setDynoHistory,
+		previousDynoHistory,
+		onDynoRunStart,
+		garage,
+		currentCarIndex,
+		setCurrentCarIndex,
+		undergroundLevel,
+		setUndergroundLevel,
+		onBuyMods,
+		junkyardCars,
+		onBuyJunkyardCar,
+		onRefreshJunkyard,
+		onRestoreCar,
+		missionSelectTab,
+		setMissionSelectTab,
+		xp,
+		level,
+		defeatedRivals,
+		onChallengeRival,
+		userInventory,
+		setUserInventory,
+	} = useGame();
+
 	const { play } = useSound();
 	const [activeTab, setActiveTab] = useState<'TUNING' | 'DYNO' | 'CARS'>(
 		'TUNING'
 	); // Default to Tuning
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
 	const [showSettings, setShowSettings] = useState(false);
-
-	// --- New Item System State ---
-	// Lifted to GameCanvas for persistence
 
 	const handleBuyCrate = (crate: Crate) => {
 		// Money deduction should happen in parent but for now we simulate visual
