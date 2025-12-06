@@ -1,5 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { DailyChallenge, GamePhase, Mission, SavedTune } from '../../types';
+import {
+	DailyChallenge,
+	GamePhase,
+	Mission,
+	SavedTune,
+	Rival,
+} from '../../types';
+import RivalsTab from './RivalsTab';
 import { useSound } from '../../contexts/SoundContext';
 import { generateOpponent } from '../../utils/OpponentGenerator';
 import { BASE_TUNING } from '../../constants';
@@ -13,8 +20,13 @@ interface MissionSelectProps {
 	undergroundLevel?: number;
 	garage?: SavedTune[];
 	dailyChallenges?: DailyChallenge[];
-	activeTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY';
-	setActiveTab: (tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY') => void;
+	activeTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS';
+	setActiveTab: (
+		tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'
+	) => void;
+	defeatedRivals: string[];
+	level: number;
+	onChallengeRival: (rival: Rival) => void;
 }
 
 const MissionSelect: React.FC<MissionSelectProps> = ({
@@ -27,6 +39,9 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 	dailyChallenges = [],
 	activeTab,
 	setActiveTab,
+	defeatedRivals,
+	level,
+	onChallengeRival,
 }) => {
 	const { play } = useSound();
 
@@ -130,6 +145,16 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						}`}
 					>
 						UNDERGROUND
+					</button>
+					<button
+						onClick={() => setActiveTab('RIVALS')}
+						className={`text-lg pixel-text transition-colors ${
+							activeTab === 'RIVALS'
+								? 'text-red-500'
+								: 'text-gray-600 hover:text-gray-400'
+						}`}
+					>
+						RIVALS
 					</button>
 				</div>
 
@@ -309,7 +334,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 							);
 						})}
 					</div>
-				) : (
+				) : activeTab === 'UNDERGROUND' ? (
 					// UNDERGROUND TAB
 					<div className="flex flex-col items-center justify-center py-12 animate-in fade-in duration-500">
 						<div className="text-purple-500 text-xl mb-2 pixel-text">
@@ -406,6 +431,12 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 							</div>
 						</div>
 					</div>
+				) : (
+					<RivalsTab
+						defeatedRivals={defeatedRivals}
+						level={level}
+						onChallenge={onChallengeRival}
+					/>
 				)}
 			</div>
 		</div>

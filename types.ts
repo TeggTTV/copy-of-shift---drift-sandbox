@@ -89,6 +89,7 @@ export interface SavedTune {
 	originalPrice?: number; // Market value when fully restored
 	rarity?: Rarity;
 	rarityMultiplier?: number;
+	dynoHistory?: { rpm: number; torque: number; hp: number }[];
 }
 
 export interface JunkyardCar extends SavedTune {
@@ -148,6 +149,21 @@ export interface GhostFrame {
 	gear: number;
 }
 
+export interface Rival extends Opponent {
+	id: string;
+	rank: number; // 1 is highest (Boss), 10 is lowest
+	unlockRequirements: {
+		level?: number;
+		previousRivalId?: string;
+	};
+	rewards: {
+		money: number;
+		car?: JunkyardCar; // Unique car reward
+	};
+	bio: string;
+	status: 'LOCKED' | 'AVAILABLE' | 'DEFEATED';
+}
+
 export interface Opponent {
 	name: string;
 	difficulty: number;
@@ -155,7 +171,7 @@ export interface Opponent {
 	tuning: TuningState;
 }
 export interface Mission {
-	id: number;
+	id: number | string;
 	name: string;
 	description: string;
 	payout: number;

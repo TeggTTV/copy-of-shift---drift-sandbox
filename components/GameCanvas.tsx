@@ -16,7 +16,9 @@ import {
 	ModNode,
 	GhostFrame,
 	JunkyardCar,
+	Rival,
 } from '../types';
+import { GameMenu } from './GameMenu';
 import { MISSIONS, BASE_TUNING, MOD_TREE, CONTROLS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { useMusic } from '../contexts/MusicContext';
@@ -28,7 +30,7 @@ import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import { calculateNextLevelXp } from '../utils/progression';
 import { useGamePersistence } from '../hooks/useGamePersistence';
-import { GameMenu, TopBar } from './GameMenu';
+import { TopBar } from './menu/TopBar';
 import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
@@ -67,7 +69,7 @@ const GameCanvas: React.FC = () => {
 	);
 	// Mission Select Tab Persistence
 	const [missionSelectTab, setMissionSelectTab] = useState<
-		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY'
+		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'
 	>('CAMPAIGN');
 
 	// Weather State
@@ -207,6 +209,7 @@ const GameCanvas: React.FC = () => {
 
 	// Underground State
 	const [undergroundLevel, setUndergroundLevel] = useState(1);
+	const [defeatedRivals, setDefeatedRivals] = useState<string[]>([]);
 	const [xp, setXp] = useState(0);
 	const [level, setLevel] = useState(1);
 
@@ -733,6 +736,23 @@ const GameCanvas: React.FC = () => {
 		setPhase('VERSUS');
 	};
 
+	const handleChallengeRival = useCallback(
+		(rival: Rival) => {
+			const mission: Mission = {
+				id: `rival_${rival.id}`,
+				name: `Rival Challenge: ${rival.name}`,
+				description: rival.bio,
+				payout: rival.rewards.money,
+				difficulty: 'BOSS',
+				distance: 402,
+				opponent: rival,
+				rewardCar: rival.rewards.car,
+			};
+			startMission(mission);
+		},
+		[startMission]
+	);
+
 	const confirmStartRace = (wager: number = 0) => {
 		const mission = missionRef.current;
 		if (!mission) return;
@@ -1018,6 +1038,21 @@ const GameCanvas: React.FC = () => {
 						if (m.difficulty === 'UNDERGROUND') {
 							setUndergroundLevel((prev) => prev + 1);
 							showToast('UNDERGROUND RANK INCREASED!', 'UNLOCK');
+						}
+
+						// Rival Progression
+						if (
+							typeof m.id === 'string' &&
+							m.id.startsWith('rival_')
+						) {
+							const rivalId = m.id.replace('rival_', '');
+							if (!defeatedRivals.includes(rivalId)) {
+								setDefeatedRivals((prev) => [...prev, rivalId]);
+								showToast(
+									`RIVAL DEFEATED: ${m.opponent.name}`,
+									'UNLOCK'
+								);
+							}
 						}
 
 						// Update Best Time
@@ -1470,6 +1505,8 @@ const GameCanvas: React.FC = () => {
 						onRestoreCar={restoreCar}
 						xp={xp}
 						level={level}
+						defeatedRivals={defeatedRivals}
+						onChallengeRival={handleChallengeRival}
 					/>
 				</SoundProvider>
 			)}

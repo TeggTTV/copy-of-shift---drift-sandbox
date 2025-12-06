@@ -1,5 +1,5 @@
 export const calculateNextLevelXp = (level: number): number => {
-	return Math.floor(5 * level ** 2);
+	return Math.floor(100 * level ** 2);
 };
 
 export const calculateLevelProgress = (xp: number, level: number) => {

@@ -1,4 +1,4 @@
-import { Mission, TuningState, ModNode } from './types';
+import { Mission, TuningState, ModNode, Rival } from './types';
 
 // Base Car Stats (Stock Hatchback)
 export const BASE_TUNING: TuningState = {
@@ -1108,10 +1108,11 @@ export const MISSIONS: Mission[] = [
 		distance: 402, // 1/4 mile
 		opponent: {
 			name: 'Slow Joe',
-			difficulty: 0.2,
+			difficulty: 0.2, // Fixed: was speed
 			color: '#9ca3af',
 			tuning: { ...BASE_TUNING, maxTorque: 160, mass: 1500 },
 		},
+		xpReward: 100,
 	},
 	{
 		id: 2,
@@ -1132,6 +1133,7 @@ export const MISSIONS: Mission[] = [
 				turboIntensity: 0.4,
 			},
 		},
+		xpReward: 200,
 	},
 	{
 		id: 3,
@@ -1162,6 +1164,7 @@ export const MISSIONS: Mission[] = [
 				},
 			},
 		},
+		xpReward: 400,
 	},
 	{
 		id: 4,
@@ -1185,6 +1188,7 @@ export const MISSIONS: Mission[] = [
 				backfireAggression: 1.0,
 			},
 		},
+		xpReward: 800,
 	},
 	{
 		id: 5,
@@ -1208,6 +1212,7 @@ export const MISSIONS: Mission[] = [
 				dragCoefficient: 0.25,
 			},
 		},
+		xpReward: 2000,
 	},
 	{
 		id: 6,
@@ -1262,6 +1267,7 @@ export const MISSIONS: Mission[] = [
 				},
 			},
 		},
+		xpReward: 5000,
 	},
 ];
 
@@ -1270,3 +1276,111 @@ export const CONTROLS = {
 	SHIFT_UP: 'ArrowRight',
 	SHIFT_DOWN: 'ArrowLeft',
 };
+
+export const RIVALS: Rival[] = [
+	{
+		id: 'rival_1',
+		rank: 5,
+		name: 'The Rookie',
+		bio: 'Just started racing, but has a fast Civic.',
+		difficulty: 0.4,
+		carState: {
+			position: 0,
+			velocity: 0,
+			rpm: 0,
+			gear: 1,
+			isShifting: false,
+			lastShiftTime: 0,
+			throttle: 0,
+			brake: 0,
+		},
+		tuning: { ...BASE_TUNING, finalDrive: 4.1 },
+		unlockRequirements: { level: 5 },
+		rewards: { money: 5000 },
+		status: 'LOCKED',
+	},
+	{
+		id: 'rival_2',
+		rank: 4,
+		name: 'Street King',
+		bio: 'Rules the local streets with an iron fist.',
+		difficulty: 0.6,
+		carState: {
+			position: 0,
+			velocity: 0,
+			rpm: 0,
+			gear: 1,
+			isShifting: false,
+			lastShiftTime: 0,
+			throttle: 0,
+			brake: 0,
+		},
+		tuning: { ...BASE_TUNING, finalDrive: 3.9, tirePressureRear: 15 },
+		unlockRequirements: { previousRivalId: 'rival_1' },
+		rewards: { money: 10000 },
+		status: 'LOCKED',
+	},
+	{
+		id: 'rival_3',
+		rank: 3,
+		name: 'Drift Queen',
+		bio: 'Known for sliding, but can drag race too.',
+		difficulty: 0.75,
+		carState: {
+			position: 0,
+			velocity: 0,
+			rpm: 0,
+			gear: 1,
+			isShifting: false,
+			lastShiftTime: 0,
+			throttle: 0,
+			brake: 0,
+		},
+		tuning: { ...BASE_TUNING, finalDrive: 3.7, tirePressureRear: 12 },
+		unlockRequirements: { previousRivalId: 'rival_2' },
+		rewards: { money: 20000 },
+		status: 'LOCKED',
+	},
+	{
+		id: 'rival_4',
+		rank: 2,
+		name: 'Speed Demon',
+		bio: 'His car is rumored to be illegal.',
+		difficulty: 0.9,
+		carState: {
+			position: 0,
+			velocity: 0,
+			rpm: 0,
+			gear: 1,
+			isShifting: false,
+			lastShiftTime: 0,
+			throttle: 0,
+			brake: 0,
+		},
+		tuning: { ...BASE_TUNING, finalDrive: 3.5, tirePressureRear: 10 },
+		unlockRequirements: { previousRivalId: 'rival_3' },
+		rewards: { money: 50000 },
+		status: 'LOCKED',
+	},
+	{
+		id: 'rival_5',
+		rank: 1,
+		name: 'The Boss',
+		bio: 'Undefeated. The ultimate challenge.',
+		difficulty: 1.2,
+		carState: {
+			position: 0,
+			velocity: 0,
+			rpm: 0,
+			gear: 1,
+			isShifting: false,
+			lastShiftTime: 0,
+			throttle: 0,
+			brake: 0,
+		},
+		tuning: { ...BASE_TUNING, finalDrive: 3.2, tirePressureRear: 8 },
+		unlockRequirements: { previousRivalId: 'rival_4' },
+		rewards: { money: 100000 },
+		status: 'LOCKED',
+	},
+];
