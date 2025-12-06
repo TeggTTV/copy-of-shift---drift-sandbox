@@ -213,6 +213,9 @@ const GameCanvas: React.FC = () => {
 	const [xp, setXp] = useState(0);
 	const [level, setLevel] = useState(1);
 
+	// Inventory State
+	const [inventory, setInventory] = useState<any[]>([]);
+
 	// Persistence Hook
 	const isGameLoaded = useGamePersistence(
 		money,
@@ -242,7 +245,9 @@ const GameCanvas: React.FC = () => {
 		xp,
 		setXp,
 		level,
-		setLevel
+		setLevel,
+		inventory,
+		setInventory
 	);
 
 	// Sync active car state to garage whenever it changes
@@ -1274,24 +1279,24 @@ const GameCanvas: React.FC = () => {
 					}
 				}
 
-				// Exhaust Flames (Shift)
-				if (p.gear > lastGearRef.current && p.rpm > 5000) {
-					// Backfire / Flame
-					particleSystemRef.current.emit(
-						trackWidth / 4 / PPM, // Center of car (approx exhaust location)
-						p.y - 1.5, // Behind car (approx)
-						10,
-						'FLAME',
-						{
-							size: 8,
-							life: 0.5,
-							speed: 5,
-							angle: Math.PI * 1.5,
-							spread: 0.5,
-							color: '#ff5500',
-						}
-					);
-				}
+				// Exhaust Flames (Shift) - DISABLED
+				// if (p.gear > lastGearRef.current && p.rpm > 5000) {
+				// 	// Backfire / Flame
+				// 	particleSystemRef.current.emit(
+				// 		trackWidth / 4 / PPM, // Center of car (approx exhaust location)
+				// 		p.y - 1.5, // Behind car (approx)
+				// 		10,
+				// 		'FLAME',
+				// 		{
+				// 			size: 8,
+				// 			life: 0.5,
+				// 			speed: 5,
+				// 			angle: Math.PI * 1.5,
+				// 			spread: 0.5,
+				// 			color: '#ff5500',
+				// 		}
+				// 	);
+				// }
 
 				// Rain Visuals
 				if (weather.type === 'RAIN') {
@@ -1461,6 +1466,8 @@ const GameCanvas: React.FC = () => {
 				phase === 'MAP' ||
 				phase === 'MISSION_SELECT' ||
 				phase === 'JUNKYARD' ||
+				phase === 'SHOP' ||
+				phase === 'AUCTION' ||
 				phase === 'VERSUS') && (
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
@@ -1507,6 +1514,8 @@ const GameCanvas: React.FC = () => {
 						level={level}
 						defeatedRivals={defeatedRivals}
 						onChallengeRival={handleChallengeRival}
+						userInventory={inventory}
+						setUserInventory={setInventory}
 					/>
 				</SoundProvider>
 			)}

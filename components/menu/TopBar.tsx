@@ -209,96 +209,100 @@ export const TopBar = ({
 	);
 
 	return (
-		<div className="sticky top-0 left-0 right-0 h-16 bg-gray-900 border-b-4 border-gray-800 flex items-center px-4 z-[100] shadow-xl">
-			{onBack && (
-				<button
-					onClick={onBack}
-					className="mr-4 text-gray-400 hover:text-white text-xs pixel-text"
-				>
-					&lt; BACK
-				</button>
-			)}
-
-			{/* Level Badge */}
-			<div className="relative">
-				<LevelBadge level={displayLevel} />
-				{/* Level Up Animation Overlay (Optional, could be part of LevelBadge) */}
+		<div className="sticky top-0 left-0 right-0 h-16 bg-gray-900 border-b-4 border-gray-800 grid grid-cols-[1fr_2fr_1fr] items-center px-4 z-[100] shadow-xl">
+			{/* Left: Back Button */}
+			<div className="flex items-center gap-4">
+				{onBack && (
+					<button
+						onClick={onBack}
+						className="text-gray-400 hover:text-white text-xs pixel-text"
+					>
+						&lt; BACK
+					</button>
+				)}
 			</div>
 
-			{/* XP Bar Container */}
-			<div className="flex-1 flex flex-col justify-center mr-6 relative">
-				<div className="flex justify-between text-[10px] text-gray-400 mb-1 font-mono">
-					<span>XP</span>
-					<span>
-						{Math.floor(current)} / {max}
-					</span>
+			{/* Center: XP Bar & Level */}
+			<div className="flex items-center justify-center max-w-2xl mx-auto w-full gap-3 relative">
+				<div className="relative shrink-0">
+					<LevelBadge level={displayLevel} />
 				</div>
-				<div className="h-3 bg-gray-800 border-2 border-gray-700 relative overflow-hidden skew-x-[-10deg]">
-					{/* Fill */}
-					<div
-						className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500 ease-out relative"
-						style={{ width: `${percentage}%` }}
-					>
-						{/* Shine effect */}
-						<div className="absolute inset-0 bg-white/20"></div>
+				<div className="flex-1 flex flex-col justify-center">
+					<div className="flex justify-between text-[10px] text-gray-400 mb-1 font-mono">
+						<span>XP</span>
+						<span>
+							{Math.floor(current)} / {max}
+						</span>
 					</div>
-					{/* Grid lines */}
-					<div className="absolute inset-0 flex justify-between px-1 pointer-events-none">
-						{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+					<div className="h-3 bg-gray-800 border-2 border-gray-700 relative overflow-hidden skew-x-[-10deg]">
+						{/* Fill */}
+						<div
+							className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-500 ease-out relative"
+							style={{ width: `${percentage}%` }}
+						>
+							{/* Shine effect */}
+							<div className="absolute inset-0 bg-white/20"></div>
+						</div>
+						{/* Grid lines */}
+						<div className="absolute inset-0 flex justify-between px-1 pointer-events-none">
+							{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+								<div
+									key={i}
+									className="w-[1px] h-full bg-black/20"
+								></div>
+							))}
+						</div>
+					</div>
+
+					{/* Floating XP Text */}
+					<div className="absolute top-8 left-0 pointer-events-none">
+						{xpGains.map((gain) => (
 							<div
-								key={i}
-								className="w-[1px] h-full bg-black/20"
-							></div>
+								key={gain.key}
+								className="absolute left-0 top-0 text-cyan-400 font-bold pixel-text text-sm animate-float-fade-up"
+								style={{ textShadow: '1px 1px 0 #000' }}
+							>
+								+{gain.amount} XP
+							</div>
 						))}
 					</div>
 				</div>
-
-				{/* Floating XP Text */}
-				<div className="absolute top-8 left-0 pointer-events-none">
-					{xpGains.map((gain) => (
-						<div
-							key={gain.key}
-							className="absolute left-0 top-0 text-cyan-400 font-bold pixel-text text-sm animate-float-fade-up"
-							style={{ textShadow: '1px 1px 0 #000' }}
-						>
-							+{gain.amount} XP
-						</div>
-					))}
-				</div>
 			</div>
 
-			{/* Title (Optional) */}
-			{title && (
-				<div className="hidden lg:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xl text-white pixel-text opacity-50">
-					{title}
-				</div>
-			)}
+			{/* Right: Money & Title */}
+			<div className="flex items-center justify-end relative">
+				{/* Title (hidden on mobile, small overlay on desktop if needed, but grid makes it tricky to centering absolutely. 
+				    The user request emphasizes XP UI fix. Title is optional. Let's put title in the 'Left' or 'Right' or remove it to avoid clutter?) 
+				    Actually, I'll keep title hidden for now or overlay it if strictly requested. 
+				    The user said: "XP UI always in one spot... first and 3rd spots have set width". 
+				    So I'll focus on Money being Right. 
+				*/}
 
-			{/* Money Display */}
-			<div className="flex items-center ml-auto relative">
-				<span className="text-green-400 text-xl font-bold pixel-text mr-1">
-					$
-				</span>
-				<span className="text-white text-xl font-mono">
-					{displayMoney.toLocaleString()}
-				</span>
+				<div className="flex items-center">
+					<span className="text-green-400 text-xl font-bold pixel-text mr-1">
+						$
+					</span>
+					<span className="text-white text-xl font-mono">
+						{displayMoney.toLocaleString()}
+					</span>
 
-				{/* Floating Money Text */}
-				<div className="absolute top-8 right-0 pointer-events-none">
-					{moneyGains.map((gain) => (
-						<div
-							key={gain.key}
-							className={`absolute right-0 top-0 font-bold pixel-text text-sm animate-float-fade-up ${
-								gain.amount >= 0
-									? 'text-green-400'
-									: 'text-red-400'
-							}`}
-							style={{ textShadow: '1px 1px 0 #000' }}
-						>
-							{gain.amount >= 0 ? '+' : ''}
-							{gain.amount.toLocaleString()}
-						</div>
-					))}
+					{/* Floating Money Text */}
+					<div className="absolute top-8 right-0 pointer-events-none">
+						{moneyGains.map((gain) => (
+							<div
+								key={gain.key}
+								className={`absolute right-0 top-0 font-bold pixel-text text-sm animate-float-fade-up ${
+									gain.amount >= 0
+										? 'text-green-400'
+										: 'text-red-400'
+								}`}
+								style={{ textShadow: '1px 1px 0 #000' }}
+							>
+								{gain.amount >= 0 ? '+' : ''}
+								{gain.amount.toLocaleString()}
+							</div>
+						))}
+					</div>
 				</div>
 			</div>
 		</div>

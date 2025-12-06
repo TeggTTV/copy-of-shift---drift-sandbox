@@ -26,7 +26,7 @@ export const LevelBadge = ({ level }: { level: number }) => {
 	}
 
 	return (
-		<div className="relative flex items-center justify-center mr-10 group">
+		<div className="relative flex items-center justify-center group">
 			{/* Wings for max level */}
 			{wings && (
 				<>

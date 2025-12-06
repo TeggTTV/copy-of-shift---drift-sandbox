@@ -7,7 +7,10 @@ export type GamePhase =
 	| 'RACE'
 	| 'RESULTS'
 	| 'JUNKYARD'
-	| 'DEALERSHIP';
+	| 'JUNKYARD'
+	| 'DEALERSHIP'
+	| 'SHOP'
+	| 'AUCTION';
 
 export interface InputState {
 	gas: boolean;
@@ -69,13 +72,50 @@ export interface TuningOption {
 
 export type ModSettings = Record<string, Record<string, number>>; // modId -> { settingId: value }
 
-export type Rarity =
-	| 'COMMON'
-	| 'UNCOMMON'
-	| 'RARE'
-	| 'EPIC'
-	| 'LEGENDARY'
-	| 'EXOTIC';
+export type ItemRarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+
+export type ModType =
+	| 'ENGINE'
+	| 'TURBO'
+	| 'WEIGHT'
+	| 'TIRES'
+	| 'TRANSMISSION'
+	| 'NITROUS'
+	| 'FUEL'
+	| 'COOLING'
+	| 'AERO'
+	| 'SUSPENSION'
+	| 'VISUAL'
+	| 'PAINT';
+
+export interface InventoryItem {
+	instanceId: string; // Unique UUID
+	baseId: string; // Ref to definition (e.g. 'turbo_t3')
+	name: string;
+	description: string;
+	type: ModType;
+	rarity: ItemRarity;
+	condition: number; // 0-100
+	stats: Partial<TuningState>;
+	value: number; // Estimated market value
+	icon?: string; // Optional icon override
+}
+
+export interface Crate {
+	id: string;
+	name: string;
+	description: string;
+	price: number;
+	dropRates: {
+		COMMON: number;
+		UNCOMMON: number;
+		RARE: number;
+		EPIC: number;
+		LEGENDARY: number;
+	};
+}
+
+export type Rarity = ItemRarity | 'EXOTIC'; // Backwards compatibility if needed, or just alias
 
 export interface SavedTune {
 	id: string;

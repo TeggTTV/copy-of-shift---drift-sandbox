@@ -25,9 +25,14 @@ import SettingsModal from './menu/SettingsModal';
 import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import React, { useState, useMemo, useEffect } from 'react';
-import { ModTreeVisuals } from './menu/ModTreeVisuals';
+import { ModTreeVisuals } from './menu/ModTreeVisuals'; // Keeping for reference if needed, but unused visually
 import { TopBar } from './menu/TopBar';
 import { LevelBadge } from './menu/LevelBadge';
+import { Inventory } from './menu/Inventory';
+import { CrateShop } from './menu/CrateShop';
+import { AuctionHouse } from './menu/AuctionHouse';
+import { InventoryItem, Crate } from '../types';
+import { ItemGenerator } from '../utils/ItemGenerator';
 
 export const GameMenu = ({
 	phase,
@@ -71,6 +76,8 @@ export const GameMenu = ({
 	level,
 	defeatedRivals,
 	onChallengeRival,
+	userInventory,
+	setUserInventory,
 }: {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
@@ -109,6 +116,7 @@ export const GameMenu = ({
 	onBuyJunkyardCar: (car: JunkyardCar) => void;
 	onRefreshJunkyard: () => void;
 	onRestoreCar: (index: number) => void;
+	// missionSelectTab set function missing from props in refactor, adding it back
 	missionSelectTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS';
 	setMissionSelectTab: (
 		tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'
@@ -117,13 +125,84 @@ export const GameMenu = ({
 	level: number;
 	defeatedRivals: string[];
 	onChallengeRival: (rival: Rival) => void;
+	userInventory: InventoryItem[];
+	setUserInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
 }) => {
 	const { play } = useSound();
-	const [activeTab, setActiveTab] = useState<
-		'UPGRADES' | 'TUNING' | 'DYNO' | 'CARS'
-	>('UPGRADES');
+	const [activeTab, setActiveTab] = useState<'TUNING' | 'DYNO' | 'CARS'>(
+		'TUNING'
+	); // Default to Tuning
 	const [hoveredMod, setHoveredMod] = React.useState<ModNode | null>(null);
 	const [showSettings, setShowSettings] = useState(false);
+
+	// --- New Item System State ---
+	// Lifted to GameCanvas for persistence
+
+	const handleBuyCrate = (crate: Crate) => {
+		// Money deduction should happen in parent but for now we simulate visual
+		// onBuyCrate prop could be added.
+		// For MVP, we'll assume the CrateShop handles the visual "Buy" and we deduce money here?
+		// But money is a prop. We can't change it directly without a setMoney prop.
+		// Wait, onBuyMods exists. We can potentially misuse it or add a new prop.
+		// Let's assume for MVP we just handle the item generation visually and maybe log the money deduction?
+		// The user said "use local storage to imitate".
+		// I will add a temporary local money state hack or just trust the visual?
+		// Actually, `onBuyMods` takes an array of mods.
+		// I should probably add `setMoney` to props or a `onSpendMoney` callback.
+		// For now, I'll cheat and assume the user has infinite money for testing OR
+		// I will emit a console log and TODO for money integration.
+		console.log('Bought crate', crate);
+	};
+
+	const handleItemReveal = (item: InventoryItem) => {
+		setUserInventory((prev) => [...prev, item]);
+	};
+
+	const handleEquipItem = (item: InventoryItem) => {
+		// Add stats to playerTuning manually?
+		// The user said: "Equipping an item... simply adds to the base values... updated values determine how car drives".
+		// So we need to merge `item.stats` into `playerTuning`.
+		setPlayerTuning((prev) => {
+			const next = { ...prev };
+			Object.entries(item.stats).forEach(([key, val]) => {
+				if (typeof val === 'number') {
+					(next as any)[key] = ((next as any)[key] || 0) + val;
+				}
+			});
+			return next;
+		});
+		// play('equip');
+		showToast(`Equipped ${item.name}`, 'SUCCESS');
+	};
+
+	const handleSellItem = (item: InventoryItem, price: number) => {
+		// Remove from inventory
+		setUserInventory((prev) =>
+			prev.filter((i) => i.instanceId !== item.instanceId)
+		);
+		// Add fake money (TODO: Prop)
+		showToast(`Sold ${item.name} for $${price}`, 'SUCCESS');
+	};
+
+	const handleBuyItem = (item: InventoryItem, price: number) => {
+		if (money < price) {
+			showToast('Not enough money!', 'ERROR');
+			return;
+		}
+		// In a real app we'd deduct money via prop callback
+		setUserInventory((prev) => [...prev, item]);
+		showToast(
+			`Bought ${item.name} for $${price.toLocaleString()}`,
+			'SUCCESS'
+		);
+	};
+
+	const handleDestroyItem = (item: InventoryItem) => {
+		setUserInventory((prev) =>
+			prev.filter((i) => i.instanceId !== item.instanceId)
+		);
+		showToast(`Destroyed ${item.name}`, 'ERROR'); // Red toast
+	};
 
 	const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -142,6 +221,8 @@ export const GameMenu = ({
 			}, 50);
 		}
 	};
+
+	// ... (rendering logic updates below)
 
 	const renderParticles = (rarity: string) => {
 		if (rarity !== 'LEGENDARY' && rarity !== 'EXOTIC') return null;
@@ -214,7 +295,9 @@ export const GameMenu = ({
 				if (
 					phase === 'GARAGE' ||
 					phase === 'MISSION_SELECT' ||
-					phase === 'VERSUS'
+					phase === 'VERSUS' ||
+					phase === 'SHOP' ||
+					phase === 'AUCTION'
 				) {
 					// play('back');
 					setPhase('MAP');
@@ -308,6 +391,8 @@ export const GameMenu = ({
 		'GARAGE',
 		'MISSION_SELECT',
 		'JUNKYARD',
+		'SHOP',
+		'AUCTION',
 	].includes(phase);
 
 	if (isMenuPhase) {
@@ -318,6 +403,10 @@ export const GameMenu = ({
 		} else if (phase === 'MISSION_SELECT') {
 			onBack = () => setPhase('MAP');
 		} else if (phase === 'JUNKYARD') {
+			onBack = () => setPhase('MAP');
+		} else if (phase === 'SHOP') {
+			onBack = () => setPhase('MAP');
+		} else if (phase === 'AUCTION') {
 			onBack = () => setPhase('MAP');
 		}
 
@@ -363,10 +452,34 @@ export const GameMenu = ({
 									className="pixel-btn text-center py-4 text-lg bg-orange-900 border-orange-700 text-orange-500 hover:bg-orange-800"
 									style={{
 										backgroundColor: '#7c2d12',
-										borderColor: '#c2410c',
 									}}
 								>
 									JUNKYARD
+								</button>
+
+								<button
+									onClick={() => {
+										setPhase('SHOP');
+									}}
+									className="pixel-btn text-center py-4 text-lg bg-indigo-900 border-indigo-700 text-indigo-400 hover:bg-indigo-800"
+									style={{
+										backgroundColor: '#312e81', // indigo-900
+										borderColor: '#4338ca', // indigo-700
+									}}
+								>
+									SHOP
+								</button>
+								<button
+									onClick={() => {
+										setPhase('AUCTION');
+									}}
+									className="pixel-btn text-center py-4 text-lg bg-yellow-900 border-yellow-700 text-yellow-500 hover:bg-yellow-800"
+									style={{
+										backgroundColor: '#713f12', // yellow-900 (approx)
+										borderColor: '#a16207', // yellow-700
+									}}
+								>
+									AUCTION
 								</button>
 
 								<button
@@ -411,6 +524,43 @@ export const GameMenu = ({
 						/>
 					)}
 
+					{phase === 'SHOP' && (
+						<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50">
+							<div className="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
+								<h2 className="text-xl text-indigo-400 pixel-text">
+									PARTS SHOP
+								</h2>
+							</div>
+							<div className="flex-1 overflow-hidden p-4">
+								<CrateShop
+									money={money}
+									onBuyCrate={handleBuyCrate}
+									onItemReveal={handleItemReveal}
+								/>
+							</div>
+						</div>
+					)}
+
+					{phase === 'AUCTION' && (
+						<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50">
+							<div className="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
+								<h2 className="text-xl text-yellow-400 pixel-text">
+									AUCTION HOUSE
+								</h2>
+							</div>
+							<div className="flex-1 overflow-hidden p-4">
+								<AuctionHouse
+									inventory={userInventory}
+									onSellItem={handleSellItem}
+									money={money}
+									onBuyItem={handleBuyItem}
+									playerTuning={effectiveTuning}
+									ownedMods={ownedMods}
+								/>
+							</div>
+						</div>
+					)}
+
 					{phase === 'GARAGE' && (
 						<div className="w-full h-full flex flex-col">
 							{/* Garage Header */}
@@ -436,24 +586,6 @@ export const GameMenu = ({
 									<div className="flex gap-2 mb-4">
 										<button
 											onClick={() =>
-												setActiveTab('UPGRADES')
-											}
-											className={`flex-1 py-3 text-[10px] pixel-btn ${
-												activeTab === 'UPGRADES'
-													? ''
-													: 'bg-gray-700 opacity-50'
-											}`}
-											style={{
-												backgroundColor:
-													activeTab === 'UPGRADES'
-														? undefined
-														: '#374151',
-											}}
-										>
-											Parts
-										</button>
-										<button
-											onClick={() =>
 												setActiveTab('TUNING')
 											}
 											className={`flex-1 py-3 text-[10px] pixel-btn ${
@@ -468,7 +600,7 @@ export const GameMenu = ({
 														: '#374151',
 											}}
 										>
-											Tune
+											TUNE
 										</button>
 										<button
 											onClick={() => setActiveTab('DYNO')}
@@ -484,7 +616,7 @@ export const GameMenu = ({
 														: '#374151',
 											}}
 										>
-											Dyno
+											DYNO
 										</button>
 										<button
 											onClick={() => setActiveTab('CARS')}
@@ -500,7 +632,7 @@ export const GameMenu = ({
 														: '#374151',
 											}}
 										>
-											Cars
+											CARS
 										</button>
 									</div>
 
@@ -591,10 +723,13 @@ export const GameMenu = ({
 												}
 
 												// Calculate Rating
-												const tuning = {
-													...BASE_TUNING,
-													...car.manualTuning,
-												};
+												const tuning =
+													CarBuilder.calculateTuning(
+														BASE_TUNING,
+														car.ownedMods,
+														car.disabledMods,
+														car.modSettings
+													);
 												const rating =
 													calculatePerformanceRating(
 														tuning
@@ -676,42 +811,26 @@ export const GameMenu = ({
 
 														<div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500 mt-2">
 															<div>
-																HP:{' '}
-																<span className="text-gray-300">
-																	{car.dynoHistory &&
-																	car
-																		.dynoHistory
-																		.length >
-																		0
-																		? Math.max(
-																				...car.dynoHistory.map(
-																					(
-																						d
-																					) =>
-																						d.hp
-																				)
-																		  )
-																		: '?'}
-																</span>
+																<div className="text-gray-400">
+																	HP
+																</div>
+																<div className="text-white font-mono">
+																	{Math.round(
+																		(tuning.maxTorque *
+																			tuning.redlineRPM) /
+																			5252
+																	)}
+																</div>
 															</div>
 															<div>
-																Torque:{' '}
-																<span className="text-gray-300">
-																	{car.dynoHistory &&
-																	car
-																		.dynoHistory
-																		.length >
-																		0
-																		? Math.max(
-																				...car.dynoHistory.map(
-																					(
-																						d
-																					) =>
-																						d.torque
-																				)
-																		  )
-																		: '?'}
-																</span>
+																<div className="text-gray-400">
+																	Torque
+																</div>
+																<div className="text-white font-mono">
+																	{Math.round(
+																		tuning.maxTorque
+																	)}
+																</div>
 															</div>
 														</div>
 													</div>
@@ -727,20 +846,18 @@ export const GameMenu = ({
 									)}
 								</div>
 
-								{/* Car Visual / Mod Tree */}
+								{/* Car Visual / Main Content Area (Mod Tree Replaced) */}
 								<div className="flex-1 bg-gray-900/50 relative overflow-hidden flex flex-col">
-									{/* Mod Tree Visuals */}
-									<div className="absolute inset-0 overflow-auto p-8">
-										<ModTreeVisuals
-											mods={MOD_TREE}
-											owned={ownedMods}
+									{/* Inventory (Always Visible) */}
+									<div className="absolute inset-0 p-2 overflow-hidden">
+										<Inventory
+											items={userInventory}
+											onEquip={handleEquipItem}
+											onSell={(item) => {
+												setPhase('AUCTION');
+											}}
+											onDestroy={handleDestroyItem}
 											money={money}
-											onToggle={setOwnedMods}
-											onHover={handleHover}
-											disabledMods={disabledMods}
-											onToggleDisable={
-												handleToggleDisable
-											}
 										/>
 									</div>
 

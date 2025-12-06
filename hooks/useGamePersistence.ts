@@ -35,7 +35,9 @@ export const useGamePersistence = (
 	xp: number,
 	setXp: (xp: number) => void,
 	level: number,
-	setLevel: (level: number) => void
+	setLevel: (level: number) => void,
+	inventory: any[], // using any[] to avoid circular dependency if InventoryItem is not exported from types
+	setInventory: (items: any[]) => void
 ) => {
 	const [loaded, setLoaded] = useState(false);
 
@@ -97,6 +99,14 @@ export const useGamePersistence = (
 
 				const savedLevel = localStorage.getItem('shift_drift_level');
 				if (savedLevel) setLevel(parseInt(savedLevel));
+
+				// Inventory
+				const savedInventory = localStorage.getItem(
+					'shift_drift_inventory'
+				);
+				if (savedInventory) {
+					setInventory(JSON.parse(savedInventory));
+				}
 
 				// Daily Challenges
 				const savedDaily = localStorage.getItem(
@@ -299,6 +309,14 @@ export const useGamePersistence = (
 		if (!loaded) return;
 		localStorage.setItem('shift_drift_level', level.toString());
 	}, [level, loaded]);
+
+	useEffect(() => {
+		if (!loaded) return;
+		localStorage.setItem(
+			'shift_drift_inventory',
+			JSON.stringify(inventory)
+		);
+	}, [inventory, loaded]);
 
 	return loaded;
 };
