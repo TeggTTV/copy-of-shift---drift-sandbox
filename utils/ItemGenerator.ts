@@ -80,58 +80,72 @@ export const CRATES: Crate[] = [
 	},
 ];
 
+import { GAME_ITEMS, ItemDefinition } from '../data/GameItems'; // Import the new DB
+
 export class ItemGenerator {
 	static generateItem(rarity: ItemRarity): InventoryItem {
-		// 1. Pick a random base mod from MOD_TREE (that isn't a root node if possible, or filter appropriately)
-		// For MVP, just pick any mod.
-		const validMods = MOD_TREE.filter((m) => m.cost > 0); // Filter out dummy root nodes if any
-		const baseMod = validMods[Math.floor(Math.random() * validMods.length)];
+		// 1. Filter GAME_ITEMS by the requested rarity
+		let candidates = GAME_ITEMS.filter((item) => item.rarity === rarity);
 
-		// 2. Generate Condition (affected by rarity slightly? or purely random?)
-		// Higher rarity -> likely better condition
+		// Fallback: If no items of this rarity exist, try to find *any* item, or nearby rarity
+		// For now, simplify: if empty, pick from ALL items (rare case if DB is populated)
+		if (candidates.length === 0) {
+			candidates = GAME_ITEMS;
+			if (candidates.length === 0) {
+				// Extreme fallback if DB is empty
+				throw new Error('Game Items Database is empty!');
+			}
+		}
+
+		// 2. Pick a random item from candidates
+		const baseItem =
+			candidates[Math.floor(Math.random() * candidates.length)];
+
+		// 3. Generate Condition
+		// Higher rarity -> likely better condition?
+		// Or keep it random. Let's say better crates (which drop better rarity) imply better condition.
 		let minCond = 50;
 		if (rarity === 'COMMON') minCond = 20;
 		if (rarity === 'LEGENDARY') minCond = 90;
 		const condition = Math.floor(minCond + Math.random() * (100 - minCond));
 
-		// 3. Stats Variance
-		// Apply rarity multiplier to stats?
-		// Or assume baseMod stats are "Common" and scale up?
-		// Let's assume stats in MOD_TREE are "Standard" (Uncommon?).
-		// Let's modify them slightly based on rarity.
-		const multiplier = RARITY_MULTIPLIERS[rarity];
-		// Variance: +/- 15% random swing.
-		// Also add a flat bonus based on rarity to ensure "Legendary" is always better than "Common" (unless very unlucky).
-		const variance = 0.85 + Math.random() * 0.3;
+		// 4. Stats Variance
+		// We use the base stats from the definition.
+		// We can apply condition scaling: poor condition = reduced effectiveness?
+		// Or just small random variance.
+		// Let's apply a small "Quality" variance regardless of condition,
+		// and maybe condition affects value/reliability later.
+		const variance = 0.9 + Math.random() * 0.2; // +/- 10%
 
 		const finalStats: Partial<TuningState> = {};
-		for (const key in baseMod.stats) {
+		for (const key in baseItem.stats) {
 			const k = key as keyof TuningState;
-			const val = baseMod.stats[k];
+			const val = baseItem.stats[k];
 			if (typeof val === 'number') {
 				// Round to 1 decimal
-				(finalStats as any)[k] =
-					Math.round(val * multiplier * variance * 10) / 10;
+				(finalStats as any)[k] = Math.round(val * variance * 10) / 10;
 			} else {
-				// Arrays or strings (e.g. torqueCurve) - keep as is for now, too complex to scale
+				// Copy non-numeric exactly
 				(finalStats as any)[k] = val;
 			}
 		}
 
-		// 4. Calculate Value
-		// Base cost * rarity mult * condition factor
-		const value = Math.floor(baseMod.cost * multiplier * (condition / 100));
+		// 5. Calculate Resale Value
+		// Base value * condition factor * variance
+		const value = Math.floor(baseItem.value * (condition / 100) * variance);
 
 		return {
 			instanceId: uuidv4(),
-			baseId: baseMod.id,
-			name: baseMod.name, // Could add prefix like "Rusty", "Pristine", "Legendary"
-			description: baseMod.description,
-			type: baseMod.type as ModType,
-			rarity,
+			baseId: baseItem.id,
+			name: baseItem.name,
+			description: baseItem.description,
+			type: baseItem.type,
+			rarity: baseItem.rarity, // Keep the item's intrinsic rarity
 			condition,
 			stats: finalStats,
 			value,
+			icon: (baseItem as any).icon, // Pass icon if exists
+			parentCategory: baseItem.parentCategory,
 		};
 	}
 
@@ -141,6 +155,7 @@ export class ItemGenerator {
 		let selectedRarity: ItemRarity = 'COMMON';
 
 		const rates = crate.dropRates;
+		// Determine target rarity based on crate probabilities
 		if (rand < (cumulative += rates.COMMON)) selectedRarity = 'COMMON';
 		else if (rand < (cumulative += rates.UNCOMMON))
 			selectedRarity = 'UNCOMMON';
@@ -148,6 +163,9 @@ export class ItemGenerator {
 		else if (rand < (cumulative += rates.EPIC)) selectedRarity = 'EPIC';
 		else selectedRarity = 'LEGENDARY';
 
+		// Now find items that MATCH this rarity.
+		// Note: IF the crate says "Legendary" but we have no Legendary items, generateItem logic will fallback.
+		// However, standard design is that the crate roll determines the tier, then we pick from that tier.
 		return this.generateItem(selectedRarity);
 	}
 

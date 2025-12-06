@@ -39,7 +39,10 @@ export interface ModNode {
 		| 'AERO'
 		| 'SUSPENSION'
 		| 'VISUAL'
-		| 'PAINT';
+		| 'PAINT'
+		| 'BRAKES'
+		| 'INTERIOR'
+		| 'ELECTRONICS';
 
 	// Tree Logic
 	parentId: string | null;
@@ -86,7 +89,10 @@ export type ModType =
 	| 'AERO'
 	| 'SUSPENSION'
 	| 'VISUAL'
-	| 'PAINT';
+	| 'PAINT'
+	| 'BRAKES'
+	| 'INTERIOR'
+	| 'ELECTRONICS';
 
 export interface InventoryItem {
 	instanceId: string; // Unique UUID
@@ -99,6 +105,8 @@ export interface InventoryItem {
 	stats: Partial<TuningState>;
 	value: number; // Estimated market value
 	icon?: string; // Optional icon override
+	equipped?: boolean;
+	parentCategory?: string; // Broad category (e.g. "Engine")
 }
 
 export interface Crate {

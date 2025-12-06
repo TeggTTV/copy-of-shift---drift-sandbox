@@ -111,19 +111,59 @@ export const GameMenu = () => {
 	};
 
 	const handleEquipItem = (item: InventoryItem) => {
-		// Add stats to playerTuning manually?
-		// The user said: "Equipping an item... simply adds to the base values... updated values determine how car drives".
-		// So we need to merge `item.stats` into `playerTuning`.
-		setPlayerTuning((prev) => {
-			const next = { ...prev };
-			Object.entries(item.stats).forEach(([key, val]) => {
+		// Find currently equipped item of the same type
+		const currentEquipped = userInventory.find(
+			(i) => i.type === item.type && i.equipped
+		);
+
+		// Helper to adjust stats
+		const adjustStats = (
+			tuning: TuningState,
+			stats: Partial<TuningState>,
+			factor: 1 | -1
+		) => {
+			const next = { ...tuning };
+			Object.entries(stats).forEach(([key, val]) => {
 				if (typeof val === 'number') {
-					(next as any)[key] = ((next as any)[key] || 0) + val;
+					(next as any)[key] =
+						((next as any)[key] || 0) + val * factor;
+				}
+				// Handle non-numeric stats effectively? (e.g. soundProfile)
+				// For now, new val overrides old if factor is 1, but "removing" string stats is hard.
+				// We assume string stats are absolute overrides, not additive.
+				else if (factor === 1) {
+					(next as any)[key] = val;
 				}
 			});
 			return next;
+		};
+
+		setPlayerTuning((prev) => {
+			let next = { ...prev };
+			// 1. Remove stats of currently equipped item (if any)
+			if (currentEquipped) {
+				next = adjustStats(next, currentEquipped.stats, -1);
+			}
+			// 2. Add stats of new item
+			next = adjustStats(next, item.stats, 1);
+			return next;
 		});
-		// play('equip');
+
+		// 3. Update Inventory Flags
+		setUserInventory((prev) =>
+			prev.map((i) => {
+				// Set target to equipped
+				if (i.instanceId === item.instanceId) {
+					return { ...i, equipped: true };
+				}
+				// Unequip others of same type
+				if (i.type === item.type && i.instanceId !== item.instanceId) {
+					return { ...i, equipped: false };
+				}
+				return i;
+			})
+		);
+
 		showToast(`Equipped ${item.name}`, 'SUCCESS');
 	};
 

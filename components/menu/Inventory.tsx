@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { InventoryItem, ItemRarity, ModType } from '../../types';
+import React, { useState, useRef } from 'react';
+import { InventoryItem, ModType } from '../../types';
 import { ItemGenerator } from '../../utils/ItemGenerator';
 
 interface InventoryProps {
@@ -48,29 +48,47 @@ export const Inventory: React.FC<InventoryProps> = ({
 	onDestroy,
 	money,
 }) => {
-	const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(
-		null
-	);
+	const [contextMenu, setContextMenu] = useState<{
+		item: InventoryItem;
+		x: number;
+		y: number;
+	} | null>(null);
 	const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	// Grid Setup
+	const CATEGORIES = [
+		{ name: 'All', icon: '🔍' },
+		{ name: 'Engine', icon: '🔧' },
+		{ name: 'Drivetrain', icon: '⚙️' },
+		{ name: 'Suspension', icon: '🔩' },
+		{ name: 'Exterior', icon: '🎨' },
+		{ name: 'Interior', icon: '💺' },
+		{ name: 'Electronics', icon: '💻' },
+	];
+
 	const ROWS = 4;
 	const COLS = 6;
 	const TOTAL_SLOTS = ROWS * COLS;
 
-	// Fill slots with items (simple layout for now, could be persistent slots later)
-	const slots = Array(TOTAL_SLOTS)
-		.fill(null)
-		.map((_, i) => items[i] || null);
+	const filteredItems = items;
 
-	const handleItemClick = (item: InventoryItem) => {
-		setSelectedItem(item === selectedItem ? null : item);
+	// Ensure we have at least TOTAL_SLOTS, but grow if more items
+	const displaySlots = Math.max(filteredItems.length, TOTAL_SLOTS);
+	const slots = Array(displaySlots)
+		.fill(null)
+		.map((_, i) => filteredItems[i] || null);
+
+	const handleItemClick = (e: React.MouseEvent, item: InventoryItem) => {
+		e.stopPropagation();
+		setContextMenu({ item, x: e.clientX, y: e.clientY });
+	};
+
+	const handleBackgroundClick = () => {
+		setContextMenu(null);
 	};
 
 	const handleMouseMove = (e: React.MouseEvent) => {
-		// Update relative to window or container? Fixed position is safer for tooltips escaping container
 		setMousePos({ x: e.clientX, y: e.clientY });
 	};
 
@@ -78,13 +96,17 @@ export const Inventory: React.FC<InventoryProps> = ({
 		<div
 			ref={containerRef}
 			onMouseMove={handleMouseMove}
-			className="w-full h-full bg-gray-900/90 p-4 rounded-lg flex gap-4 relative"
+			onClick={handleBackgroundClick}
+			className="w-full h-full bg-gray-900/90 p-4 rounded-lg relative flex flex-col"
 		>
-			{/* Inventory Grid */}
-			<div className="flex-1">
-				<h2 className="text-2xl font-bold text-white pixel-text mb-4">
-					INVENTORY
-				</h2>
+			<h2 className="text-2xl font-bold text-white pixel-text mb-4 flex justify-between items-center">
+				<span>INVENTORY</span>
+				<span className="text-xs text-gray-500 font-sans tracking-normal">
+					{filteredItems.length} items
+				</span>
+			</h2>
+
+			<div className="flex-1 overflow-y-auto mb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
 				<div
 					className="grid gap-2"
 					style={{
@@ -102,12 +124,17 @@ export const Inventory: React.FC<InventoryProps> = ({
 										? 'border-' +
 										  ItemGenerator.getRarityColor(
 												item.rarity
-										  ).replace('#', '') // Tailwind specific (hacky if using hex, better use inline style)
+										  ).replace('#', '')
 										: 'border-gray-700'
 								}
                                 ${
-									selectedItem === item && item
+									contextMenu?.item === item
 										? 'ring-2 ring-yellow-400 bg-gray-700'
+										: ''
+								}
+                                ${
+									item?.equipped
+										? 'bg-green-900/30 ring-1 ring-green-500'
 										: ''
 								}
                             `}
@@ -116,7 +143,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 									? ItemGenerator.getRarityColor(item.rarity)
 									: undefined,
 							}}
-							onClick={() => item && handleItemClick(item)}
+							onClick={(e) => item && handleItemClick(e, item)}
 							onMouseEnter={() => item && setHoveredItem(item)}
 							onMouseLeave={() => setHoveredItem(null)}
 						>
@@ -128,6 +155,11 @@ export const Inventory: React.FC<InventoryProps> = ({
 									<div className="absolute bottom-1 right-1 text-[8px] px-1 bg-black/50 rounded font-mono text-white">
 										{item.condition}%
 									</div>
+									{item.equipped && (
+										<div className="absolute top-1 left-1 text-[10px] bg-green-500 text-black px-1 rounded font-bold">
+											EQP
+										</div>
+									)}
 								</div>
 							)}
 						</div>
@@ -135,60 +167,78 @@ export const Inventory: React.FC<InventoryProps> = ({
 				</div>
 			</div>
 
-			{/* Selected Item Actions Panel (Right Side) */}
-			{selectedItem && (
-				<div className="w-64 bg-black/50 p-4 border-l border-gray-700 flex flex-col animate-slide-in-right">
-					<h3 className="text-gray-400 pixel-text text-sm mb-4">
-						SELECTED ITEM
-					</h3>
-					{(() => {
-						const target = selectedItem;
-						const color = ItemGenerator.getRarityColor(
-							target.rarity
-						);
-						return (
-							<>
-								<div
-									className="text-xl font-bold pixel-text mb-1"
-									style={{ color }}
-								>
-									{target.name}
-								</div>
-								<div
-									className="text-xs font-bold uppercase mb-4"
-									style={{ color }}
-								>
-									{target.rarity} {target.type}
-								</div>
+			{/* <div className="mt-auto border-t border-gray-700 pt-4">
+				<div className="flex gap-2 justify-center overflow-x-auto pb-2 scrollbar-hide">
+					{CATEGORIES.map((cat) => (
+						<div
+							key={cat.name}
+							className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded text-xl text-gray-400 select-none shadow-sm border border-gray-700"
+							title={cat.name}
+						>
+							{cat.icon}
+						</div>
+					))}
+				</div>
+			</div> */}
 
-								<div className="flex flex-col gap-2 mt-auto">
-									<button
-										onClick={() => onEquip(selectedItem)}
-										className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded pixel-text"
-									>
-										EQUIP
-									</button>
-									<button
-										onClick={() => onSell(selectedItem)}
-										className="w-full py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded pixel-text"
-									>
-										AUCTION
-									</button>
-									<button
-										onClick={() => onDestroy(selectedItem)}
-										className="w-full py-2 bg-red-900/50 hover:bg-red-600 text-gray-300 hover:text-white font-bold rounded text-xs"
-									>
-										DESTROY
-									</button>
-								</div>
-							</>
-						);
-					})()}
+			{contextMenu && (
+				<div
+					className="fixed z-[110] flex flex-col gap-1 p-1 bg-black/90 border border-gray-500 rounded shadow-xl animate-in fade-in zoom-in-95 duration-100"
+					style={{
+						left: Math.min(contextMenu.x, window.innerWidth - 180),
+						top: Math.min(contextMenu.y, window.innerHeight - 150),
+						minWidth: '140px',
+					}}
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div
+						className="px-2 py-1 text-xs font-bold uppercase border-b border-gray-700 mb-1"
+						style={{
+							color: ItemGenerator.getRarityColor(
+								contextMenu.item.rarity
+							),
+						}}
+					>
+						{contextMenu.item.name}
+					</div>
+					{contextMenu.item.equipped ? (
+						<div className="px-2 py-1.5 text-green-500 text-xs font-bold flex items-center gap-2 border-b border-gray-800 bg-green-900/20">
+							<span>✅</span> EQUIPPED
+						</div>
+					) : (
+						<button
+							onClick={() => {
+								onEquip(contextMenu.item);
+								setContextMenu(null);
+							}}
+							className="text-left px-2 py-1.5 hover:bg-blue-600 text-white text-xs font-bold rounded flex items-center gap-2"
+						>
+							<span>🔧</span> EQUIP
+						</button>
+					)}
+
+					<button
+						onClick={() => {
+							onSell(contextMenu.item);
+							setContextMenu(null);
+						}}
+						className="text-left px-2 py-1.5 hover:bg-yellow-600 text-white text-xs font-bold rounded flex items-center gap-2"
+					>
+						<span>💰</span> AUCTION
+					</button>
+					<button
+						onClick={() => {
+							onDestroy(contextMenu.item);
+							setContextMenu(null);
+						}}
+						className="text-left px-2 py-1.5 hover:bg-red-900 text-red-200 hover:text-white text-xs font-bold rounded flex items-center gap-2"
+					>
+						<span>🗑️</span> DESTROY
+					</button>
 				</div>
 			)}
 
-			{/* Floating Tooltip */}
-			{hoveredItem && !selectedItem && (
+			{hoveredItem && !contextMenu && (
 				<div
 					className="fixed z-[100] w-64 bg-black/95 border-2 p-4 rounded shadow-2xl pointer-events-none animate-in fade-in duration-75"
 					style={{
@@ -212,13 +262,18 @@ export const Inventory: React.FC<InventoryProps> = ({
 					<div className="text-[10px] uppercase tracking-wider mb-2 text-gray-500">
 						{hoveredItem.rarity} {hoveredItem.type}
 					</div>
+					{hoveredItem.equipped && (
+						<div className="text-green-400 text-xs font-bold mb-2">
+							[ EQUIPPED ]
+						</div>
+					)}
 					<p className="text-xs text-gray-300 italic mb-3 leading-relaxed border-b border-gray-800 pb-2">
 						{hoveredItem.description}
 					</p>
 
 					<div className="space-y-1">
 						{Object.entries(hoveredItem.stats).map(([key, val]) => {
-							if (typeof val === 'object') return null; // Skip complex stats like torqueCurve
+							if (typeof val === 'object') return null;
 							return (
 								<div
 									key={key}
