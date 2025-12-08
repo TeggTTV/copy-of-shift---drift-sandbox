@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { InventoryItem } from '@/types';
 import { ItemGenerator } from '@/utils/ItemGenerator';
 import { ItemCard } from '@/components/ui/ItemCard';
+import { ItemMerge } from '@/utils/ItemMerge';
 
 interface InventoryProps {
 	items: InventoryItem[]; // Uninstalled items
@@ -12,6 +13,7 @@ interface InventoryProps {
 	onSell: (item: InventoryItem) => void; // For Auction
 	onDestroy: (item: InventoryItem) => void;
 	onRepair: (item: InventoryItem, cost: number) => void;
+	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
 	money: number;
 }
 
@@ -24,8 +26,14 @@ export const Inventory: React.FC<InventoryProps> = ({
 	onSell,
 	onDestroy,
 	onRepair,
+	onMerge,
 	money,
 }) => {
+	const [mergeSourceItem, setMergeSourceItem] =
+		useState<InventoryItem | null>(null);
+	const [mergeTargetItem, setMergeTargetItem] =
+		useState<InventoryItem | null>(null);
+
 	const [contextMenu, setContextMenu] = useState<{
 		item: InventoryItem;
 		isInstalled: boolean;
@@ -64,19 +72,41 @@ export const Inventory: React.FC<InventoryProps> = ({
 					gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`,
 				}}
 			>
-				{slots.map((item, index) => (
-					<ItemCard
-						key={index}
-						item={item}
-						onClick={(e) =>
-							item && handleItemClick(e, item, isInstalled)
-						}
-						onMouseEnter={() => item && setHoveredItem(item)}
-						onMouseLeave={() => setHoveredItem(null)}
-						isSelected={contextMenu?.item === item}
-						showCondition={true}
-					/>
-				))}
+				{slots.map((item, index) => {
+					const canMerge =
+						mergeSourceItem &&
+						item &&
+						ItemMerge.canMerge(mergeSourceItem, item);
+					const isDimmed =
+						mergeSourceItem &&
+						!canMerge &&
+						item !== mergeSourceItem;
+					const isMergeSource =
+						mergeSourceItem && item && mergeSourceItem === item;
+
+					return (
+						<ItemCard
+							key={index}
+							item={item}
+							onClick={(e) =>
+								item && handleItemClick(e, item, isInstalled)
+							}
+							onMouseEnter={() => item && setHoveredItem(item)}
+							onMouseLeave={() => setHoveredItem(null)}
+							isSelected={
+								contextMenu?.item === item || isMergeSource
+							}
+							showCondition={true}
+							className={
+								isDimmed
+									? 'opacity-20 grayscale'
+									: isMergeSource
+									? 'ring-2 ring-yellow-500 animate-pulse'
+									: ''
+							}
+						/>
+					);
+				})}
 			</div>
 		);
 	};
@@ -87,6 +117,28 @@ export const Inventory: React.FC<InventoryProps> = ({
 		isInstalled: boolean
 	) => {
 		e.stopPropagation();
+
+		// Merge Logic
+		if (mergeSourceItem) {
+			if (item === mergeSourceItem) {
+				// Clicked self, cancel? Or ignore?
+				setMergeSourceItem(null);
+				return;
+			}
+			if (ItemMerge.canMerge(mergeSourceItem, item) && !isInstalled) {
+				// Valid target
+				setMergeTargetItem(item);
+			} else {
+				// Invalid target
+				// checking !isInstalled because prompt says "Only allow the player to merge parts in the inventory section"
+				// Wait, can source be installed? "Only allow ... in the inventory section".
+				// Implies both must be uninstalled.
+				// I'll enforce !isInstalled for target.
+				// Source selection is likely enforced via context menu availability.
+			}
+			return; // Don't match context menu if selecting for merge
+		}
+
 		setContextMenu({ item, isInstalled, x: e.clientX, y: e.clientY });
 	};
 
@@ -153,6 +205,35 @@ export const Inventory: React.FC<InventoryProps> = ({
 					>
 						{contextMenu.item.name}
 					</div>
+
+					{!contextMenu.isInstalled && (
+						<button
+							onClick={() => {
+								setMergeSourceItem(contextMenu.item);
+								setContextMenu(null);
+							}}
+							// Initial check if there are others? User prompt says "disabled if there are no others".
+							// I'll leave enabled for simplicity or check:
+							disabled={
+								!items.some(
+									(i) =>
+										i !== contextMenu.item &&
+										ItemMerge.canMerge(contextMenu.item, i)
+								)
+							}
+							className={`text-left px-2 py-1.5 text-xs font-bold rounded flex items-center gap-2 ${
+								!items.some(
+									(i) =>
+										i !== contextMenu.item &&
+										ItemMerge.canMerge(contextMenu.item, i)
+								)
+									? 'text-gray-600 cursor-not-allowed'
+									: 'hover:bg-purple-600 text-white'
+							}`}
+						>
+							<span>🧬</span> MERGE
+						</button>
+					)}
 
 					{contextMenu.isInstalled ? (
 						<button
@@ -241,7 +322,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 
 			{hoveredItem && !contextMenu && (
 				<div
-					className="fixed z-[100] w-64 bg-black/95 border-2 p-4 rounded shadow-2xl pointer-events-none animate-in fade-in duration-75"
+					className="fixed z-[200] w-64 bg-black/95 border-2 p-4 rounded shadow-2xl pointer-events-none animate-in fade-in duration-75"
 					style={{
 						left:
 							mousePos.x + 280 > window.innerWidth
@@ -338,7 +419,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 													'number' && displayVal > 0
 													? '+'
 													: ''}
-												{displayVal}
+												{displayVal.toFixed(2)}
 											</span>
 											{penaltyText && (
 												<span className="text-red-500">
@@ -356,6 +437,105 @@ export const Inventory: React.FC<InventoryProps> = ({
 						<span className="text-green-400">
 							${hoveredItem.value.toLocaleString()}
 						</span>
+					</div>
+				</div>
+			)}
+			{mergeTargetItem && mergeSourceItem && (
+				<div
+					className="absolute inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+					onClick={() => {
+						setMergeTargetItem(null);
+						setMergeSourceItem(null);
+					}}
+				>
+					<div
+						className="bg-gray-900 border-2 border-yellow-500 rounded p-6 shadow-2xl animate-in zoom-in-95 flex flex-col gap-4 min-w-[350px]"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="text-center">
+							<h3 className="text-xl font-bold text-white mb-1 pixel-text">
+								MERGE PARTS?
+							</h3>
+							<div className="text-gray-400 text-xs">
+								Merge to create:
+								<div className="flex flex-col gap-1 mt-1">
+									{ItemMerge.getMergeProbabilities(
+										mergeSourceItem.rarity,
+										mergeTargetItem.rarity
+									).map((p) => (
+										<div
+											key={p.rarity}
+											className="flex items-center justify-center gap-2 text-xs"
+										>
+											<span
+												style={{
+													color: ItemGenerator.getRarityColor(
+														p.rarity as any
+													),
+												}}
+											>
+												{p.rarity}
+											</span>
+											<span className="text-gray-400">
+												{Math.round(p.chance * 100)}%
+											</span>
+										</div>
+									))}
+								</div>
+							</div>
+						</div>
+
+						<div className="flex items-center justify-center gap-4 bg-black/40 p-4 rounded-lg">
+							<ItemCard
+								item={mergeSourceItem}
+								className="w-20 h-20"
+								showCondition={true}
+								onMouseEnter={() =>
+									mergeSourceItem &&
+									setHoveredItem(mergeSourceItem)
+								}
+								onMouseLeave={() => setHoveredItem(null)}
+							/>
+							<span className="text-2xl font-bold text-yellow-400">
+								+
+							</span>
+							<ItemCard
+								item={mergeTargetItem}
+								className="w-20 h-20"
+								showCondition={true}
+								onMouseEnter={() =>
+									mergeTargetItem &&
+									setHoveredItem(mergeTargetItem)
+								}
+								onMouseLeave={() => setHoveredItem(null)}
+							/>
+						</div>
+
+						<div className="text-xs text-gray-500 text-center italic">
+							Warning: Both items will be consumed.
+						</div>
+
+						<div className="flex gap-2">
+							<button
+								onClick={() => {
+									onMerge(mergeSourceItem, mergeTargetItem);
+									setMergeTargetItem(null);
+									setMergeSourceItem(null);
+								}}
+								className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded pixel-text"
+							>
+								MERGE
+							</button>
+							<button
+								onClick={() => {
+									setMergeTargetItem(null);
+									setMergeSourceItem(null);
+								}}
+								className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded pixel-text"
+							>
+								CANCEL
+							</button>
+						</div>
 					</div>
 				</div>
 			)}

@@ -62,6 +62,7 @@ export interface GameContextType {
 	onChallengeRival: (rival: Rival) => void;
 	userInventory: InventoryItem[];
 	setUserInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
+	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);

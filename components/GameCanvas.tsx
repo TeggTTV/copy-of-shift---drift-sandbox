@@ -14,6 +14,7 @@ import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
 import { calculateNextLevelXp } from '../utils/progression';
 import { useGamePersistence } from '../hooks/useGamePersistence';
+import { ItemMerge } from '../utils/ItemMerge';
 import { TopBar } from '@/components/menu/shared/TopBar';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
@@ -39,6 +40,7 @@ import {
 	Rival,
 	InputState,
 	JunkyardCar,
+	InventoryItem,
 } from '../types';
 import { GameMenu } from './GameMenu';
 
@@ -266,6 +268,31 @@ const GameCanvas: React.FC = () => {
 			showToast(`Scrapped ${car.name} for $${scrapValue}`, 'SUCCESS');
 		},
 		[garage, currentCarIndex, setMoney, setGarage, showToast]
+	);
+
+	const handleMerge = useCallback(
+		(item1: InventoryItem, item2: InventoryItem) => {
+			const newItem = ItemMerge.mergeItems(item1, item2);
+			if (newItem) {
+				setInventory((prev) => {
+					// Remove old items
+					const filtered = prev.filter(
+						(i) =>
+							i.instanceId !== item1.instanceId &&
+							i.instanceId !== item2.instanceId
+					);
+					// Add new item
+					return [...filtered, newItem];
+				});
+				showToast(
+					`Merged for ${newItem.rarity} ${newItem.name}!`,
+					'SUCCESS'
+				);
+			} else {
+				showToast('Failed to merge items.', 'ERROR');
+			}
+		},
+		[showToast]
 	);
 
 	// Underground State
@@ -1693,6 +1720,7 @@ const GameCanvas: React.FC = () => {
 							onChallengeRival: handleChallengeRival,
 							userInventory: inventory,
 							setUserInventory: setInventory,
+							onMerge: handleMerge,
 						}}
 					>
 						<GameMenu />

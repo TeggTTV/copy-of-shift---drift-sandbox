@@ -1,0 +1,111 @@
+[
+	{
+		"id": "starter_car",
+		"name": "My First Ride",
+		"date": 1764386445448,
+		"ownedMods": [
+			"paint_red",
+			"ecu1",
+			"intake",
+			"turbo_kit",
+			"spoiler",
+			"trans_root",
+			"muffler_straight",
+			"coilovers",
+			"sway_bars",
+			"chassis_brace",
+			"drag_suspension",
+			"splitter",
+			"diffuser",
+			"underbody",
+			"fuel_pump",
+			"injectors",
+			"e85",
+			"fuel_rail",
+			"tires1",
+			"tires2",
+			"tires3",
+			"carbon_clutch",
+			"close_ratio",
+			"lsd",
+			"big_turbo",
+			"wastegate",
+			"ball_bearing",
+			"antilag",
+			"weight1",
+			"weight2",
+			"weight3",
+			"carbon_panels",
+			"body_kit",
+			"nitrous_50",
+			"nitrous_100",
+			"nitrous_200",
+			"progressive_nos",
+			"radiator",
+			"intercooler",
+			"methanol",
+			"oil_cooler"
+		],
+		"disabledMods": ["forged_wheels"],
+		"modSettings": {
+			"ecu1": { "rev_limiter": 15000, "idle_rpm": 1100 },
+			"turbo_kit": { "boost_pressure": 1.2 },
+			"big_turbo": { "boost_pressure": 2.5 },
+			"tires1": { "tire_pressure": 25 }
+		},
+		"manualTuning": {
+			"finalDriveRatio": 4.5,
+			"gearRatios": {
+				"0": 0,
+				"1": 3.5,
+				"2": 2.1,
+				"3": 1.4,
+				"4": 1,
+				"5": 0.8,
+				"6": 0.7
+			},
+			"torqueCurve": [
+				{ "rpm": 0, "factor": 0.4 },
+				{ "rpm": 2000, "factor": 0.6 },
+				{ "rpm": 4000, "factor": 0.9 },
+				{ "rpm": 5500, "factor": 1 },
+				{ "rpm": 6500, "factor": 0.85 }
+			]
+		}
+	}
+]
+
+[
+	{
+		"id": "starter_car",
+		"name": "My First Ride",
+		"date": 1764386445448,
+		"ownedMods": [],
+		"disabledMods": [],
+		"modSettings": {},
+		"manualTuning": {
+			"finalDriveRatio": 4.5,
+			"gearRatios": {
+				"0": 0,
+				"1": 3.5,
+				"2": 2.1,
+				"3": 1.4,
+				"4": 1,
+				"5": 0.8,
+				"6": 0.7
+			},
+			"torqueCurve": [
+				{ "rpm": 0, "factor": 0.4 },
+				{ "rpm": 2000, "factor": 0.6 },
+				{ "rpm": 4000, "factor": 0.9 },
+				{ "rpm": 5500, "factor": 1 },
+				{ "rpm": 6500, "factor": 0.85 }
+			]
+		}
+	}
+]
+
+[{"id":"starter_car","name":"My First Ride","date":1764386445448,"ownedMods":[],"disabledMods":[],"modSettings":{},"manualTuning":{"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]}}]
+
+Owned MOds: ["ecu1","intake","supercharger","twin_screw","centrifugal_sc","sc_pulley"]
+Garage: [{"id":"starter_car","name":"My First Ride","date":1764386445448,"ownedMods":["muffler_straight","radiator","nitrous_50","trans_root","ecu1","tires1","weight1","fuel_pump","oil_cooler","intercooler","nitrous_100","carbon_clutch","close_ratio","intake","tires2","weight2","injectors","methanol","progressive_nos","nitrous_200","lsd","turbo_kit","supercharger","tires3","weight3","e85","fuel_rail","big_turbo","antilag","twin_screw","centrifugal_sc","carbon_panels","wastegate","ball_bearing","sc_pulley","coilovers","spoiler","splitter","diffuser","underbody","sway_bars","chassis_brace","drag_suspension","paint_red"],"disabledMods":[],"modSettings":{"ecu1":{"rev_limiter":15000,"idle_rpm":1150},"tires1":{"tire_pressure":25},"turbo_kit":{"boost_pressure":1.2},"big_turbo":{"boost_pressure":2.5}},"manualTuning":{"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]}},{"id":"junk_1764532548360_2_1764532548360_382","name":"Mustang GT","date":1764532551220,"ownedMods":["muffler_straight","radiator","nitrous_50","trans_root","ecu1","tires1","weight1","fuel_pump","oil_cooler","intercooler","nitrous_100","carbon_clutch","close_ratio","intake","tires2","weight2","injectors","lsd","turbo_kit","tires3","weight3","e85","fuel_rail","big_turbo","antilag","carbon_panels","wastegate","ball_bearing"],"disabledMods":[],"modSettings":{"ecu1":{"rev_limiter":15000}},"manualTuning":{"maxTorque":800.1552457008153,"mass":1431.3327242716568,"dragCoefficient":0.3450157241414818,"tireGrip":1.9506294296489555,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]},"condition":1,"originalPrice":38000,"rarity":"EXOTIC","rarityMultiplier":1.79831837597989},{"id":"junk_1764533285426_2_1764533285426_982","name":"R32 GTR","date":1764533327667,"ownedMods":[],"disabledMods":[],"modSettings":{},"manualTuning":{"maxTorque":531.7336894648688,"mass":1278.2454718161177,"dragCoefficient":0.3126314335940328,"tireGrip":2.1425022136843346,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]},"condition":1,"originalPrice":85000,"rarity":"EXOTIC","rarityMultiplier":1.5653226406747707},{"id":"junk_1764533924988_2_1764533924988_64","name":"Integra DC2","date":1764533940277,"ownedMods":[],"disabledMods":[],"modSettings":{},"manualTuning":{"maxTorque":205.88412559699253,"mass":1134.5588248149481,"dragCoefficient":0.33416529668639366,"tireGrip":1.2953165539763014,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]},"condition":1,"originalPrice":20000,"rarity":"RARE","rarityMultiplier":1.1778291119500275},{"id":"junk_1764533979233_1_1764533979233_75","name":"Integra DC2","date":1764533980642,"ownedMods":["muffler_straight","radiator","nitrous_50","trans_root","ecu1","tires1","weight1","fuel_pump","oil_cooler","intercooler","carbon_clutch","close_ratio","intake","tires2","weight2","injectors","lsd","tires3","weight3","e85","fuel_rail","carbon_panels","methanol","supercharger","twin_screw","centrifugal_sc","sc_pulley","spoiler","splitter","diffuser","underbody","coilovers","sway_bars","chassis_brace","drag_suspension","nitrous_100","nitrous_200","progressive_nos","turbo_kit","antilag","big_turbo","ball_bearing","wastegate"],"disabledMods":["supercharger","twin_screw","centrifugal_sc","sc_pulley"],"modSettings":{"ecu1":{"rev_limiter":15000,"idle_rpm":1250},"tires1":{"tire_pressure":25},"turbo_kit":{"boost_pressure":1.2},"big_turbo":{"boost_pressure":2.5}},"manualTuning":{"maxTorque":270.89530937365276,"mass":1032.8234597215821,"dragCoefficient":0.32554342806515224,"tireGrip":1.7800157516470163,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]},"condition":1,"originalPrice":20000,"rarity":"EXOTIC","rarityMultiplier":1.6065394208277204},{"id":"boss_car_1","name":"Baron's Beast","date":1764533285340,"ownedMods":["ecu1","turbo_kit","big_turbo","intercooler","tires3","drag_slicks","weight3","carbon_panels","sequential","paint_purple"],"disabledMods":[],"modSettings":{"big_turbo":{"boost_pressure":3}},"manualTuning":{"finalDriveRatio":3.2,"gearRatios":{"0":0,"1":3.2,"2":2.1,"3":1.6,"4":1.2,"5":1,"6":0.8},"torqueCurve":[{"rpm":0,"factor":0.4},{"rpm":3000,"factor":0.7},{"rpm":5500,"factor":1},{"rpm":7500,"factor":0.95}]}},{"id":"junk_1764618333115_3_1764618333116_404","name":"Nissan Silvia S13","date":1764618365842,"ownedMods":[],"disabledMods":[],"modSettings":{},"manualTuning":{"maxTorque":149.0528088733223,"mass":1255.1890112275821,"dragCoefficient":0.3297747062827376,"tireGrip":1.0503119586605625,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.8,"2":2.4,"3":1.6,"4":1.15,"5":0.9,"6":0.75},"torqueCurve":[{"rpm":0,"factor":0.4},{"rpm":3000,"factor":0.7},{"rpm":5500,"factor":1},{"rpm":7500,"factor":0.95}]},"condition":0.05559681827170537,"originalPrice":14000,"rarity":"COMMON","rarityMultiplier":1.0000004101625015},{"id":"junk_1764688597822_2_1764688597822_623","name":"Mitsubishi Lancer Evo IX","date":1764688605499,"ownedMods":[],"disabledMods":[],"modSettings":{},"manualTuning":{"maxTorque":531.4980249200162,"mass":1142.0796008493548,"dragCoefficient":0.3512306011116784,"tireGrip":2.210284617924854,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.8,"2":2.4,"3":1.6,"4":1.15,"5":0.9,"6":0.75},"torqueCurve":[{"rpm":0,"factor":0.5},{"rpm":2500,"factor":0.8},{"rpm":4500,"factor":1},{"rpm":6800,"factor":0.9}]},"condition":0.07000704505693084,"originalPrice":45000,"rarity":"EXOTIC","rarityMultiplier":1.7601635559106945},{"id":"junk_1764858870248_5_1764858870248_654","name":"Toyota AE86 Trueno","date":1764858893166,"ownedMods":["nitrous_50","nitrous_100","nitrous_200","progressive_nos","ecu1","intake","big_turbo","antilag","wastegate","ball_bearing","spoiler","splitter","diffuser","underbody","coilovers","sway_bars","chassis_brace","drag_suspension","body_kit","paint_gold","weight1","weight2","weight3","carbon_panels","fuel_pump","injectors","e85","fuel_rail","muffler_straight","tires1","tires2","radiator","intercooler","oil_cooler","methanol","trans_root","close_ratio","lsd","carbon_clutch","supercharger","tires3","twin_screw","centrifugal_sc","sc_pulley"],"disabledMods":["wastegate","ball_bearing","big_turbo","wastegate","ball_bearing","antilag"],"modSettings":{"ecu1":{"rev_limiter":15000,"idle_rpm":1350},"turbo_kit":{"boost_pressure":1.2},"big_turbo":{"boost_pressure":2.5},"tires1":{"tire_pressure":25}},"manualTuning":{"maxTorque":199.44592157406652,"mass":877.5238233954569,"dragCoefficient":0.3743077687096404,"tireGrip":1.602923189191234,"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.8,"2":2.4,"3":1.6,"4":1.15,"5":0.9,"6":0.75},"torqueCurve":[{"rpm":0,"factor":0.4},{"rpm":3000,"factor":0.7},{"rpm":5500,"factor":1},{"rpm":7500,"factor":0.95}]},"condition":0.2992920342974847,"originalPrice":12000,"rarity":"EXOTIC","rarityMultiplier":1.736784661021867},{"id":"boss_reward_1764865968160_139","name":"Mazda RX-7 FC","date":1764865968160,"ownedMods":["ecu1","intake","na_cams","itb","ported_heads","titanium_valves","stroker","nitrous_50","nitrous_100","nitrous_200","progressive_nos","radiator","intercooler","oil_cooler","methanol","trans_root","carbon_clutch","close_ratio","lsd","muffler_sport","weight1","weight2","weight3","carbon_panels","fuel_pump","injectors","e85","fuel_rail","body_kit","paint_gold","coilovers","sway_bars","chassis_brace","drag_suspension","spoiler","splitter","diffuser","underbody","tires1","tires2","tires3"],"disabledMods":[],"modSettings":{"ecu1":{"rev_limiter":15000,"idle_rpm":900},"tires1":{"tire_pressure":25}},"manualTuning":{"finalDriveRatio":4.1,"gearRatios":{"0":0,"1":3.5,"2":2.1,"3":1.4,"4":1,"5":0.8,"6":0.7},"torqueCurve":[{"rpm":0,"factor":0.3},{"rpm":2000,"factor":0.6},{"rpm":4000,"factor":0.9},{"rpm":5500,"factor":1},{"rpm":6500,"factor":0.85}]},"condition":1,"price":16381,"originalPrice":18000,"rarity":"COMMON","rarityMultiplier":1}]

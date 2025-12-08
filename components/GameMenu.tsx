@@ -79,6 +79,7 @@ export const GameMenu = () => {
 		onChallengeRival,
 		userInventory,
 		setUserInventory,
+		onMerge,
 	} = useGame();
 
 	const { play } = useSound();
@@ -475,6 +476,7 @@ export const GameMenu = () => {
 							onRestoreCar={onRestoreCar}
 							onScrapCar={onScrapCar}
 							onRepair={handleRepairItem}
+							onMerge={onMerge}
 						/>
 					)}
 				</div>
