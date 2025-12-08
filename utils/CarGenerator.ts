@@ -1,5 +1,13 @@
-import { JunkyardCar, ModNode, Rarity, TuningState } from '../types';
+import {
+	JunkyardCar,
+	ModNode,
+	Rarity,
+	TuningState,
+	InventoryItem,
+} from '../types';
 import { MOD_TREE } from '../constants';
+import { GAME_ITEMS } from '../data/GameItems';
+import { ItemGenerator } from './ItemGenerator';
 
 // Car Templates
 const CAR_TEMPLATES = [
@@ -902,37 +910,22 @@ export class CarGenerator {
 		const template = this.getRandomTemplate(tier);
 
 		// Determine Condition (Dealership is usually good)
-		// Tier 3 cars might be older/restored, so slightly more variance?
-		// Actually dealership cars should be decent.
-		const condition = 0.7 + Math.random() * 0.3; // 70% - 100%
+		// 0-100 Scale
+		const condition = Math.floor(70 + Math.random() * 30); // 70% - 100%
 
-		// Determine Archetype
-		let archetype: Archetype = 'STOCK';
-		if (Math.random() > 0.7) {
-			archetype = Math.random() > 0.5 ? 'STREET' : 'RACE';
-		}
-		// Legends are often stock or lightly modified
-		if (tier === 3 && Math.random() > 0.5) archetype = 'STOCK';
-
-		const mods = this.generateMods(archetype, tier);
+		// New System: Installed Items
+		// For now, Dealership cars are STOCK (no installed upgrades).
+		const items: InventoryItem[] = [];
 
 		// Calculate Price
-		// Base * Condition + Mod Value * 1.2 (Dealer Markup)
-		let modValue = 0;
-		mods.forEach((modId) => {
-			const mod = MOD_TREE.find((m) => m.id === modId);
-			if (mod) modValue += mod.cost;
-		});
-
-		const price = Math.floor(
-			template.baseValue * condition + modValue * 1.1
-		);
+		// Base * Condition + 10% Dealer Markup
+		const price = Math.floor(template.baseValue * (condition / 100) * 1.1);
 
 		return {
 			id: `${idPrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
 			name: template.name,
 			date: Date.now(),
-			ownedMods: mods,
+			ownedMods: [],
 			disabledMods: [],
 			modSettings: {},
 			manualTuning: {},
@@ -941,6 +934,7 @@ export class CarGenerator {
 			originalPrice: template.baseValue,
 			rarity: 'COMMON', // Dealership cars are standard
 			rarityMultiplier: 1.0,
+			installedItems: items,
 		};
 	}
 
@@ -948,8 +942,6 @@ export class CarGenerator {
 		// 30% chance to find a "Clean Title" car (Dealership quality)
 		if (Math.random() < 0.3) {
 			const car = this.generateDealershipCar(idPrefix);
-			// Maybe slightly cheaper than dealer? Or same price?
-			// Let's keep it same price for now, representing a "good find"
 			return car;
 		}
 
@@ -961,21 +953,34 @@ export class CarGenerator {
 
 		const template = this.getRandomTemplate(tier);
 
-		// Condition is bad
-		const condition = 0.05 + Math.random() * 0.35; // 5% - 40%
+		// Condition is bad (0-100 Scale)
+		const condition = Math.floor(5 + Math.random() * 35); // 5% - 40%
 
-		// Archetype is usually JUNK (random parts, missing parts)
-		const mods = this.generateMods('JUNK', tier);
+		// Generate Random Parts (Junk)
+		const items: InventoryItem[] = [];
+		// Simple heuristic: scan GAME_ITEMS for suitable parts
+		const suitableItems = GAME_ITEMS.filter(
+			(i) =>
+				(i.tier ?? 1) <= tier &&
+				(i.rarity === 'COMMON' || i.rarity === 'UNCOMMON')
+		);
+		suitableItems.forEach((def) => {
+			// Limit total items to prevent clutter? 15% chance per item
+			if (Math.random() < 0.15) {
+				const item = ItemGenerator.generateItem(def);
+				item.condition = Math.floor(Math.random() * 40); // 0-40% condition
+				items.push(item);
+			}
+		});
 
 		// Calculate Price (Cheap!)
 		let modValue = 0;
-		mods.forEach((modId) => {
-			const mod = MOD_TREE.find((m) => m.id === modId);
-			if (mod) modValue += mod.cost * 0.2; // Scrap value for mods
+		items.forEach((item) => {
+			modValue += item.value * 0.1; // Scrap value
 		});
 
 		const price = Math.floor(
-			template.baseValue * condition * 0.8 + modValue
+			template.baseValue * (condition / 100) * 0.8 + modValue
 		);
 
 		// Generate weighted multiplier for stats
@@ -992,14 +997,11 @@ export class CarGenerator {
 		if (baseStats.mass && multiplier > 1.1)
 			baseStats.mass *= 1 - (multiplier - 1) * 0.2;
 
-		// Adjust price based on rarity/performance
-		const rarityPriceMult = multiplier * multiplier; // Quadratic price increase for rarity
-
 		return {
 			id: `${idPrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
 			name: template.name,
 			date: Date.now(),
-			ownedMods: mods,
+			ownedMods: [],
 			disabledMods: [],
 			modSettings: {},
 			manualTuning: baseStats,
@@ -1008,6 +1010,7 @@ export class CarGenerator {
 			originalPrice: template.baseValue,
 			rarity: rarity,
 			rarityMultiplier: multiplier,
+			installedItems: items,
 		};
 	}
 

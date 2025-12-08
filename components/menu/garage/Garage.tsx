@@ -381,28 +381,100 @@ export const Garage: React.FC<GarageProps> = ({
 										{/* Particles for high rarity */}
 										{renderParticles(rarity)}
 
-										<div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500 mt-2">
-											<div>
-												<div className="text-gray-400">
-													HP
+										{/* Condition Bar */}
+										{(car.condition ?? 100) < 100 && (
+											<div className="mt-3 bg-black/40 p-1.5 rounded border border-white/5">
+												<div className="flex justify-between text-[9px] mb-1 uppercase tracking-wider">
+													<span className="text-gray-500">
+														Structure
+													</span>
+													<span
+														className={
+															(car.condition ||
+																0) > 70
+																? 'text-green-500'
+																: (car.condition ||
+																		0) > 40
+																? 'text-yellow-500'
+																: 'text-red-500'
+														}
+													>
+														{(
+															car.condition || 0
+														).toFixed(0)}
+														%
+													</span>
 												</div>
-												<div className="text-white font-mono">
+												<div className="w-full h-1 bg-gray-900 rounded-full overflow-hidden">
+													<div
+														className={`h-full transition-all duration-500 ${
+															(car.condition ||
+																0) > 70
+																? 'bg-green-500'
+																: (car.condition ||
+																		0) > 40
+																? 'bg-yellow-500'
+																: 'bg-red-500'
+														}`}
+														style={{
+															width: `${
+																car.condition ||
+																0
+															}%`,
+														}}
+													/>
+												</div>
+											</div>
+										)}
+
+										{/* Expanded Stats Grid */}
+										<div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] mt-3 bg-black/20 p-2 rounded border border-white/5">
+											<div className="flex justify-between items-center border-b border-white/5 pb-1">
+												<span className="text-gray-500">
+													PWR
+												</span>
+												<span className="text-white font-mono font-bold">
 													{Math.round(
 														(tuning.maxTorque *
 															tuning.redlineRPM) /
 															5252
-													)}
-												</div>
+													)}{' '}
+													<span className="text-[8px] text-gray-600">
+														HP
+													</span>
+												</span>
 											</div>
-											<div>
-												<div className="text-gray-400">
-													Torque
-												</div>
-												<div className="text-white font-mono">
+											<div className="flex justify-between items-center border-b border-white/5 pb-1">
+												<span className="text-gray-500">
+													TRQ
+												</span>
+												<span className="text-white font-mono font-bold">
 													{Math.round(
 														tuning.maxTorque
-													)}
-												</div>
+													)}{' '}
+													<span className="text-[8px] text-gray-600">
+														NM
+													</span>
+												</span>
+											</div>
+											<div className="flex justify-between items-center pt-1">
+												<span className="text-gray-500">
+													WGT
+												</span>
+												<span className="text-white font-mono">
+													{tuning.mass}{' '}
+													<span className="text-[8px] text-gray-600">
+														KG
+													</span>
+												</span>
+											</div>
+											<div className="flex justify-between items-center pt-1">
+												<span className="text-gray-500">
+													GRP
+												</span>
+												<span className="text-white font-mono">
+													{tuning.tireGrip.toFixed(2)}
+												</span>
 											</div>
 										</div>
 									</div>

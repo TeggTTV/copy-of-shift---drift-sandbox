@@ -157,6 +157,7 @@ const GameCanvas: React.FC = () => {
 						originalPrice: car.originalPrice,
 						rarity: car.rarity,
 						rarityMultiplier: car.rarityMultiplier,
+						installedItems: car.installedItems || [],
 					},
 				]);
 				setJunkyardCars((prev) => prev.filter((c) => c.id !== car.id));
@@ -174,10 +175,11 @@ const GameCanvas: React.FC = () => {
 			setMoney((m) => m - cost);
 			setRefreshCount((c) => c + 1);
 			generateJunkyardCars();
-			showToast(`Junkyard stock refreshed! (-$${cost})`, 'INFO');
-		} else {
-			showToast(`Not enough money! Need $${cost}`, 'ERROR');
+			// showToast(`Junkyard stock refreshed! (-$${cost})`, 'INFO');
 		}
+		// else {
+		// 	showToast(`Not enough money! Need $${cost}`, 'ERROR');
+		// }
 	}, [money, refreshCount, generateJunkyardCars, showToast]);
 
 	const restoreCar = useCallback(
@@ -284,7 +286,11 @@ const GameCanvas: React.FC = () => {
 
 			// 2. Load New Car's Items
 			const newCar = garage[currentCarIndex];
-			const newItems = newCar?.installedItems || [];
+			// Ensure loaded items are marked as equipped
+			const newItems = (newCar?.installedItems || []).map((i) => ({
+				...i,
+				equipped: true,
+			}));
 
 			// 3. Update Active Inventory (Loose + New Equipped)
 			const looseItems = inventory.filter((i) => !i.equipped);
@@ -599,7 +605,6 @@ const GameCanvas: React.FC = () => {
 
 		const rawCondition = currentCar.condition;
 		const condition = rawCondition > 1 ? rawCondition / 100 : rawCondition;
-		console.log(condition, rawCondition, currentCar);
 		// Penalty: Reduce torque/power by up to 50% based on condition
 		const penaltyFactor = 0.5 + 0.5 * condition;
 
@@ -628,37 +633,6 @@ const GameCanvas: React.FC = () => {
 		[setOwnedMods, setDisabledMods, setModSettings]
 	);
 
-	const toggleMod = useCallback(
-		(mod: ModNode) => {
-			const isOwned = ownedMods.includes(mod.id);
-			let newOwnedMods = [...ownedMods];
-
-			if (!isOwned) {
-				// Buy
-				if (money >= mod.cost) {
-					setMoney((m) => m - mod.cost);
-					newOwnedMods.push(mod.id);
-				} else {
-					return; // Cannot afford
-				}
-			} else {
-				// Sell
-				const hasOwnedChildren = MOD_TREE.some(
-					(m) => m.parentId === mod.id && ownedMods.includes(m.id)
-				);
-				if (hasOwnedChildren) {
-					alert('Cannot sell: Dependent parts installed.');
-					return;
-				}
-				setMoney((m) => m + Math.floor(mod.cost * 0.5));
-				newOwnedMods = newOwnedMods.filter((id) => id !== mod.id);
-			}
-
-			// Update owned mods - useEffect will handle tuning recalculation
-			setOwnedMods(newOwnedMods);
-		},
-		[money, ownedMods]
-	);
 	const buyMods = useCallback(
 		(modsToBuy: ModNode[]) => {
 			let totalCost = 0;

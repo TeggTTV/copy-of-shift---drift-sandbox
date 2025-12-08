@@ -11,6 +11,7 @@ export interface ItemDefinition {
 	category: string; // Specific category (e.g. "Engine & Air")
 	parentCategory: string; // Broad category (e.g. "Engine")
 	spriteIndex?: number; // 0-24 index for 5x5 sprite sheet
+	tier?: number;
 }
 
 export const GAME_ITEMS: ItemDefinition[] = [

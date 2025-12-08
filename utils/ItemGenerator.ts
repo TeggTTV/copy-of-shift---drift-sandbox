@@ -83,23 +83,33 @@ export const CRATES: Crate[] = [
 import { GAME_ITEMS, ItemDefinition } from '../data/GameItems'; // Import the new DB
 
 export class ItemGenerator {
-	static generateItem(rarity: ItemRarity): InventoryItem {
-		// 1. Filter GAME_ITEMS by the requested rarity
-		let candidates = GAME_ITEMS.filter((item) => item.rarity === rarity);
+	static generateItem(input: ItemRarity | ItemDefinition): InventoryItem {
+		let baseItem: ItemDefinition;
+		let rarity: ItemRarity;
 
-		// Fallback: If no items of this rarity exist, try to find *any* item, or nearby rarity
-		// For now, simplify: if empty, pick from ALL items (rare case if DB is populated)
-		if (candidates.length === 0) {
-			candidates = GAME_ITEMS;
+		if (typeof input === 'string') {
+			rarity = input;
+			// 1. Filter GAME_ITEMS by the requested rarity
+			let candidates = GAME_ITEMS.filter(
+				(item) => item.rarity === rarity
+			);
+
+			// Fallback: If no items of this rarity exist, try to find *any* item
 			if (candidates.length === 0) {
-				// Extreme fallback if DB is empty
-				throw new Error('Game Items Database is empty!');
+				candidates = GAME_ITEMS;
+				if (candidates.length === 0) {
+					throw new Error('Game Items Database is empty!');
+				}
 			}
-		}
 
-		// 2. Pick a random item from candidates
-		const baseItem =
-			candidates[Math.floor(Math.random() * candidates.length)];
+			// 2. Pick a random item from candidates
+			baseItem =
+				candidates[Math.floor(Math.random() * candidates.length)];
+		} else {
+			// Direct definition passed
+			baseItem = input;
+			rarity = baseItem.rarity;
+		}
 
 		// 3. Generate Condition
 		// Higher rarity -> likely better condition?

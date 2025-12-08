@@ -115,9 +115,9 @@ const Junkyard: React.FC<JunkyardProps> = ({
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{cars.map((car) => {
 						const conditionColor =
-							(car.condition || 0) > 0.7
+							(car.condition || 0) > 70
 								? 'text-green-500'
-								: (car.condition || 0) > 0.4
+								: (car.condition || 0) > 40
 								? 'text-yellow-500'
 								: 'text-red-500';
 
@@ -202,25 +202,20 @@ const Junkyard: React.FC<JunkyardProps> = ({
 										<span
 											className={`font-bold ${conditionColor}`}
 										>
-											{(
-												(car.condition || 0) * 100
-											).toFixed(0)}
-											%
+											{(car.condition || 0).toFixed(0)}%
 										</span>
 									</div>
 									<div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
 										<div
 											className={`h-full ${
-												(car.condition || 0) > 0.7
+												(car.condition || 0) > 70
 													? 'bg-green-500'
-													: (car.condition || 0) > 0.4
+													: (car.condition || 0) > 40
 													? 'bg-yellow-500'
 													: 'bg-red-500'
 											}`}
 											style={{
-												width: `${
-													(car.condition || 0) * 100
-												}%`,
+												width: `${car.condition || 0}%`,
 											}}
 										></div>
 									</div>
