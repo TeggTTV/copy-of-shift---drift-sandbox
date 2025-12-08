@@ -187,20 +187,20 @@ const GameCanvas: React.FC = () => {
 			const car = garage[carIndex];
 			if (!car) return;
 
-			const currentCondition = car.condition || 1;
-			if (currentCondition >= 1) {
+			const currentCondition = car.condition || 100;
+			if (currentCondition >= 100) {
 				showToast('Car is already in perfect condition!', 'INFO');
 				return;
 			}
 
-			const missing = 1 - currentCondition;
+			const missing = 100 - currentCondition;
 			// Cost is proportional to the car's original value
 			// Default value fallback: $10,000
 			const baseValue = car.originalPrice || 10000;
 
 			// Restoration Cost Formula:
 			// Full restore costs ~50% of the car's value
-			const cost = Math.floor(missing * baseValue * 0.5);
+			const cost = Math.floor((missing / 100) * baseValue * 0.5);
 
 			if (money >= cost) {
 				setMoney((m) => m - cost);
@@ -208,7 +208,7 @@ const GameCanvas: React.FC = () => {
 					const newGarage = [...prev];
 					newGarage[carIndex] = {
 						...newGarage[carIndex],
-						condition: 1,
+						condition: 100,
 					};
 					return newGarage;
 				});

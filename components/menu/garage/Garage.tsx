@@ -604,6 +604,72 @@ export const Garage: React.FC<GarageProps> = ({
 						<span>🚗</span> SELECT
 					</button>
 
+					{(garage[contextMenu.index].condition || 0) < 100 && (
+						<button
+							onClick={() => {
+								onRestoreCar(contextMenu.index);
+								setContextMenu(null);
+							}}
+							disabled={
+								money <
+								Math.floor(
+									((100 -
+										(garage[contextMenu.index].condition ||
+											0)) /
+										100) *
+										(garage[contextMenu.index]
+											.originalPrice || 10000) *
+										0.5
+								)
+							}
+							className={`text-left px-2 py-1.5 text-xs font-bold rounded flex items-center justify-between gap-2 ${
+								money >=
+								Math.floor(
+									((100 -
+										(garage[contextMenu.index].condition ||
+											0)) /
+										100) *
+										(garage[contextMenu.index]
+											.originalPrice || 10000) *
+										0.5
+								)
+									? 'hover:bg-green-600 text-white'
+									: 'text-gray-500 cursor-not-allowed'
+							}`}
+						>
+							<div className="flex items-center gap-2">
+								<span>🔧</span> RESTORE
+							</div>
+							<span
+								className={
+									money >=
+									Math.floor(
+										((100 -
+											(garage[contextMenu.index]
+												.condition || 0)) /
+											100) *
+											(garage[contextMenu.index]
+												.originalPrice || 10000) *
+											0.5
+									)
+										? 'text-green-300'
+										: 'text-red-500'
+								}
+							>
+								$
+								{Math.floor(
+									((100 -
+										(garage[contextMenu.index].condition ||
+											0)) /
+										100) *
+										(garage[contextMenu.index]
+											.originalPrice || 10000) *
+										0.5
+								).toLocaleString()}
+							</span>
+						</button>
+					)}
+
 					<button
 						onClick={() => {
 							onScrapCar(contextMenu.index);
