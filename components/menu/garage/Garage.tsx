@@ -47,6 +47,7 @@ interface GarageProps {
 	onDestroy: (item: InventoryItem) => void;
 	onRestoreCar: (index: number) => void;
 	onRepair: (item: InventoryItem, cost: number) => void;
+	onScrapCar: (index: number) => void;
 }
 
 export const Garage: React.FC<GarageProps> = ({
@@ -77,11 +78,17 @@ export const Garage: React.FC<GarageProps> = ({
 	onDestroy,
 	onRestoreCar,
 	onRepair,
+	onScrapCar,
 }) => {
 	const [activeTab, setActiveTab] = useState<'TUNING' | 'DYNO' | 'CARS'>(
 		'TUNING'
 	);
 	const [hoveredMod, setHoveredMod] = useState<ModNode | null>(null);
+	const [contextMenu, setContextMenu] = useState<{
+		index: number;
+		x: number;
+		y: number;
+	} | null>(null);
 
 	// Calculate preview tuning for hover
 	const previewTuning = useMemo(() => {
@@ -330,9 +337,14 @@ export const Garage: React.FC<GarageProps> = ({
 								return (
 									<div
 										key={index}
-										onClick={() =>
-											setCurrentCarIndex(index)
-										}
+										onClick={(e) => {
+											e.stopPropagation();
+											setContextMenu({
+												index,
+												x: e.clientX,
+												y: e.clientY,
+											});
+										}}
 										className={`pixel-panel p-4 cursor-pointer transition-all relative overflow-hidden ${borderColor} ${
 											index === currentCarIndex
 												? 'bg-gray-800'
@@ -559,6 +571,50 @@ export const Garage: React.FC<GarageProps> = ({
 					)}
 				</div>
 			</div>
+			{/* Context Menu Backdrop */}
+			{contextMenu && (
+				<div
+					className="fixed inset-0 z-[100]"
+					onClick={() => setContextMenu(null)}
+				/>
+			)}
+
+			{/* Car Context Menu */}
+			{contextMenu && garage[contextMenu.index] && (
+				<div
+					className="fixed z-[110] flex flex-col gap-1 p-1 bg-black/90 border border-gray-500 rounded shadow-xl animate-in fade-in zoom-in-95 duration-100"
+					style={{
+						left: Math.min(contextMenu.x, window.innerWidth - 180),
+						top: Math.min(contextMenu.y, window.innerHeight - 150),
+						minWidth: '140px',
+					}}
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="px-2 py-1 text-xs font-bold uppercase border-b border-gray-700 mb-1 text-white">
+						{garage[contextMenu.index].name}
+					</div>
+
+					<button
+						onClick={() => {
+							setCurrentCarIndex(contextMenu.index);
+							setContextMenu(null);
+						}}
+						className="text-left px-2 py-1.5 hover:bg-blue-600 text-white text-xs font-bold rounded flex items-center gap-2"
+					>
+						<span>🚗</span> SELECT
+					</button>
+
+					<button
+						onClick={() => {
+							onScrapCar(contextMenu.index);
+							setContextMenu(null);
+						}}
+						className="text-left px-2 py-1.5 hover:bg-red-900 text-red-100 hover:text-white text-xs font-bold rounded flex items-center gap-2"
+					>
+						<span>♻️</span> SCRAP
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };

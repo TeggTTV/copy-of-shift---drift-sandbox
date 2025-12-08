@@ -51,6 +51,7 @@ export interface GameContextType {
 	onBuyJunkyardCar: (car: JunkyardCar) => void;
 	onRefreshJunkyard: () => void;
 	onRestoreCar: (index: number) => void;
+	onScrapCar: (index: number) => void;
 	missionSelectTab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS';
 	setMissionSelectTab: (
 		tab: 'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'

@@ -70,6 +70,7 @@ export const GameMenu = () => {
 		onBuyJunkyardCar,
 		onRefreshJunkyard,
 		onRestoreCar,
+		onScrapCar,
 		missionSelectTab,
 		setMissionSelectTab,
 		xp,
@@ -472,6 +473,7 @@ export const GameMenu = () => {
 							onSell={(item) => setPhase('AUCTION')}
 							onDestroy={handleDestroyItem}
 							onRestoreCar={onRestoreCar}
+							onScrapCar={onScrapCar}
 							onRepair={handleRepairItem}
 						/>
 					)}

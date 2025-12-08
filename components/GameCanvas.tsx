@@ -220,6 +220,54 @@ const GameCanvas: React.FC = () => {
 		[garage, money, showToast]
 	);
 
+	const scrapCar = useCallback(
+		(carIndex: number) => {
+			if (carIndex === currentCarIndex) {
+				showToast('Cannot scrap the currently active car!', 'ERROR');
+				return;
+			}
+			const car = garage[carIndex];
+			if (!car) return;
+
+			// Calculate Value (Chassis + Installed Items)
+			let itemValue = 0;
+			const items = car.installedItems || [];
+			items.forEach(
+				(i) =>
+					(itemValue +=
+						(i.value || 0) * (i.condition ? i.condition / 100 : 1))
+			);
+
+			const baseValue = car.originalPrice || 10000;
+			const condition = car.condition || 1;
+
+			// Scrap Value: ~40% of chassis + 50% of items
+			const scrapValue = Math.floor(
+				baseValue * (condition / 100) * 0.4 + itemValue * 0.5
+			);
+
+			// Add Money
+			setMoney((m) => m + scrapValue);
+			// Remove from Garage
+			setGarage((prev) => {
+				const newGarage = prev.filter((_, i) => i !== carIndex);
+				return newGarage;
+			});
+
+			// Adjust current index if needed (if we removed a car before the current one)
+			if (carIndex < currentCarIndex) {
+				setCurrentCarIndex((c) => c - 1);
+				// Update ref to match the shift, ensuring sync logic remains valid
+				if (previousCarIndexRef.current > carIndex) {
+					previousCarIndexRef.current -= 1;
+				}
+			}
+
+			showToast(`Scrapped ${car.name} for $${scrapValue}`, 'SUCCESS');
+		},
+		[garage, currentCarIndex, setMoney, setGarage, showToast]
+	);
+
 	// Underground State
 	const [undergroundLevel, setUndergroundLevel] = useState(1);
 	const [defeatedRivals, setDefeatedRivals] = useState<string[]>([]);
@@ -695,62 +743,62 @@ const GameCanvas: React.FC = () => {
 		}
 	);
 
-	useEffect(() => {
-		if (!isGameLoaded) return;
+	// useEffect(() => {
+	// 	if (!isGameLoaded) return;
 
-		if (!initialLoadHandled.current) {
-			initialLoadHandled.current = true;
-			prevOwnedModsRef.current = ownedMods;
-			prevMoneyRef.current = money;
-			return;
-		}
+	// 	if (!initialLoadHandled.current) {
+	// 		initialLoadHandled.current = true;
+	// 		prevOwnedModsRef.current = ownedMods;
+	// 		prevMoneyRef.current = money;
+	// 		return;
+	// 	}
 
-		// Check for money thresholds
-		if (money > prevMoneyRef.current) {
-			// Find mods that were not affordable before but are now
-			const newlyAffordable = MOD_TREE.filter(
-				(mod) =>
-					!ownedMods.includes(mod.id) &&
-					mod.cost <= money &&
-					(!mod.parentId || ownedMods.includes(mod.parentId)) &&
-					!seenAffordableMods.has(mod.id)
-			);
+	// 	// Check for money thresholds
+	// 	if (money > prevMoneyRef.current) {
+	// 		// Find mods that were not affordable before but are now
+	// 		const newlyAffordable = MOD_TREE.filter(
+	// 			(mod) =>
+	// 				!ownedMods.includes(mod.id) &&
+	// 				mod.cost <= money &&
+	// 				(!mod.parentId || ownedMods.includes(mod.parentId)) &&
+	// 				!seenAffordableMods.has(mod.id)
+	// 		);
 
-			if (newlyAffordable.length > 0) {
-				// Show toast for all newly affordable items
-				newlyAffordable.forEach((mod) => {
-					showToast(
-						`${mod.name} is now available for purchase in the shop`,
-						mod.type as any
-					);
-				});
+	// 		if (newlyAffordable.length > 0) {
+	// 			// Show toast for all newly affordable items
+	// 			newlyAffordable.forEach((mod) => {
+	// 				showToast(
+	// 					`${mod.name} is now available for purchase in the shop`,
+	// 					mod.type as any
+	// 				);
+	// 			});
 
-				// Mark as seen
-				setSeenAffordableMods((prev) => {
-					const next = new Set(prev);
-					newlyAffordable.forEach((m) => next.add(m.id));
-					localStorage.setItem(
-						'seenAffordableMods',
-						JSON.stringify(Array.from(next))
-					);
-					return next;
-				});
-			}
-		}
-		prevMoneyRef.current = money;
+	// 			// Mark as seen
+	// 			setSeenAffordableMods((prev) => {
+	// 				const next = new Set(prev);
+	// 				newlyAffordable.forEach((m) => next.add(m.id));
+	// 				localStorage.setItem(
+	// 					'seenAffordableMods',
+	// 					JSON.stringify(Array.from(next))
+	// 				);
+	// 				return next;
+	// 			});
+	// 		}
+	// 	}
+	// 	prevMoneyRef.current = money;
 
-		// Check for new unlocks/purchases
-		if (ownedMods.length > prevOwnedModsRef.current.length) {
-			const newModId = ownedMods.find(
-				(id) => !prevOwnedModsRef.current.includes(id)
-			);
-			const mod = MOD_TREE.find((m) => m.id === newModId);
-			if (mod) {
-				showToast(`Purchased ${mod.name}!`, mod.type as any);
-			}
-		}
-		prevOwnedModsRef.current = ownedMods;
-	}, [money, ownedMods, showToast, isGameLoaded, seenAffordableMods]);
+	// 	// Check for new unlocks/purchases
+	// 	if (ownedMods.length > prevOwnedModsRef.current.length) {
+	// 		const newModId = ownedMods.find(
+	// 			(id) => !prevOwnedModsRef.current.includes(id)
+	// 		);
+	// 		const mod = MOD_TREE.find((m) => m.id === newModId);
+	// 		if (mod) {
+	// 			showToast(`Purchased ${mod.name}!`, mod.type as any);
+	// 		}
+	// 	}
+	// 	prevOwnedModsRef.current = ownedMods;
+	// }, [money, ownedMods, showToast, isGameLoaded, seenAffordableMods]);
 
 	const startMission = (m: Mission) => {
 		missionRef.current = m;
@@ -1636,6 +1684,7 @@ const GameCanvas: React.FC = () => {
 							onBuyJunkyardCar: buyJunkyardCar,
 							onRefreshJunkyard: refreshJunkyard,
 							onRestoreCar: restoreCar,
+							onScrapCar: scrapCar,
 							missionSelectTab,
 							setMissionSelectTab,
 							xp,
