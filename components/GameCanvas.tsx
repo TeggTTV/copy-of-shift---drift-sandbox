@@ -96,6 +96,10 @@ const GameCanvas: React.FC = () => {
 		{ rpm: number; torque: number; hp: number }[]
 	>([]);
 
+	const [wearResult, setWearResult] = useState<Record<string, number> | null>(
+		null
+	);
+
 	const handleDynoRunStart = useCallback(() => {
 		if (dynoHistory.length > 0) {
 			setPreviousDynoHistory(dynoHistory);
@@ -261,8 +265,31 @@ const GameCanvas: React.FC = () => {
 	useEffect(() => {
 		if (!isGameLoaded) return;
 
-		// Prevent syncing if we just switched cars
+		// Handle Car Switch: Save Old -> Load New
 		if (previousCarIndexRef.current !== currentCarIndex) {
+			const oldIndex = previousCarIndexRef.current;
+			// console.log(`Switching Car: ${oldIndex} -> ${currentCarIndex}`);
+
+			// 1. Save Old Car's Equipped Items
+			setGarage((prevGarage) => {
+				const newGarage = [...prevGarage];
+				if (newGarage[oldIndex]) {
+					newGarage[oldIndex] = {
+						...newGarage[oldIndex],
+						installedItems: inventory.filter((i) => i.equipped),
+					};
+				}
+				return newGarage;
+			});
+
+			// 2. Load New Car's Items
+			const newCar = garage[currentCarIndex];
+			const newItems = newCar?.installedItems || [];
+
+			// 3. Update Active Inventory (Loose + New Equipped)
+			const looseItems = inventory.filter((i) => !i.equipped);
+			setInventory([...looseItems, ...newItems]);
+
 			previousCarIndexRef.current = currentCarIndex;
 			return;
 		}
@@ -274,6 +301,7 @@ const GameCanvas: React.FC = () => {
 			if (!currentCar) return prevGarage;
 
 			// Check if active state differs from saved state
+			const currentInstalled = inventory.filter((i) => i.equipped);
 			const hasChanged =
 				JSON.stringify(currentCar.ownedMods) !==
 					JSON.stringify(ownedMods) ||
@@ -281,6 +309,8 @@ const GameCanvas: React.FC = () => {
 					JSON.stringify(disabledMods) ||
 				JSON.stringify(currentCar.modSettings) !==
 					JSON.stringify(modSettings) ||
+				JSON.stringify(currentCar.installedItems || []) !==
+					JSON.stringify(currentInstalled) ||
 				JSON.stringify(currentCar.manualTuning) !==
 					JSON.stringify({
 						...currentCar.manualTuning,
@@ -296,6 +326,7 @@ const GameCanvas: React.FC = () => {
 					ownedMods,
 					disabledMods,
 					modSettings,
+					installedItems: currentInstalled,
 					manualTuning: {
 						...currentCar.manualTuning,
 						finalDriveRatio: playerTuning.finalDriveRatio,
@@ -310,6 +341,7 @@ const GameCanvas: React.FC = () => {
 		});
 	}, [
 		isGameLoaded,
+		inventory,
 		ownedMods,
 		disabledMods,
 		modSettings,
@@ -527,12 +559,10 @@ const GameCanvas: React.FC = () => {
 
 		const newTuning = CarBuilder.calculateTuning(
 			baseTuning,
-			safeOwnedMods,
-			safeDisabledMods,
-			safeModSettings,
-			garage.length > 0 && garage[currentCarIndex]
-				? garage[currentCarIndex].installedItems || []
-				: []
+			[], // safeOwnedMods (Legacy Disabled)
+			[], // safeDisabledMods (Legacy Disabled)
+			{}, // safeModSettings (Legacy Disabled)
+			inventory.filter((i) => i.equipped)
 		);
 
 		// Re-apply user's manual tuning (sliders) to override mod defaults
@@ -552,7 +582,14 @@ const GameCanvas: React.FC = () => {
 		}
 
 		setPlayerTuning(newTuning);
-	}, [ownedMods, disabledMods, modSettings, garage, currentCarIndex]);
+	}, [
+		ownedMods,
+		disabledMods,
+		modSettings,
+		garage,
+		currentCarIndex,
+		inventory,
+	]);
 
 	// Calculate Effective Tuning (including Condition Penalty)
 	const effectiveTuning = useMemo(() => {
@@ -560,7 +597,9 @@ const GameCanvas: React.FC = () => {
 		if (!currentCar || currentCar.condition === undefined)
 			return playerTuning;
 
-		const condition = currentCar.condition;
+		const rawCondition = currentCar.condition;
+		const condition = rawCondition > 1 ? rawCondition / 100 : rawCondition;
+		console.log(condition, rawCondition, currentCar);
 		// Penalty: Reduce torque/power by up to 50% based on condition
 		const penaltyFactor = 0.5 + 0.5 * condition;
 
@@ -991,6 +1030,39 @@ const GameCanvas: React.FC = () => {
 					) {
 						if (raceFinishedProcessingRef.current) return;
 						raceFinishedProcessingRef.current = true;
+
+						// --- WEAR LOGIC (0-100 Scale) ---
+						const calculatedWear: Record<string, number> = {};
+						const wearBase = 0.5; // 0.5% min
+						const wearVariance = 1.0; // 1.0% variance
+						inventory.forEach((item) => {
+							if (item.equipped) {
+								const wear =
+									wearBase + Math.random() * wearVariance;
+								calculatedWear[item.instanceId] = wear;
+							}
+						});
+						setInventory((prev) =>
+							prev.map((item) => {
+								if (calculatedWear[item.instanceId]) {
+									const current =
+										item.condition !== undefined
+											? item.condition
+											: 100;
+									return {
+										...item,
+										condition: Math.max(
+											0,
+											current -
+												calculatedWear[item.instanceId]
+										),
+									};
+								}
+								return item;
+							})
+						);
+						setWearResult(calculatedWear);
+						// --------------------------------
 
 						setRaceResult('WIN');
 						setRaceStatus('FINISHED');
@@ -1436,6 +1508,71 @@ const GameCanvas: React.FC = () => {
 					<div className="text-4xl font-mono text-white mb-2">
 						TIME: {playerFinishTime.toFixed(3)}s
 					</div>
+
+					{/* Wear Summary Animation */}
+					{wearResult && (
+						<div className="bg-gray-900/90 border-2 border-gray-700 p-6 rounded-lg mb-8 max-w-2xl w-full">
+							<h3 className="text-xl text-gray-400 pixel-text mb-4 text-center border-b border-gray-700 pb-2">
+								PART CONDITION
+							</h3>
+							<div className="grid grid-cols-2 gap-4">
+								{inventory
+									.filter(
+										(i) =>
+											i.equipped &&
+											wearResult[i.instanceId]
+									)
+									.map((item) => {
+										const damage =
+											wearResult[item.instanceId]; // e.g. 0.5 (points)
+										const current = item.condition || 100;
+										const old = current + damage;
+
+										// Determine color (using 50/80 scale)
+										const getColor = (val: number) => {
+											if (val > 80)
+												return 'text-green-400';
+											if (val > 50)
+												return 'text-yellow-400';
+											return 'text-red-500';
+										};
+
+										return (
+											<div
+												key={item.instanceId}
+												className="flex justify-between items-center bg-black/40 p-2 rounded border border-gray-800"
+											>
+												<div className="text-sm text-gray-300 font-bold truncate w-1/2">
+													{item.name}
+												</div>
+												<div className="flex items-center gap-2 font-mono text-xs">
+													<span
+														className={getColor(
+															old
+														)}
+													>
+														{Math.round(old)}%
+													</span>
+													<span className="text-gray-600">
+														➜
+													</span>
+													<span
+														className={`${getColor(
+															current
+														)} animate-pulse font-bold`}
+													>
+														{Math.round(current)}%
+													</span>
+													<span className="text-red-500 text-[10px]">
+														(-{damage.toFixed(1)}%)
+													</span>
+												</div>
+											</div>
+										);
+									})}
+							</div>
+						</div>
+					)}
 					{raceResult === 'WIN' && (
 						<div className="text-2xl text-green-400 font-mono mb-8">
 							EARNED ${missionRef.current?.payout}

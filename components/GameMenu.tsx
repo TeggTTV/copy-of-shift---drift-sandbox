@@ -37,6 +37,7 @@ export const GameMenu = () => {
 		phase,
 		setPhase,
 		money,
+		setMoney,
 		playerTuning,
 		effectiveTuning,
 		setPlayerTuning,
@@ -83,7 +84,7 @@ export const GameMenu = () => {
 	const [showSettings, setShowSettings] = useState(false);
 
 	const handleBuyCrate = (crate: Crate) => {
-		console.log('Bought crate', crate);
+		// console.log('Bought crate', crate);
 	};
 
 	const handleItemReveal = (item: InventoryItem) => {
@@ -91,9 +92,23 @@ export const GameMenu = () => {
 	};
 
 	const handleEquipItem = (item: InventoryItem) => {
-		// Find currently equipped item of the same type
+		// Conflict Check Logic
+		const isConflict = (existing: InventoryItem, newOne: InventoryItem) => {
+			if (newOne.category && existing.category) {
+				return newOne.category === existing.category;
+			}
+			// If one has category and other doesn't, assume NO conflict to allow mixing legacy/new specific parts?
+			// OR if new one has category, only conflict if existing has matching category.
+			if (newOne.category) {
+				return newOne.category === existing.category;
+			}
+			// Fallback: If new one has NO category, it's broad. Use Type.
+			return newOne.type === existing.type;
+		};
+
+		// Find currently equipped item that conflicts
 		const currentEquipped = userInventory.find(
-			(i) => i.type === item.type && i.equipped
+			(i) => i.equipped && isConflict(i, item)
 		);
 
 		// Helper to adjust stats
@@ -132,8 +147,8 @@ export const GameMenu = () => {
 				if (i.instanceId === item.instanceId) {
 					return { ...i, equipped: true };
 				}
-				// Unequip others of same type
-				if (i.type === item.type && i.instanceId !== item.instanceId) {
+				// Unequip others of conflicting type/category
+				if (i.equipped && isConflict(i, item)) {
 					return { ...i, equipped: false };
 				}
 				return i;
@@ -157,7 +172,7 @@ export const GameMenu = () => {
 			showToast('Not enough money!', 'ERROR');
 			return;
 		}
-		// In a real app we'd deduct money via prop callback
+		setMoney((m) => m - price);
 		setUserInventory((prev) => [...prev, item]);
 		showToast(
 			`Bought ${item.name} for $${price.toLocaleString()}`,
@@ -170,6 +185,21 @@ export const GameMenu = () => {
 			prev.filter((i) => i.instanceId !== item.instanceId)
 		);
 		showToast(`Destroyed ${item.name}`, 'ERROR'); // Red toast
+	};
+
+	const handleRepairItem = (item: InventoryItem, cost: number) => {
+		if (money < cost) {
+			showToast('Not enough money!', 'ERROR');
+			return;
+		}
+		setMoney((m) => m - cost);
+
+		setUserInventory((prev) =>
+			prev.map((i) =>
+				i.instanceId === item.instanceId ? { ...i, condition: 100 } : i
+			)
+		);
+		showToast(`Repaired ${item.name} for $${cost}`, 'SUCCESS');
 	};
 
 	// Escape key navigation
@@ -211,6 +241,20 @@ export const GameMenu = () => {
 				money={money}
 				weather={weather}
 				setWeather={setWeather}
+				userInventory={userInventory}
+				onApplyWear={(wearAmount) => {
+					// Degrade all EQUIPPED items
+					setUserInventory((prev) =>
+						prev.map((item) => {
+							if (!item.equipped) return item;
+							const newCondition = Math.max(
+								0,
+								(item.condition ?? 1.0) - wearAmount
+							);
+							return { ...item, condition: newCondition };
+						})
+					);
+				}}
 			/>
 		);
 	}
@@ -385,7 +429,7 @@ export const GameMenu = () => {
 									money={money}
 									onBuyItem={handleBuyItem}
 									playerTuning={effectiveTuning}
-									ownedMods={ownedMods}
+									ownedMods={[]}
 								/>
 							</div>
 						</div>
@@ -400,10 +444,10 @@ export const GameMenu = () => {
 							playerTuning={playerTuning}
 							setPlayerTuning={setPlayerTuning}
 							effectiveTuning={effectiveTuning}
-							ownedMods={ownedMods}
-							setOwnedMods={setOwnedMods}
-							disabledMods={disabledMods}
-							setDisabledMods={setDisabledMods}
+							ownedMods={[]}
+							setOwnedMods={() => {}}
+							disabledMods={[]}
+							setDisabledMods={() => {}}
 							modSettings={modSettings}
 							setModSettings={setModSettings}
 							dynoHistory={dynoHistory}
@@ -428,6 +472,7 @@ export const GameMenu = () => {
 							onSell={(item) => setPhase('AUCTION')}
 							onDestroy={handleDestroyItem}
 							onRestoreCar={onRestoreCar}
+							onRepair={handleRepairItem}
 						/>
 					)}
 				</div>

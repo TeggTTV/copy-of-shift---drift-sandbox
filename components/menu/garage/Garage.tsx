@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import DynoGraph from './DynoGraph';
 import DynoTab from './DynoTab';
-import UpgradesTab from './UpgradesTab';
+// import UpgradesTab from './UpgradesTab';
 import TuningTab from './TuningTab';
 import { Inventory } from '../inventory/Inventory';
 import {
@@ -46,6 +46,7 @@ interface GarageProps {
 	onSell: (item: InventoryItem) => void;
 	onDestroy: (item: InventoryItem) => void;
 	onRestoreCar: (index: number) => void;
+	onRepair: (item: InventoryItem, cost: number) => void;
 }
 
 export const Garage: React.FC<GarageProps> = ({
@@ -75,6 +76,7 @@ export const Garage: React.FC<GarageProps> = ({
 	onSell,
 	onDestroy,
 	onRestoreCar,
+	onRepair,
 }) => {
 	const [activeTab, setActiveTab] = useState<'TUNING' | 'DYNO' | 'CARS'>(
 		'TUNING'
@@ -234,21 +236,7 @@ export const Garage: React.FC<GarageProps> = ({
 						</button>
 					</div>
 
-					{activeTab === 'UPGRADES' ? (
-						<UpgradesTab
-							playerTuning={playerTuning}
-							ownedMods={ownedMods}
-							setOwnedMods={(mod) => {
-								if (!ownedMods.includes(mod.id)) {
-									setOwnedMods((prev) => [...prev, mod.id]);
-								}
-							}}
-							money={money}
-							disabledMods={disabledMods}
-							setDisabledMods={setDisabledMods}
-							previewTuning={previewTuning}
-						/>
-					) : activeTab === 'TUNING' ? (
+					{activeTab === 'TUNING' ? (
 						<TuningTab
 							ownedMods={ownedMods}
 							disabledMods={disabledMods}
@@ -444,6 +432,7 @@ export const Garage: React.FC<GarageProps> = ({
 							onRemove={onRemove}
 							onSell={onSell}
 							onDestroy={onDestroy}
+							onRepair={onRepair}
 							money={money}
 						/>
 					</div>

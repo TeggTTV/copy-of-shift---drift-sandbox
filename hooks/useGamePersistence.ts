@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mission, TuningState, SavedTune, DailyChallenge } from '../types';
-import { MISSIONS } from '../constants';
+import { MISSIONS, BASE_TUNING } from '../constants';
 import { generateDailyChallenges } from '../utils/dailyChallengeUtils';
 
 export const useGamePersistence = (
@@ -159,46 +159,61 @@ export const useGamePersistence = (
 				if (savedGarage) {
 					// Load Garage
 					const parsedGarage = JSON.parse(savedGarage);
-					setGarage(parsedGarage);
 
-					let activeIndex = 0;
-					if (savedCarIndex) {
-						activeIndex = parseInt(savedCarIndex);
-					}
-
-					// Safety Check: Ensure index is valid
-					if (activeIndex < 0 || activeIndex >= parsedGarage.length) {
-						console.warn(
-							'Invalid car index loaded, defaulting to 0'
-						);
-						activeIndex = 0;
-					}
-					setCurrentCarIndex(activeIndex);
-
-					// Load active car state immediately
-					const activeCar = parsedGarage[activeIndex];
-					if (activeCar) {
-						setOwnedMods(activeCar.ownedMods);
-						setDisabledMods(activeCar.disabledMods);
-						setModSettings(activeCar.modSettings);
-						setPlayerTuning((prev) => ({
-							...prev,
-							...activeCar.manualTuning,
-						}));
-					} else if (parsedGarage.length > 0) {
-						// Fallback: Try to load first car if exists
-						console.warn(
-							'Active car not found, falling back to first car'
-						);
-						const firstCar = parsedGarage[0];
+					if (parsedGarage.length === 0) {
+						// Empty Garage -> Create Starter
+						const starterCar: SavedTune = {
+							id: 'starter_car',
+							name: 'Civic 99 (Starter)',
+							date: Date.now(),
+							ownedMods: [],
+							disabledMods: [],
+							modSettings: {},
+							manualTuning: BASE_TUNING,
+							condition: 100,
+							installedItems: [],
+							originalPrice: 5000,
+							rarity: 'COMMON',
+						};
+						setGarage([starterCar]);
 						setCurrentCarIndex(0);
-						setOwnedMods(firstCar.ownedMods);
-						setDisabledMods(firstCar.disabledMods);
-						setModSettings(firstCar.modSettings);
-						setPlayerTuning((prev) => ({
-							...prev,
-							...firstCar.manualTuning,
-						}));
+						// Reset active state
+						setOwnedMods([]);
+						setDisabledMods([]);
+						setModSettings({});
+						setPlayerTuning(BASE_TUNING);
+					} else {
+						setGarage(parsedGarage);
+
+						let activeIndex = 0;
+						if (savedCarIndex) {
+							activeIndex = parseInt(savedCarIndex);
+						}
+
+						// Safety Check: Ensure index is valid
+						if (
+							activeIndex < 0 ||
+							activeIndex >= parsedGarage.length
+						) {
+							console.warn(
+								'Invalid car index loaded, defaulting to 0'
+							);
+							activeIndex = 0;
+						}
+						setCurrentCarIndex(activeIndex);
+
+						// Load active car state immediately
+						const activeCar =
+							parsedGarage[activeIndex] || parsedGarage[0];
+						if (activeCar) {
+							setOwnedMods(activeCar.ownedMods);
+							setDisabledMods(activeCar.disabledMods);
+							setModSettings(activeCar.modSettings);
+							setPlayerTuning((prev) => ({
+								...prev,
+								...activeCar.manualTuning,
+							}));
+						}
 					}
 				} else {
 					// Migration: Check for legacy single-car save

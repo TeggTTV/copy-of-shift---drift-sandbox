@@ -106,6 +106,7 @@ export interface InventoryItem {
 	value: number; // Estimated market value
 	icon?: string; // Optional icon override
 	equipped?: boolean;
+	category?: string; // Specific category (e.g. "Intake", "Turbo")
 	parentCategory?: string; // Broad category (e.g. "Engine")
 	spriteIndex?: number;
 }

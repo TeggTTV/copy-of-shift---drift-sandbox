@@ -196,9 +196,17 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 							{getItemIcon(item.type)}
 						</div>
 					)}
-					{showCondition && (
-						<div className="absolute bottom-1 right-1 text-[12px] px-1 bg-black/50 rounded font-mono text-white">
-							{item.condition}%
+					{showCondition && item.condition !== undefined && (
+						<div
+							className={`absolute bottom-1 right-1 text-[10px] px-1 bg-black/80 rounded font-mono ${
+								item.condition < 50
+									? 'text-red-500'
+									: item.condition < 80
+									? 'text-yellow-400'
+									: 'text-green-400'
+							}`}
+						>
+							{Math.round(item.condition)}%
 						</div>
 					)}
 				</div>

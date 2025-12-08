@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mission, TuningState } from '@/types';
+import { Mission, TuningState, InventoryItem } from '@/types';
 import { useSound } from '@/contexts/SoundContext';
 
 interface VersusScreenProps {
@@ -14,6 +14,8 @@ interface VersusScreenProps {
 	setWeather: React.Dispatch<
 		React.SetStateAction<{ type: 'SUNNY' | 'RAIN'; intensity: number }>
 	>;
+	userInventory?: InventoryItem[];
+	onApplyWear?: (amount: number) => void;
 }
 
 const VersusScreen: React.FC<VersusScreenProps> = ({

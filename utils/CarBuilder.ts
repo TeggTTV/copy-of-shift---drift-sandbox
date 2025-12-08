@@ -21,20 +21,21 @@ export class CarBuilder {
 		// Start with a deep copy of the base tuning to avoid mutating the original
 		let finalTuning: TuningState = JSON.parse(JSON.stringify(baseTuning));
 
-		// Filter out disabled mods
-		const activeModIds = ownedModIds.filter(
-			(id) => !disabledModIds.includes(id)
-		);
+		// LEGACY MOD SYSTEM - DISABLED
+		// // Filter out disabled mods
+		// const activeModIds = ownedModIds.filter(
+		// 	(id) => !disabledModIds.includes(id)
+		// );
 
-		// Find the ModNode objects for the active IDs
-		const activeMods = MOD_TREE.filter((mod) =>
-			activeModIds.includes(mod.id)
-		);
+		// // Find the ModNode objects for the active IDs
+		// const activeMods = MOD_TREE.filter((mod) =>
+		// 	activeModIds.includes(mod.id)
+		// );
 
-		// Apply each mod
-		activeMods.forEach((mod) => {
-			finalTuning = this.applyMod(finalTuning, mod, modSettings[mod.id]);
-		});
+		// // Apply each mod
+		// activeMods.forEach((mod) => {
+		// 	finalTuning = this.applyMod(finalTuning, mod, modSettings[mod.id]);
+		// });
 
 		// Apply installed items
 		installedItems.forEach((item) => {
@@ -150,22 +151,54 @@ export class CarBuilder {
 		if (!item.stats) return newTuning;
 		const stats = item.stats;
 
-		// Numeric stats (additive)
-		if (stats.maxTorque) newTuning.maxTorque += stats.maxTorque;
-		if (stats.mass) newTuning.mass += stats.mass;
-		if (stats.dragCoefficient)
-			newTuning.dragCoefficient += stats.dragCoefficient;
-		if (stats.tireGrip) newTuning.tireGrip += stats.tireGrip;
-		if (stats.brakingForce) newTuning.brakingForce += stats.brakingForce;
+		// Condition Logic:
+		// Condition goes from 0.0 to 1.0.
+		// Stats should degrade linearly or exponentially?
+		// Let's say at 0 condition, the part is ineffective (provides 0 benefit), or even worse?
+		// For simplicity: Effective Stat = Stat * Condition.
+		// NOTE: Some stats like 'mass' should NOT decrease with condition (a broken engine weighs the same).
+		// We only scale performance gains.
+
+		const normalizeCondition = (c: number) => (c > 1.0 ? c / 100 : c); // Handle both 0-100 and 0-1 (legacy safety)
+		const rawCondition =
+			item.condition !== undefined ? item.condition : 100;
+		const condition = Math.max(0.1, normalizeCondition(rawCondition));
+		// console.log(`[CarBuilder] ${item.name} | Raw: ${rawCondition} | Norm: ${condition}`);
+
+		// Numeric stats (additive) - SCALED BY CONDITION
+		if (stats.maxTorque) {
+			// console.log(
+			// 	`Adding Torque: ${stats.maxTorque} * ${condition} = ${
+			// 		stats.maxTorque * condition
+			// 	}`
+			// );
+			newTuning.maxTorque += stats.maxTorque * condition;
+		}
+		if (stats.tireGrip) newTuning.tireGrip += stats.tireGrip * condition;
+		if (stats.brakingForce)
+			newTuning.brakingForce += stats.brakingForce * condition;
 		if (stats.turboIntensity)
-			newTuning.turboIntensity += stats.turboIntensity;
+			newTuning.turboIntensity += stats.turboIntensity * condition;
+
+		// Mass is constant regardless of condition
+		if (stats.mass) newTuning.mass += stats.mass;
+
+		// Aero drag might get WORSE with bad condition? (Dent/Loose parts)
+		// For now, let's assume it scales the BENEFIT (negative drag is good).
+		// If mod gives -0.05 drag, at 50% condition it gives -0.025.
+		if (stats.dragCoefficient)
+			newTuning.dragCoefficient += stats.dragCoefficient * condition;
+
 		if (stats.exhaustOpenness)
-			newTuning.exhaustOpenness += stats.exhaustOpenness;
+			newTuning.exhaustOpenness += stats.exhaustOpenness; // Sound probably stays? Or maybe quieter?
 		if (stats.backfireAggression)
 			newTuning.backfireAggression += stats.backfireAggression;
-		if (stats.flywheelMass) newTuning.flywheelMass += stats.flywheelMass;
+		if (stats.flywheelMass) newTuning.flywheelMass += stats.flywheelMass; // Mass constant
 
-		// Replacements
+		// Replacements - These are tricky. A broken 6-speed is still a 6-speed?
+		// Or maybe we don't scale replacements, only additive bonuses.
+		// Generally replacements define the architecture, condition affects the output.
+		// So we leave replacements alone.
 		if (stats.cylinders) newTuning.cylinders = stats.cylinders;
 		if (stats.redlineRPM) newTuning.redlineRPM = stats.redlineRPM;
 		if (stats.idleRPM) newTuning.idleRPM = stats.idleRPM;

@@ -11,6 +11,7 @@ interface InventoryProps {
 	onRemove: (item: InventoryItem) => void; // Uninstall
 	onSell: (item: InventoryItem) => void; // For Auction
 	onDestroy: (item: InventoryItem) => void;
+	onRepair: (item: InventoryItem, cost: number) => void;
 	money: number;
 }
 
@@ -22,6 +23,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 	onRemove,
 	onSell,
 	onDestroy,
+	onRepair,
 	money,
 }) => {
 	const [contextMenu, setContextMenu] = useState<{
@@ -30,12 +32,23 @@ export const Inventory: React.FC<InventoryProps> = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	const calculateRepairCost = (item: InventoryItem) => {
+		if (!item.condition || item.condition >= 100) return 0;
+		// Cost = Value * Damage * Multiplier
+		// E.g. $1000 item at 50% condition (0.5 damage) = $1000 * 0.5 * 0.5 = $250 to fix?
+		// Let's make it relatively cheap to encourage maintenance.
+		const damage = 100 - item.condition;
+
+		return Math.floor(item.value * damage * 0.2); // 20% of value to fully repair from 0
+	};
+
 	const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	const COLS = 6;
-	const TOTAL_SLOTS = 24; // Fixed grid size for visual consistency
+	const COLS = 8;
+	const TOTAL_SLOTS = 64; // Fixed grid size for visual consistency
 
 	// Helper to render a grid of items
 	const renderGrid = (itemList: InventoryItem[], isInstalled: boolean) => {
@@ -163,6 +176,44 @@ export const Inventory: React.FC<InventoryProps> = ({
 						</button>
 					)}
 
+					{/* Repair Button */}
+					{contextMenu.item.condition !== undefined &&
+						contextMenu.item.condition < 100 && (
+							<button
+								onClick={() => {
+									const cost = calculateRepairCost(
+										contextMenu.item
+									);
+									onRepair(contextMenu.item, cost);
+									setContextMenu(null);
+								}}
+								disabled={
+									money <
+									calculateRepairCost(contextMenu.item)
+								}
+								className={`text-left px-2 py-1.5 text-xs font-bold rounded flex items-center justify-between gap-2 ${
+									money >=
+									calculateRepairCost(contextMenu.item)
+										? 'hover:bg-green-600 text-white'
+										: 'text-gray-500 cursor-not-allowed'
+								}`}
+							>
+								<div className="flex items-center gap-2">
+									<span>🔧</span> REPAIR
+								</div>
+								<span
+									className={
+										money >=
+										calculateRepairCost(contextMenu.item)
+											? 'text-green-300'
+											: 'text-red-500'
+									}
+								>
+									${calculateRepairCost(contextMenu.item)}
+								</span>
+							</button>
+						)}
+
 					{!contextMenu.isInstalled && (
 						<button
 							onClick={() => {
@@ -228,25 +279,77 @@ export const Inventory: React.FC<InventoryProps> = ({
 					</p>
 
 					<div className="space-y-1">
-						{Object.entries(hoveredItem.stats).map(([key, val]) => {
-							if (typeof val === 'object') return null;
-							return (
-								<div
-									key={key}
-									className="flex justify-between text-xs font-mono"
-								>
-									<span className="text-gray-400 capitalize">
-										{key.replace(/([A-Z])/g, ' $1')}
-									</span>
-									<span className="text-cyan-400">
-										{typeof val === 'number' && val > 0
-											? '+'
-											: ''}
-										{val}
-									</span>
-								</div>
-							);
-						})}
+						{Object.entries(hoveredItem.stats).map(
+							([key, val]: [string, any]) => {
+								if (typeof val === 'object') return null;
+
+								const degradableStats = [
+									'maxTorque',
+									'tireGrip',
+									'brakingForce',
+									'turboIntensity',
+									'dragCoefficient',
+								];
+								const isDegradable =
+									degradableStats.includes(key);
+								const rawCondition =
+									hoveredItem.condition ?? 100;
+								const conditionFactor =
+									rawCondition > 1
+										? rawCondition / 100
+										: rawCondition;
+
+								let displayVal = val;
+								let penaltyText = null;
+
+								if (
+									isDegradable &&
+									conditionFactor < 1 &&
+									typeof val === 'number'
+								) {
+									displayVal = val * conditionFactor;
+									// Round logic: integer for large numbers, decimals for small
+									if (Math.abs(displayVal) >= 10) {
+										displayVal = Math.round(displayVal);
+									} else {
+										displayVal = parseFloat(
+											displayVal.toFixed(2)
+										);
+									}
+
+									const lostPercent = Math.round(
+										(1 - conditionFactor) * 100
+									);
+									if (lostPercent > 0)
+										penaltyText = `(-${lostPercent}%)`;
+								}
+
+								return (
+									<div
+										key={key}
+										className="flex justify-between text-xs font-mono"
+									>
+										<span className="text-gray-400 capitalize">
+											{key.replace(/([A-Z])/g, ' $1')}
+										</span>
+										<div className="flex gap-2">
+											<span className="text-cyan-400">
+												{typeof displayVal ===
+													'number' && displayVal > 0
+													? '+'
+													: ''}
+												{displayVal}
+											</span>
+											{penaltyText && (
+												<span className="text-red-500">
+													{penaltyText}
+												</span>
+											)}
+										</div>
+									</div>
+								);
+							}
+						)}
 					</div>
 					<div className="mt-3 pt-2 border-t border-gray-800 flex justify-between text-xs font-mono">
 						<span className="text-gray-500">Value</span>
