@@ -139,6 +139,7 @@ export interface SavedTune {
 	rarity?: Rarity;
 	rarityMultiplier?: number;
 	dynoHistory?: { rpm: number; torque: number; hp: number }[];
+	installedItems?: InventoryItem[];
 }
 
 export interface JunkyardCar extends SavedTune {

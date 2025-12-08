@@ -1,4 +1,4 @@
-import { TuningState, ModNode, SavedTune } from '../types';
+import { TuningState, ModNode, SavedTune, InventoryItem } from '../types';
 import { BASE_TUNING, MOD_TREE } from '../constants';
 
 export class CarBuilder {
@@ -7,13 +7,16 @@ export class CarBuilder {
 	 * @param baseTuning The starting tuning state (usually BASE_TUNING or a car's stock tune)
 	 * @param ownedModIds List of mod IDs that are installed
 	 * @param disabledModIds List of mod IDs that are owned but disabled
+	 * @param modSettings Settings for specific mods
+	 * @param installedItems List of inventory items installed on the car
 	 * @returns The final calculated TuningState
 	 */
 	static calculateTuning(
 		baseTuning: TuningState,
 		ownedModIds: string[],
 		disabledModIds: string[] = [],
-		modSettings: Record<string, Record<string, number>> = {}
+		modSettings: Record<string, Record<string, number>> = {},
+		installedItems: InventoryItem[] = []
 	): TuningState {
 		// Start with a deep copy of the base tuning to avoid mutating the original
 		let finalTuning: TuningState = JSON.parse(JSON.stringify(baseTuning));
@@ -31,6 +34,11 @@ export class CarBuilder {
 		// Apply each mod
 		activeMods.forEach((mod) => {
 			finalTuning = this.applyMod(finalTuning, mod, modSettings[mod.id]);
+		});
+
+		// Apply installed items
+		installedItems.forEach((item) => {
+			finalTuning = this.applyItemStats(finalTuning, item);
 		});
 
 		return finalTuning;
@@ -132,5 +140,39 @@ export class CarBuilder {
 		});
 
 		return Math.floor((baseValue + modValue) * condition);
+	}
+
+	static applyItemStats(
+		tuning: TuningState,
+		item: InventoryItem
+	): TuningState {
+		const newTuning = { ...tuning };
+		if (!item.stats) return newTuning;
+		const stats = item.stats;
+
+		// Numeric stats (additive)
+		if (stats.maxTorque) newTuning.maxTorque += stats.maxTorque;
+		if (stats.mass) newTuning.mass += stats.mass;
+		if (stats.dragCoefficient)
+			newTuning.dragCoefficient += stats.dragCoefficient;
+		if (stats.tireGrip) newTuning.tireGrip += stats.tireGrip;
+		if (stats.brakingForce) newTuning.brakingForce += stats.brakingForce;
+		if (stats.turboIntensity)
+			newTuning.turboIntensity += stats.turboIntensity;
+		if (stats.exhaustOpenness)
+			newTuning.exhaustOpenness += stats.exhaustOpenness;
+		if (stats.backfireAggression)
+			newTuning.backfireAggression += stats.backfireAggression;
+		if (stats.flywheelMass) newTuning.flywheelMass += stats.flywheelMass;
+
+		// Replacements
+		if (stats.cylinders) newTuning.cylinders = stats.cylinders;
+		if (stats.redlineRPM) newTuning.redlineRPM = stats.redlineRPM;
+		if (stats.idleRPM) newTuning.idleRPM = stats.idleRPM;
+		if (stats.finalDriveRatio !== undefined)
+			newTuning.finalDriveRatio = stats.finalDriveRatio;
+		if (stats.gearRatios) newTuning.gearRatios = { ...stats.gearRatios };
+
+		return newTuning;
 	}
 }

@@ -5,22 +5,6 @@ import React, {
 	useCallback,
 	useMemo,
 } from 'react';
-import {
-	CarState,
-	InputState,
-	TuningState,
-	GamePhase,
-	Mission,
-	DailyChallenge,
-	SavedTune,
-	ModNode,
-	GhostFrame,
-	JunkyardCar,
-	Rival,
-} from '../types';
-import { GameMenu } from './GameMenu';
-import { MISSIONS, BASE_TUNING, MOD_TREE, CONTROLS } from '../constants';
-import { useToast } from '../contexts/ToastContext';
 import { useMusic } from '../contexts/MusicContext';
 import { AudioEngine } from './AudioEngine';
 import { ParticleSystem } from '../utils/ParticleSystem';
@@ -34,7 +18,30 @@ import { TopBar } from './menu/TopBar';
 import Junkyard from './menu/Junkyard';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
-import { GameProvider } from '@/contexts/GameContext';
+import { GameProvider } from '../contexts/GameContext';
+import { useToast } from '../contexts/ToastContext';
+import {
+	BASE_TUNING,
+	INITIAL_MONEY,
+	MISSIONS,
+	RIVALS,
+	MOD_TREE,
+	CONTROLS,
+} from '../constants';
+import {
+	CarState,
+	TuningState,
+	GhostFrame,
+	Mission,
+	SavedTune,
+	ModNode,
+	DailyChallenge,
+	GamePhase,
+	Rival,
+	InputState,
+	JunkyardCar,
+} from '../types';
+import { GameMenu } from './GameMenu';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
 
@@ -523,7 +530,10 @@ const GameCanvas: React.FC = () => {
 			baseTuning,
 			safeOwnedMods,
 			safeDisabledMods,
-			safeModSettings
+			safeModSettings,
+			garage.length > 0 && garage[currentCarIndex]
+				? garage[currentCarIndex].installedItems || []
+				: []
 		);
 
 		// Re-apply user's manual tuning (sliders) to override mod defaults
@@ -1478,8 +1488,9 @@ const GameCanvas: React.FC = () => {
 							phase,
 							setPhase,
 							money,
+							setMoney,
 							playerTuning,
-							effectiveTuning: playerTuning, // TODO: Compute effective tuning
+							effectiveTuning,
 							setPlayerTuning,
 							ownedMods,
 							setOwnedMods: (mod) => {
@@ -1505,6 +1516,7 @@ const GameCanvas: React.FC = () => {
 							previousDynoHistory,
 							onDynoRunStart: handleDynoRunStart,
 							garage,
+							setGarage,
 							currentCarIndex,
 							setCurrentCarIndex: setCurrentCarIndex,
 							undergroundLevel,

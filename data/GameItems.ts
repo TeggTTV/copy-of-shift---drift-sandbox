@@ -99,7 +99,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'UNCOMMON',
 		stats: { turboIntensity: 0.1 },
 		value: 200,
-		category: 'Turbo',
+		category: 'Turbo Accessory',
 		parentCategory: 'Engine',
 		spriteIndex: 6,
 	},
@@ -124,7 +124,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'EPIC',
 		stats: { maxTorque: 15, redlineRPM: 200 },
 		value: 800,
-		category: 'Intake',
+		category: 'Intake Manifold',
 		parentCategory: 'Engine',
 		spriteIndex: 8,
 	},
@@ -148,7 +148,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'EPIC',
 		stats: { maxTorque: 20, redlineRPM: 500, idleRPM: 200 },
 		value: 900,
-		category: 'Head',
+		category: 'Valvetrain',
 		parentCategory: 'Engine',
 		spriteIndex: 10,
 	},
@@ -187,6 +187,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 400,
 		category: 'ECU',
 		parentCategory: 'Electronics',
+		spriteIndex: 100,
 	},
 	{
 		id: 'standalone_ecu',
@@ -198,6 +199,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 2000,
 		category: 'ECU',
 		parentCategory: 'Electronics',
+		spriteIndex: 101,
 	},
 	{
 		id: 'fuel_injectors',
@@ -207,7 +209,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'RARE',
 		stats: { maxTorque: 10 },
 		value: 300,
-		category: 'Fuel',
+		category: 'Injectors',
 		parentCategory: 'Engine',
 		spriteIndex: 13,
 	},
@@ -219,7 +221,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'RARE',
 		stats: { maxTorque: 5 },
 		value: 250,
-		category: 'Fuel',
+		category: 'Fuel Pump',
 		parentCategory: 'Engine',
 		spriteIndex: 14,
 	},
@@ -231,7 +233,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'EPIC',
 		stats: { maxTorque: 100 },
 		value: 800,
-		category: 'Forced Induction',
+		category: 'Nitrous',
 		parentCategory: 'Engine',
 		spriteIndex: 15,
 	},
@@ -244,7 +246,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'RARE',
 		stats: { maxTorque: 12, mass: -2 },
 		value: 600,
-		category: 'Exhaust',
+		category: 'Exhaust Header',
 		parentCategory: 'Engine',
 		spriteIndex: 16,
 	},
@@ -256,7 +258,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'UNCOMMON',
 		stats: { maxTorque: 5, exhaustOpenness: 0.5 },
 		value: 500,
-		category: 'Exhaust',
+		category: 'Exhaust System',
 		parentCategory: 'Engine',
 		spriteIndex: 17,
 	},
@@ -268,7 +270,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'COMMON',
 		stats: { maxTorque: 2, exhaustOpenness: 1.0, mass: -5 },
 		value: 100,
-		category: 'Exhaust',
+		category: 'Exhaust System',
 		parentCategory: 'Engine',
 		spriteIndex: 18,
 	},
@@ -281,7 +283,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'UNCOMMON',
 		stats: { mass: -2 },
 		value: 300,
-		category: 'Cooling',
+		category: 'Radiator',
 		parentCategory: 'Engine',
 		spriteIndex: 19,
 	},
@@ -291,9 +293,9 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Keeps oil temps safe under load.',
 		type: 'COOLING',
 		rarity: 'RARE',
-		stats: {}, // Reliability only
+		stats: { maxTorque: 3 }, // Cooler oil = better lubrication = slight power gain
 		value: 400,
-		category: 'Cooling',
+		category: 'Oil Cooler',
 		parentCategory: 'Engine',
 		spriteIndex: 19,
 	},
@@ -304,7 +306,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Higher torque capacity and grab.',
 		type: 'TRANSMISSION',
 		rarity: 'RARE',
-		stats: { finalDriveRatio: 0 },
+		stats: { flywheelMass: -1 }, // Better power transfer, less slippage
 		value: 450,
 		category: 'Clutch',
 		parentCategory: 'Drivetrain',
@@ -318,7 +320,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		rarity: 'RARE',
 		stats: { flywheelMass: -3 },
 		value: 350,
-		category: 'Clutch',
+		category: 'Flywheel',
 		parentCategory: 'Drivetrain',
 		spriteIndex: 21,
 	},
@@ -328,7 +330,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Reduces shift throw distance.',
 		type: 'TRANSMISSION',
 		rarity: 'UNCOMMON',
-		stats: {},
+		stats: { flywheelMass: -0.5 }, // Faster shifts = less momentum loss
 		value: 150,
 		category: 'Shifter',
 		parentCategory: 'Drivetrain',
@@ -369,6 +371,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 250,
 		category: 'Suspension',
 		parentCategory: 'Suspension',
+		spriteIndex: 102,
 	},
 	{
 		id: 'coilovers',
@@ -380,6 +383,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1200,
 		category: 'Suspension',
 		parentCategory: 'Suspension',
+		spriteIndex: 103,
 	},
 	{
 		id: 'sway_bars',
@@ -391,6 +395,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 300,
 		category: 'Suspension',
 		parentCategory: 'Suspension',
+		spriteIndex: 104,
 	},
 	// --- Brakes ---
 	{
@@ -403,6 +408,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 2000,
 		category: 'Brakes',
 		parentCategory: 'Suspension',
+		spriteIndex: 105,
 	},
 	{
 		id: 'perf_pads',
@@ -414,6 +420,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 150,
 		category: 'Brakes',
 		parentCategory: 'Suspension',
+		spriteIndex: 106,
 	},
 	// --- Wheels & Tires ---
 	{
@@ -426,6 +433,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 1500,
 		category: 'Wheels',
 		parentCategory: 'Suspension',
+		spriteIndex: 107,
 	},
 	{
 		id: 'summer_tires',
@@ -437,6 +445,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 800,
 		category: 'Tires',
 		parentCategory: 'Suspension',
+		spriteIndex: 108,
 	},
 	{
 		id: 'drag_radials',
@@ -448,6 +457,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 600,
 		category: 'Tires',
 		parentCategory: 'Suspension',
+		spriteIndex: 109,
 	},
 	// --- Exterior / Visual ---
 	{
@@ -460,6 +470,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 3000,
 		category: 'Body',
 		parentCategory: 'Exterior',
+		spriteIndex: 110,
 	},
 	{
 		id: 'rear_wing',
@@ -471,6 +482,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 800,
 		category: 'Aerodynamics',
 		parentCategory: 'Exterior',
+		spriteIndex: 111,
 	},
 	{
 		id: 'custom_paint',
@@ -478,10 +490,11 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Unique color and finish.',
 		type: 'PAINT',
 		rarity: 'UNCOMMON',
-		stats: {},
+		stats: { dragCoefficient: -0.005 }, // Smooth paint finish reduces drag slightly
 		value: 1000,
 		category: 'Paint',
 		parentCategory: 'Exterior',
+		spriteIndex: 112,
 	},
 	// --- Interior ---
 	{
@@ -494,6 +507,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 400,
 		category: 'Seats',
 		parentCategory: 'Interior',
+		spriteIndex: 113,
 	},
 	{
 		id: 'roll_cage',
@@ -505,6 +519,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 2500,
 		category: 'Safety',
 		parentCategory: 'Interior',
+		spriteIndex: 114,
 	},
 	{
 		id: 'stripped_interior',
@@ -516,6 +531,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		value: 0,
 		category: 'Weight Reduction',
 		parentCategory: 'Interior',
+		spriteIndex: 115,
 	},
 	{
 		id: 'steering_wheel',
@@ -523,10 +539,11 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Better grip and shorter diameter.',
 		type: 'INTERIOR',
 		rarity: 'UNCOMMON',
-		stats: {},
+		stats: { mass: -2 }, // Lighter than stock wheel
 		value: 200,
 		category: 'Steering',
 		parentCategory: 'Interior',
+		spriteIndex: 116,
 	},
 	// --- Electronics / Lighting ---
 	{
@@ -535,10 +552,11 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Brighter, cleaner light output.',
 		type: 'ELECTRONICS',
 		rarity: 'UNCOMMON',
-		stats: {},
+		stats: { mass: -1 }, // LEDs lighter than halogen bulbs
 		value: 150,
 		category: 'Lighting',
 		parentCategory: 'Exterior',
+		spriteIndex: 117,
 	},
 	{
 		id: 'underglow',
@@ -546,31 +564,34 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		description: 'Street glow for style points.',
 		type: 'VISUAL',
 		rarity: 'RARE',
-		stats: {},
+		stats: { mass: 1 }, // Adds minimal weight for the kit
 		value: 200,
 		category: 'Lighting',
 		parentCategory: 'Exterior',
+		spriteIndex: 118,
 	},
-	{
-		id: 'dash_cam',
-		name: 'Dash Cam',
-		description: 'Record your runs.',
-		type: 'ELECTRONICS',
-		rarity: 'COMMON',
-		stats: {},
-		value: 100,
-		category: 'Electronics',
-		parentCategory: 'Interior',
-	},
+	// {
+	// 	id: 'dash_cam',
+	// 	name: 'Dash Cam',
+	// 	description: 'Record your runs.',
+	// 	type: 'ELECTRONICS',
+	// 	rarity: 'COMMON',
+	// 	stats: {},
+	// 	value: 100,
+	// 	category: 'Electronics',
+	// 	parentCategory: 'Interior',
+	// 	spriteIndex: 119,
+	// },
 	{
 		id: 'radar_detector',
 		name: 'Radar Detector',
 		description: 'Avoid unwanted attention.',
 		type: 'ELECTRONICS',
 		rarity: 'RARE',
-		stats: {},
+		stats: { mass: 0.5 }, // Small electronic device
 		value: 300,
 		category: 'Electronics',
 		parentCategory: 'Interior',
+		spriteIndex: 120,
 	},
 ];

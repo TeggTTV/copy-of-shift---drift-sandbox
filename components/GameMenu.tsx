@@ -415,7 +415,7 @@ export const GameMenu = () => {
 								VERTICAL DRAG RACING SIMULATOR
 							</p>
 
-							<div className="flex flex-col gap-6 w-64">
+							<div className="grid grid-cols-2 gap-6">
 								<button
 									onClick={() => {
 										// play('click');
@@ -843,8 +843,35 @@ export const GameMenu = () => {
 									{/* Inventory (Always Visible) */}
 									<div className="absolute inset-0 p-2 overflow-hidden">
 										<Inventory
-											items={userInventory}
+											items={userInventory.filter(
+												(i) => !i.equipped
+											)}
+											installedItems={userInventory.filter(
+												(i) => i.equipped
+											)}
+											carName={
+												garage[currentCarIndex]?.name
+											}
 											onEquip={handleEquipItem}
+											onRemove={(item) => {
+												// Unequip the item
+												setUserInventory((prev) =>
+													prev.map((i) =>
+														i.instanceId ===
+														item.instanceId
+															? {
+																	...i,
+																	equipped:
+																		false,
+															  }
+															: i
+													)
+												);
+												showToast(
+													`Removed ${item.name}`,
+													'INFO'
+												);
+											}}
 											onSell={(item) => {
 												setPhase('AUCTION');
 											}}

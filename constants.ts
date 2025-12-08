@@ -1,6 +1,7 @@
 import { Mission, TuningState, ModNode, Rival } from './types';
 
 // Base Car Stats (Stock Hatchback)
+export const INITIAL_MONEY = 1000;
 export const BASE_TUNING: TuningState = {
 	maxTorque: 180,
 	torqueCurve: [

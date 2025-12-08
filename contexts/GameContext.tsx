@@ -15,6 +15,7 @@ export interface GameContextType {
 	phase: GamePhase;
 	setPhase: (p: GamePhase) => void;
 	money: number;
+	setMoney: React.Dispatch<React.SetStateAction<number>>;
 	playerTuning: TuningState;
 	effectiveTuning: TuningState;
 	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
@@ -40,6 +41,7 @@ export interface GameContextType {
 	previousDynoHistory: { rpm: number; torque: number; hp: number }[];
 	onDynoRunStart: () => void;
 	garage: SavedTune[];
+	setGarage: React.Dispatch<React.SetStateAction<SavedTune[]>>;
 	currentCarIndex: number;
 	setCurrentCarIndex: (index: number) => void;
 	undergroundLevel: number;
