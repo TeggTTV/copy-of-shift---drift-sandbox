@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { calculateLevelProgress } from '../../utils/progression';
+import { calculateLevelProgress } from '@/utils/progression';
 import { LevelBadge } from './LevelBadge';
 
 export const TopBar = ({

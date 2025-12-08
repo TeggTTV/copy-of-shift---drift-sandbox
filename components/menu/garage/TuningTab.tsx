@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ModNode, SavedTune, TuningState } from '../../types';
-import { MOD_TREE } from '../../constants';
-import { useSound } from '../../contexts/SoundContext';
-import PixelSlider from '../ui/PixelSlider';
+import { ModNode, SavedTune, TuningState } from '@/types';
+import { MOD_TREE } from '@/constants';
+import { useSound } from '@/contexts/SoundContext';
+import PixelSlider from '@/components/ui/PixelSlider';
 
 interface TuningTabProps {
 	ownedMods: string[];

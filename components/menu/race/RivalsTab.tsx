@@ -1,6 +1,6 @@
 import React from 'react';
-import { Rival, Mission } from '../../types';
-import { RIVALS } from '../../constants';
+import { Rival, Mission } from '@/types';
+import { RIVALS } from '@/constants';
 
 interface RivalsTabProps {
 	defeatedRivals: string[];

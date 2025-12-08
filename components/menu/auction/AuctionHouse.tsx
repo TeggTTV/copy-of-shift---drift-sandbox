@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { InventoryItem, ItemRarity, TuningState, ModNode } from '../../types';
-import { ItemGenerator } from '../../utils/ItemGenerator';
-import { CarBuilder } from '../../utils/CarBuilder';
-import { BASE_TUNING, MOD_TREE } from '../../constants';
-import { ItemCard } from '../ui/ItemCard';
+import { InventoryItem, ItemRarity, TuningState, ModNode } from '@/types';
+import { ItemGenerator } from '@/utils/ItemGenerator';
+import { CarBuilder } from '@/utils/CarBuilder';
+import { BASE_TUNING, MOD_TREE } from '@/constants';
+import { ItemCard } from '@/components/ui/ItemCard';
 
 interface AuctionHouseProps {
 	inventory: InventoryItem[];

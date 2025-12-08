@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { TuningState } from '../../types';
+import { TuningState } from '@/types';
 import {
 	simulate0to60,
 	simulateQuarterMile,
 	simulateTopSpeed,
-} from '../../utils/performanceSimulator';
+} from '@/utils/performanceSimulator';
 
 const StatDiff = ({
 	current,

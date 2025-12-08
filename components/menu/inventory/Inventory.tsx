@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { InventoryItem } from '../../types';
-import { ItemGenerator } from '../../utils/ItemGenerator';
-import { ItemCard } from '../ui/ItemCard';
+import { InventoryItem } from '@/types';
+import { ItemGenerator } from '@/utils/ItemGenerator';
+import { ItemCard } from '@/components/ui/ItemCard';
 
 interface InventoryProps {
 	items: InventoryItem[]; // Uninstalled items

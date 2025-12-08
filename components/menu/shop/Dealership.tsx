@@ -1,6 +1,6 @@
 import React from 'react';
-import { JunkyardCar } from '../../types';
-import { useSound } from '../../contexts/SoundContext';
+import { JunkyardCar } from '@/types';
+import { useSound } from '@/contexts/SoundContext';
 
 interface DealershipProps {
 	cars: JunkyardCar[];

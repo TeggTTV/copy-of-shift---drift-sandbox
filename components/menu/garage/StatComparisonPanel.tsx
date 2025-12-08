@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TuningState } from '../../types';
+import { TuningState } from '../../../types';
 
 interface StatComparisonPanelProps {
 	baseTuning: TuningState;

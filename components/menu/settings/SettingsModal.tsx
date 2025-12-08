@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useMusic } from '../../contexts/MusicContext';
-import { useSound } from '../../contexts/SoundContext';
-import PixelSlider from '../ui/PixelSlider';
+import { useMusic } from '@/contexts/MusicContext';
+import { useSound } from '@/contexts/SoundContext';
+import PixelSlider from '@/components/ui/PixelSlider';
 
 interface SettingsModalProps {
 	isOpen: boolean;

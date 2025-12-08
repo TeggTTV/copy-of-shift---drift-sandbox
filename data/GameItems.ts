@@ -533,18 +533,18 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		parentCategory: 'Interior',
 		spriteIndex: 115,
 	},
-	{
-		id: 'steering_wheel',
-		name: 'Aftermarket Steering Wheel',
-		description: 'Better grip and shorter diameter.',
-		type: 'INTERIOR',
-		rarity: 'UNCOMMON',
-		stats: { mass: -2 }, // Lighter than stock wheel
-		value: 200,
-		category: 'Steering',
-		parentCategory: 'Interior',
-		spriteIndex: 116,
-	},
+	// {
+	// 	id: 'steering_wheel',
+	// 	name: 'Aftermarket Steering Wheel',
+	// 	description: 'Better grip and shorter diameter.',
+	// 	type: 'INTERIOR',
+	// 	rarity: 'UNCOMMON',
+	// 	stats: { mass: -2 }, // Lighter than stock wheel
+	// 	value: 200,
+	// 	category: 'Steering',
+	// 	parentCategory: 'Interior',
+	// 	spriteIndex: 116,
+	// },
 	// --- Electronics / Lighting ---
 	{
 		id: 'led_conversion',

@@ -8,9 +8,9 @@ import {
 	Tooltip,
 	ResponsiveContainer,
 } from 'recharts';
-import { TuningState } from '../../types';
-import { BASE_TUNING } from '../../constants';
-import { interpolateTorque } from '../../utils/physics';
+import { TuningState } from '@/types';
+import { BASE_TUNING } from '@/constants';
+import { interpolateTorque } from '@/utils/physics';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
 	if (active && payload && payload.length) {

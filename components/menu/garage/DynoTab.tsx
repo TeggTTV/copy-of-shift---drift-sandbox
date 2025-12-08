@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { TuningState } from '../../types';
-import { interpolateTorque } from '../../utils/physics';
+import { TuningState } from '../../../types';
+import { interpolateTorque } from '../../../utils/physics';
 
 interface DynoTabProps {
 	playerTuning: TuningState;
@@ -33,7 +33,7 @@ export default function DynoTab({
 
 	useEffect(() => {
 		// Calculate estimates whenever tuning changes
-		import('../../utils/performance').then(({ calculatePerformance }) => {
+		import('@/utils/performance').then(({ calculatePerformance }) => {
 			const stats = calculatePerformance(playerTuning);
 			setEstimates(stats);
 		});

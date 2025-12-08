@@ -1,16 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-	DailyChallenge,
-	GamePhase,
-	Mission,
-	SavedTune,
-	Rival,
-} from '../../types';
+import { DailyChallenge, GamePhase, Mission, SavedTune, Rival } from '@/types';
 import RivalsTab from './RivalsTab';
-import { useSound } from '../../contexts/SoundContext';
-import { generateOpponent } from '../../utils/OpponentGenerator';
-import { BASE_TUNING } from '../../constants';
-import { CarGenerator } from '../../utils/CarGenerator';
+import { useSound } from '@/contexts/SoundContext';
+import { generateOpponent } from '@/utils/OpponentGenerator';
+import { BASE_TUNING } from '@/constants';
+import { CarGenerator } from '@/utils/CarGenerator';
 
 interface MissionSelectProps {
 	missions: Mission[];

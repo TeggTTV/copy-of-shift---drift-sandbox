@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ModNode } from '../../types';
+import { ModNode } from '../../../types';
 
 export const ModTreeVisuals = ({
 	mods,

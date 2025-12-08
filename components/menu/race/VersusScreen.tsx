@@ -1,6 +1,6 @@
 import React from 'react';
-import { Mission, TuningState } from '../../types';
-import { useSound } from '../../contexts/SoundContext';
+import { Mission, TuningState } from '@/types';
+import { useSound } from '@/contexts/SoundContext';
 
 interface VersusScreenProps {
 	playerTuning: TuningState;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { CRATES, ItemGenerator } from '../../utils/ItemGenerator';
-import { Crate, InventoryItem } from '../../types';
+import { CRATES, ItemGenerator } from '@/utils/ItemGenerator';
+import { Crate, InventoryItem } from '@/types';
 
 interface CrateShopProps {
 	money: number;

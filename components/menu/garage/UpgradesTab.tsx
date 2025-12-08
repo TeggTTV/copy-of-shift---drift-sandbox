@@ -1,7 +1,7 @@
 import React from 'react';
-import { ModNode, TuningState } from '../../types';
-import { MOD_TREE } from '../../constants';
-import { calculatePerformanceRating } from '../../utils/PerformanceRating';
+import { ModNode, TuningState } from '@/types';
+import { MOD_TREE } from '@/constants';
+import { calculatePerformanceRating } from '@/utils/PerformanceRating';
 
 interface UpgradesTabProps {
 	playerTuning: TuningState;
