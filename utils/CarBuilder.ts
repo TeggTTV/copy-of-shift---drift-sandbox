@@ -200,8 +200,8 @@ export class CarBuilder {
 		// Generally replacements define the architecture, condition affects the output.
 		// So we leave replacements alone.
 		if (stats.cylinders) newTuning.cylinders = stats.cylinders;
-		if (stats.redlineRPM) newTuning.redlineRPM = stats.redlineRPM;
-		if (stats.idleRPM) newTuning.idleRPM = stats.idleRPM;
+		if (stats.redlineRPM) newTuning.redlineRPM += stats.redlineRPM;
+		if (stats.idleRPM) newTuning.idleRPM += stats.idleRPM;
 		if (stats.finalDriveRatio !== undefined)
 			newTuning.finalDriveRatio = stats.finalDriveRatio;
 		if (stats.gearRatios) newTuning.gearRatios = { ...stats.gearRatios };

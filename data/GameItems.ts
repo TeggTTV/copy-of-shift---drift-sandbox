@@ -485,18 +485,18 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		parentCategory: 'Exterior',
 		spriteIndex: 111,
 	},
-	{
-		id: 'custom_paint',
-		name: 'Custom Paint Job',
-		description: 'Unique color and finish.',
-		type: 'PAINT',
-		rarity: 'UNCOMMON',
-		stats: { dragCoefficient: -0.005 }, // Smooth paint finish reduces drag slightly
-		value: 1000,
-		category: 'Paint',
-		parentCategory: 'Exterior',
-		spriteIndex: 112,
-	},
+	// {
+	// 	id: 'custom_paint',
+	// 	name: 'Custom Paint Job',
+	// 	description: 'Unique color and finish.',
+	// 	type: 'PAINT',
+	// 	rarity: 'UNCOMMON',
+	// 	stats: { dragCoefficient: -0.005 }, // Smooth paint finish reduces drag slightly
+	// 	value: 1000,
+	// 	category: 'Paint',
+	// 	parentCategory: 'Exterior',
+	// 	spriteIndex: 112,
+	// },
 	// --- Interior ---
 	{
 		id: 'bucket_seat',

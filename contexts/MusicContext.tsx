@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useRef, useEffect } from 'react';
+import React, {
+	createContext,
+	useContext,
+	useRef,
+	useEffect,
+	useMemo,
+} from 'react';
 import { MusicEngine, MusicTrack } from '../components/MusicEngine';
 
 interface MusicContextType {
@@ -78,20 +84,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 		};
 	}, []);
 
-	const contextValue: MusicContextType = {
-		play: (track, fadeInDuration) =>
-			engineRef.current.play(track, fadeInDuration),
-		stop: (fadeOutDuration) => engineRef.current.stop(fadeOutDuration),
-		pause: () => engineRef.current.pause(),
-		resume: () => engineRef.current.resume(),
-		setVolume: (volume) => engineRef.current.setVolume(volume),
-		getVolume: () => engineRef.current.getVolume(),
-		mute: () => engineRef.current.mute(),
-		unmute: () => engineRef.current.unmute(),
-		toggleMute: () => engineRef.current.toggleMute(),
-		getCurrentTrack: () => engineRef.current.getCurrentTrack(),
-		getIsPlaying: () => engineRef.current.getIsPlaying(),
-	};
+	const contextValue: MusicContextType = useMemo(
+		() => ({
+			play: (track, fadeInDuration) =>
+				engineRef.current.play(track, fadeInDuration),
+			stop: (fadeOutDuration) => engineRef.current.stop(fadeOutDuration),
+			pause: () => engineRef.current.pause(),
+			resume: () => engineRef.current.resume(),
+			setVolume: (volume) => engineRef.current.setVolume(volume),
+			getVolume: () => engineRef.current.getVolume(),
+			mute: () => engineRef.current.mute(),
+			unmute: () => engineRef.current.unmute(),
+			toggleMute: () => engineRef.current.toggleMute(),
+			getCurrentTrack: () => engineRef.current.getCurrentTrack(),
+			getIsPlaying: () => engineRef.current.getIsPlaying(),
+		}),
+		[]
+	);
 
 	return (
 		<MusicContext.Provider value={contextValue}>
