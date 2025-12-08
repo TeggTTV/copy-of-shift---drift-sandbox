@@ -75,7 +75,13 @@ export interface TuningOption {
 
 export type ModSettings = Record<string, Record<string, number>>; // modId -> { settingId: value }
 
-export type ItemRarity = 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
+export type ItemRarity =
+	| 'COMMON'
+	| 'UNCOMMON'
+	| 'RARE'
+	| 'EPIC'
+	| 'LEGENDARY'
+	| 'EXOTIC';
 
 export type ModType =
 	| 'ENGINE'
@@ -109,6 +115,8 @@ export interface InventoryItem {
 	category?: string; // Specific category (e.g. "Intake", "Turbo")
 	parentCategory?: string; // Broad category (e.g. "Engine")
 	spriteIndex?: number;
+	isSpecial?: boolean;
+	specialName?: string;
 }
 
 export interface Crate {

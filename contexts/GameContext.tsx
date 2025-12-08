@@ -63,6 +63,13 @@ export interface GameContextType {
 	userInventory: InventoryItem[];
 	setUserInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
 	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
+	dealershipCars: JunkyardCar[];
+	onBuyDealershipCar: (car: JunkyardCar) => void;
+	onRefreshDealership: () => void;
+	dailyShopItems: InventoryItem[];
+	onBuyShopItem: (item: InventoryItem) => void;
+	onRefreshDailyShop: () => void;
+	onManualTuningChange: (tuning: Partial<TuningState>) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ModNode, SavedTune, TuningState } from '@/types';
 import { MOD_TREE } from '@/constants';
 import { useSound } from '@/contexts/SoundContext';
+import { useGame } from '@/contexts/GameContext';
 import PixelSlider from '@/components/ui/PixelSlider';
 
 interface TuningTabProps {
@@ -30,6 +31,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 	money,
 }) => {
 	const { play } = useSound();
+	const { onManualTuningChange } = useGame();
 	// Saved Tunes State
 	const [savedTunes, setSavedTunes] = useState<SavedTune[]>([]);
 	const [tuneName, setTuneName] = useState('');
@@ -190,8 +192,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 							step={0.1}
 							value={playerTuning.finalDriveRatio}
 							onChange={(val) =>
-								setPlayerTuning({
-									...playerTuning,
+								onManualTuningChange({
 									finalDriveRatio: val,
 								})
 							}
@@ -268,8 +269,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 												...playerTuning.gearRatios,
 											};
 											newRatios[gear] = val;
-											setPlayerTuning({
-												...playerTuning,
+											onManualTuningChange({
 												gearRatios: newRatios,
 											});
 										}}
@@ -309,8 +309,7 @@ const TuningTab: React.FC<TuningTabProps> = ({
 												...point,
 												factor: val,
 											};
-											setPlayerTuning({
-												...playerTuning,
+											onManualTuningChange({
 												torqueCurve: newCurve,
 											});
 										}}

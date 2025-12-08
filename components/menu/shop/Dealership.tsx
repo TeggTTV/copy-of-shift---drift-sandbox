@@ -20,7 +20,7 @@ const Dealership: React.FC<DealershipProps> = ({
 	const { play } = useSound();
 
 	return (
-		<div className="absolute inset-0 bg-slate-900 flex flex-col items-center py-10 text-white z-50 overflow-y-auto font-pixel">
+		<div className="w-full h-full bg-slate-900 flex flex-col items-center py-10 text-white overflow-y-auto font-pixel">
 			<div className="w-full max-w-6xl px-4">
 				<div className="flex justify-between items-center mb-8">
 					<button

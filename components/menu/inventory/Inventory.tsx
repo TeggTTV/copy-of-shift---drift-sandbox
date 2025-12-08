@@ -165,7 +165,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 						{items.length} parts
 					</span>
 				</h2>
-				<div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 pr-2">
+				<div className="flex-1 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 					{renderGrid(items, false)}
 				</div>
 			</div>
@@ -180,7 +180,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 						{installedItems.length} parts
 					</span>
 				</h2>
-				<div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 pr-2">
+				<div className="flex-1 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 					{renderGrid(installedItems, true)}
 				</div>
 			</div>
@@ -322,7 +322,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 
 			{hoveredItem && !contextMenu && (
 				<div
-					className="fixed z-[200] w-64 bg-black/95 border-2 p-4 rounded shadow-2xl pointer-events-none animate-in fade-in duration-75"
+					className="fixed z-[200] w-80 bg-black/95 border-2 p-5 rounded-lg shadow-2xl pointer-events-none animate-in fade-in duration-75"
 					style={{
 						left:
 							mousePos.x + 280 > window.innerWidth
@@ -342,7 +342,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 					}}
 				>
 					<div
-						className="text-lg font-bold pixel-text mb-1"
+						className="text-xl font-bold pixel-text mb-2 tracking-wide"
 						style={{
 							color: ItemGenerator.getRarityColor(
 								hoveredItem.rarity
@@ -351,11 +351,11 @@ export const Inventory: React.FC<InventoryProps> = ({
 					>
 						{hoveredItem.name}
 					</div>
-					<div className="text-[10px] uppercase tracking-wider mb-2 text-gray-500">
+					<div className="text-xs font-bold uppercase tracking-widest mb-3 text-gray-400">
 						{hoveredItem.rarity} {hoveredItem.type} Part
 					</div>
 
-					<p className="text-xs text-gray-300 italic mb-3 leading-relaxed border-b border-gray-800 pb-2">
+					<p className="text-sm text-gray-200 mb-4 leading-relaxed border-b border-gray-700 pb-3 font-medium">
 						{hoveredItem.description}
 					</p>
 
@@ -408,10 +408,18 @@ export const Inventory: React.FC<InventoryProps> = ({
 								return (
 									<div
 										key={key}
-										className="flex justify-between text-xs font-mono"
+										className="flex justify-between text-sm font-mono py-0.5"
 									>
 										<span className="text-gray-400 capitalize">
-											{key.replace(/([A-Z])/g, ' $1')}
+											{key
+												.replace(
+													/([A-Z]+)([A-Z][a-z])/g,
+													'$1 $2'
+												)
+												.replace(
+													/([a-z\d])([A-Z])/g,
+													'$1 $2'
+												)}
 										</span>
 										<div className="flex gap-2">
 											<span className="text-cyan-400">
@@ -432,7 +440,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 							}
 						)}
 					</div>
-					<div className="mt-3 pt-2 border-t border-gray-800 flex justify-between text-xs font-mono">
+					<div className="mt-4 pt-3 border-t border-gray-700 flex justify-between text-sm font-bold font-mono">
 						<span className="text-gray-500">Value</span>
 						<span className="text-green-400">
 							${hoveredItem.value.toLocaleString()}

@@ -24,7 +24,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { TopBar } from './menu/shared/TopBar';
 import { LevelBadge } from './menu/shared/LevelBadge';
 import { Inventory } from './menu/inventory/Inventory';
-import { CrateShop } from './menu/shop/CrateShop';
+import { ShopHub } from './menu/shop/ShopHub';
+
 import { AuctionHouse } from './menu/auction/AuctionHouse';
 import { Garage } from './menu/garage/Garage';
 import { InventoryItem, Crate } from '../types';
@@ -400,22 +401,7 @@ export const GameMenu = () => {
 						/>
 					)}
 
-					{phase === 'SHOP' && (
-						<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50">
-							<div className="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
-								<h2 className="text-xl text-indigo-400 pixel-text">
-									PARTS SHOP
-								</h2>
-							</div>
-							<div className="flex-1 overflow-hidden p-4">
-								<CrateShop
-									money={money}
-									onBuyCrate={handleBuyCrate}
-									onItemReveal={handleItemReveal}
-								/>
-							</div>
-						</div>
-					)}
+					{phase === 'SHOP' && <ShopHub />}
 
 					{phase === 'AUCTION' && (
 						<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50">

@@ -203,7 +203,7 @@ export class CarBuilder {
 		if (stats.redlineRPM) newTuning.redlineRPM += stats.redlineRPM;
 		if (stats.idleRPM) newTuning.idleRPM += stats.idleRPM;
 		if (stats.finalDriveRatio !== undefined)
-			newTuning.finalDriveRatio = stats.finalDriveRatio;
+			newTuning.finalDriveRatio += stats.finalDriveRatio;
 		if (stats.gearRatios) newTuning.gearRatios = { ...stats.gearRatios };
 
 		return newTuning;

@@ -529,7 +529,7 @@ export const GAME_ITEMS: ItemDefinition[] = [
 		type: 'INTERIOR',
 		rarity: 'COMMON',
 		stats: { mass: -50 },
-		value: 0,
+		value: 250,
 		category: 'Weight Reduction',
 		parentCategory: 'Interior',
 		spriteIndex: 115,
@@ -547,18 +547,18 @@ export const GAME_ITEMS: ItemDefinition[] = [
 	// 	spriteIndex: 116,
 	// },
 	// --- Electronics / Lighting ---
-	{
-		id: 'led_conversion',
-		name: 'LED Light Conversion',
-		description: 'Brighter, cleaner light output.',
-		type: 'ELECTRONICS',
-		rarity: 'UNCOMMON',
-		stats: { mass: -1 }, // LEDs lighter than halogen bulbs
-		value: 150,
-		category: 'Lighting',
-		parentCategory: 'Exterior',
-		spriteIndex: 117,
-	},
+	// {
+	// 	id: 'led_conversion',
+	// 	name: 'LED Light Conversion',
+	// 	description: 'Brighter, cleaner light output.',
+	// 	type: 'ELECTRONICS',
+	// 	rarity: 'UNCOMMON',
+	// 	stats: { mass: -1 }, // LEDs lighter than halogen bulbs
+	// 	value: 150,
+	// 	category: 'Lighting',
+	// 	parentCategory: 'Exterior',
+	// 	spriteIndex: 117,
+	// },
 	{
 		id: 'underglow',
 		name: 'Neon Underglow',

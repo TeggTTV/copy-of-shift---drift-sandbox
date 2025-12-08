@@ -22,6 +22,8 @@ const getParticleCount = (rarity: ItemRarity): number => {
 			return 12;
 		case 'LEGENDARY':
 			return 16;
+		case 'EXOTIC':
+			return 20;
 		default:
 			return 0; // No particles for COMMON and UNCOMMON
 	}
@@ -99,10 +101,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 				${
 					item
 						? 'border-' +
-						  ItemGenerator.getRarityColor(item.rarity).replace(
-								'#',
-								''
-						  )
+						  (
+								ItemGenerator.getRarityColor(item.rarity) ||
+								'#9ca3af'
+						  ).replace('#', '')
 						: 'border-gray-700'
 				}
 				${isSelected ? 'ring-2 ring-yellow-400 bg-gray-700' : ''}

@@ -15,6 +15,7 @@ import { CarGenerator } from '../utils/CarGenerator';
 import { calculateNextLevelXp } from '../utils/progression';
 import { useGamePersistence } from '../hooks/useGamePersistence';
 import { ItemMerge } from '../utils/ItemMerge';
+import { ItemGenerator } from '../utils/ItemGenerator';
 import { TopBar } from '@/components/menu/shared/TopBar';
 import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
@@ -122,7 +123,12 @@ const GameCanvas: React.FC = () => {
 
 	// Junkyard State
 	const [junkyardCars, setJunkyardCars] = useState<JunkyardCar[]>([]);
+	const [dealershipCars, setDealershipCars] = useState<JunkyardCar[]>([]);
 	const [refreshCount, setRefreshCount] = useState(0);
+
+	// Daily Shop State
+	const [dailyShopItems, setDailyShopItems] = useState<InventoryItem[]>([]);
+	const [lastDailyRefresh, setLastDailyRefresh] = useState<number>(0);
 
 	const generateJunkyardCars = useCallback(() => {
 		const cars: JunkyardCar[] = [];
@@ -135,11 +141,48 @@ const GameCanvas: React.FC = () => {
 		setJunkyardCars(cars);
 	}, []);
 
+	// Dealership Logic
+	const generateDealershipCars = useCallback(() => {
+		const cars: JunkyardCar[] = [];
+		for (let i = 0; i < 6; i++) {
+			cars.push(
+				CarGenerator.generateDealershipCar(`dealer_${Date.now()}_${i}`)
+			);
+		}
+		setDealershipCars(cars);
+	}, []);
+
 	useEffect(() => {
 		if (junkyardCars.length === 0) {
 			generateJunkyardCars();
 		}
+		if (dealershipCars.length === 0) {
+			generateDealershipCars();
+		}
 	}, []);
+
+	// Daily Shop Logic
+	const refreshDailyShop = useCallback(() => {
+		const items: InventoryItem[] = [];
+		// Generate 3 special daily items
+		for (let i = 0; i < 3; i++) {
+			items.push(ItemGenerator.generateDailySpecial());
+		}
+		setDailyShopItems(items);
+		setLastDailyRefresh(Date.now());
+		// showToast('Daily Special Parts Refreshed!', 'INFO');
+	}, []);
+
+	useEffect(() => {
+		// Check for daily refresh
+		const ONE_DAY = 24 * 60 * 60 * 1000;
+		if (
+			Date.now() > lastDailyRefresh + ONE_DAY ||
+			dailyShopItems.length === 0
+		) {
+			refreshDailyShop();
+		}
+	}, [lastDailyRefresh, dailyShopItems.length, refreshDailyShop]);
 
 	const buyJunkyardCar = useCallback(
 		(car: JunkyardCar) => {
@@ -183,6 +226,54 @@ const GameCanvas: React.FC = () => {
 		// 	showToast(`Not enough money! Need $${cost}`, 'ERROR');
 		// }
 	}, [money, refreshCount, generateJunkyardCars, showToast]);
+
+	const buyDealershipCar = useCallback(
+		(car: JunkyardCar) => {
+			if (money >= car.price) {
+				setMoney((m) => m - car.price);
+				setGarage((prev) => [
+					...prev,
+					{
+						...car, // Already formatted by generator
+						date: Date.now(),
+					},
+				]);
+				// Remove bought car from stock
+				setDealershipCars((prev) =>
+					prev.filter((c) => c.id !== car.id)
+				);
+				showToast(
+					`Bought ${car.name} for $${car.price.toLocaleString()}`,
+					'SUCCESS'
+				);
+			} else {
+				showToast('Not enough money!', 'ERROR');
+			}
+		},
+		[money, showToast]
+	);
+
+	const refreshDealership = useCallback(() => {
+		generateDealershipCars();
+		showToast('Dealership Inventory Refreshed', 'INFO');
+	}, [generateDealershipCars, showToast]);
+
+	const buyShopItem = useCallback(
+		(item: InventoryItem) => {
+			const price = item.value; // Shop price = estimated value
+			if (money >= price) {
+				setMoney((m) => m - price);
+				setInventory((prev) => [...prev, item]);
+				setDailyShopItems((prev) =>
+					prev.filter((i) => i.instanceId !== item.instanceId)
+				);
+				showToast(`Bought ${item.name}!`, 'SUCCESS');
+			} else {
+				showToast('Not enough money!', 'ERROR');
+			}
+		},
+		[money, showToast]
+	);
 
 	const restoreCar = useCallback(
 		(carIndex: number) => {
@@ -392,13 +483,10 @@ const GameCanvas: React.FC = () => {
 					JSON.stringify(modSettings) ||
 				JSON.stringify(currentCar.installedItems || []) !==
 					JSON.stringify(currentInstalled) ||
-				JSON.stringify(currentCar.manualTuning) !==
-					JSON.stringify({
-						...currentCar.manualTuning,
-						finalDriveRatio: playerTuning.finalDriveRatio,
-						gearRatios: playerTuning.gearRatios,
-						torqueCurve: playerTuning.torqueCurve,
-					});
+				JSON.stringify(currentCar.modSettings) !==
+					JSON.stringify(modSettings) ||
+				JSON.stringify(currentCar.installedItems || []) !==
+					JSON.stringify(currentInstalled);
 
 			if (hasChanged) {
 				const updatedGarage = [...prevGarage];
@@ -408,12 +496,8 @@ const GameCanvas: React.FC = () => {
 					disabledMods,
 					modSettings,
 					installedItems: currentInstalled,
-					manualTuning: {
-						...currentCar.manualTuning,
-						finalDriveRatio: playerTuning.finalDriveRatio,
-						gearRatios: playerTuning.gearRatios,
-						torqueCurve: playerTuning.torqueCurve,
-					},
+					// Do NOT auto-save manualTuning from playerTuning here to avoid loops.
+					// Manual tuning changes should be saved explicitly by the UI controls.
 				};
 				return updatedGarage;
 			}
@@ -426,9 +510,7 @@ const GameCanvas: React.FC = () => {
 		ownedMods,
 		disabledMods,
 		modSettings,
-		playerTuning.finalDriveRatio,
-		playerTuning.gearRatios,
-		playerTuning.torqueCurve,
+		modSettings,
 		currentCarIndex,
 	]);
 
@@ -1483,6 +1565,27 @@ const GameCanvas: React.FC = () => {
 		return () => cancelAnimationFrame(animId);
 	}, [phase, raceStatus, missions, garage]);
 
+	const onManualTuningChange = useCallback(
+		(tuningUpdates: Partial<TuningState>) => {
+			setPlayerTuning((prev) => ({ ...prev, ...tuningUpdates }));
+			setGarage((prevGarage) => {
+				const newGarage = [...prevGarage];
+				const currentCar = newGarage[currentCarIndex];
+				if (currentCar) {
+					newGarage[currentCarIndex] = {
+						...currentCar,
+						manualTuning: {
+							...currentCar.manualTuning,
+							...tuningUpdates,
+						},
+					};
+				}
+				return newGarage;
+			});
+		},
+		[currentCarIndex]
+	);
+
 	return (
 		<div className="relative w-full h-full bg-black overflow-hidden font-sans select-none">
 			<canvas
@@ -1721,6 +1824,13 @@ const GameCanvas: React.FC = () => {
 							userInventory: inventory,
 							setUserInventory: setInventory,
 							onMerge: handleMerge,
+							dealershipCars,
+							onBuyDealershipCar: buyDealershipCar,
+							onRefreshDealership: refreshDealership,
+							dailyShopItems,
+							onBuyShopItem: buyShopItem,
+							onRefreshDailyShop: refreshDailyShop,
+							onManualTuningChange,
 						}}
 					>
 						<GameMenu />

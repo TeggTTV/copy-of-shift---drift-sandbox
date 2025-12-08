@@ -751,10 +751,15 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 												className="flex justify-between items-center text-xs font-mono"
 											>
 												<span className="text-gray-400 capitalize w-20 truncate">
-													{key.replace(
-														/([A-Z])/g,
-														' $1'
-													)}
+													{key
+														.replace(
+															/([A-Z]+)([A-Z][a-z])/g,
+															'$1 $2'
+														)
+														.replace(
+															/([a-z\d])([A-Z])/g,
+															'$1 $2'
+														)}
 												</span>
 												<div className="flex gap-2 text-right flex-1 justify-end">
 													<span className="text-white">

@@ -1,0 +1,107 @@
+import React, { useState } from 'react';
+import { useGame } from '@/contexts/GameContext';
+import { CrateShop } from './CrateShop';
+import { DailyPartsShop } from './DailyPartsShop';
+import Dealership from './Dealership';
+import { Crate, InventoryItem } from '@/types';
+
+type ShopTab = 'CRATES' | 'DAILY' | 'CARS';
+
+export const ShopHub: React.FC = () => {
+	const {
+		money,
+		setMoney,
+		setUserInventory,
+		dealershipCars,
+		onBuyDealershipCar,
+		onRefreshDealership,
+		dailyShopItems,
+		onBuyShopItem,
+		onRefreshDailyShop,
+		setPhase,
+	} = useGame();
+
+	const [activeTab, setActiveTab] = useState<ShopTab>('CRATES');
+
+	// Crate Handlers
+	const handleBuyCrate = (crate: Crate, amount: number) => {
+		// Validation check again just in case (though filtered in component)
+		if (money >= crate.price * amount) {
+			setMoney((prev) => prev - crate.price * amount);
+		}
+	};
+
+	const handleItemsReveal = (items: InventoryItem[]) => {
+		setUserInventory((prev) => [...prev, ...items]);
+	};
+
+	return (
+		<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50 font-pixel">
+			{/* Header / Tabs */}
+			<div className="bg-gray-900 border-b border-gray-800 p-4">
+				<div className="flex justify-center gap-8">
+					<button
+						onClick={() => setActiveTab('CRATES')}
+						className={`text-xl px-4 py-2 border-b-4 transition-colors ${
+							activeTab === 'CRATES'
+								? 'text-white border-blue-500 bg-blue-500/10'
+								: 'text-gray-500 border-transparent hover:text-gray-300'
+						}`}
+					>
+						SUPPLY CRATES
+					</button>
+					<button
+						onClick={() => setActiveTab('DAILY')}
+						className={`text-xl px-4 py-2 border-b-4 transition-colors ${
+							activeTab === 'DAILY'
+								? 'text-yellow-400 border-yellow-500 bg-yellow-500/10'
+								: 'text-gray-500 border-transparent hover:text-gray-300'
+						}`}
+					>
+						DAILY SPECIALS
+					</button>
+					<button
+						onClick={() => setActiveTab('CARS')}
+						className={`text-xl px-4 py-2 border-b-4 transition-colors ${
+							activeTab === 'CARS'
+								? 'text-indigo-400 border-indigo-500 bg-indigo-500/10'
+								: 'text-gray-500 border-transparent hover:text-gray-300'
+						}`}
+					>
+						DEALERSHIP
+					</button>
+				</div>
+			</div>
+
+			{/* Content Area */}
+			<div className="flex-1 overflow-hidden relative">
+				{activeTab === 'CRATES' && (
+					<CrateShop
+						money={money}
+						onBuyCrate={handleBuyCrate}
+						onItemReveal={handleItemsReveal}
+					/>
+				)}
+
+				{activeTab === 'DAILY' && (
+					<DailyPartsShop
+						items={dailyShopItems}
+						money={money}
+						onBuy={onBuyShopItem}
+						onRefresh={onRefreshDailyShop}
+					/>
+				)}
+
+				{activeTab === 'CARS' && (
+					<Dealership
+						cars={dealershipCars}
+						money={money}
+						onBuyCar={onBuyDealershipCar}
+						onBack={() => setPhase('MAP')} // Not strictly needed if TopBar exists
+						onRefresh={onRefreshDealership}
+					/>
+				)}
+			</div>
+		</div>
+	);
+};

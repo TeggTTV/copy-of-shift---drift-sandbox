@@ -44,17 +44,32 @@ export class ItemMerge {
 				{ rarity: 'RARE', chance: 0.1 },
 				{ rarity: 'UNCOMMON', chance: 0.9 },
 			];
+		} else if (low === 'UNCOMMON' && high === 'UNCOMMON') {
+			return [
+				{ rarity: 'RARE', chance: 0.75 },
+				{ rarity: 'UNCOMMON', chance: 0.25 },
+			];
 		} else if (low === 'UNCOMMON' && high === 'RARE') {
 			return [
-				{ rarity: 'LEGENDARY', chance: 0.1 },
+				{ rarity: 'EPIC', chance: 0.1 },
 				{ rarity: 'RARE', chance: 0.9 },
 			];
 		} else if (low === 'RARE' && high === 'RARE') {
 			return [
-				{ rarity: 'LEGENDARY', chance: 0.75 },
+				{ rarity: 'EPIC', chance: 0.75 },
 				{ rarity: 'RARE', chance: 0.25 },
 			];
-		} else if (low === 'RARE' && high === 'LEGENDARY') {
+		} else if (low === 'RARE' && high === 'EPIC') {
+			return [
+				{ rarity: 'LEGENDARY', chance: 0.1 },
+				{ rarity: 'EPIC', chance: 0.9 },
+			];
+		} else if (low === 'EPIC' && high === 'EPIC') {
+			return [
+				{ rarity: 'LEGENDARY', chance: 0.75 },
+				{ rarity: 'EPIC', chance: 0.25 },
+			];
+		} else if (low === 'EPIC' && high === 'LEGENDARY') {
 			return [
 				{ rarity: 'EXOTIC', chance: 0.1 },
 				{ rarity: 'LEGENDARY', chance: 0.9 },
@@ -98,14 +113,30 @@ export class ItemMerge {
 		}
 
 		// 3. Stats
-		// Always apply boost formula: (v1 + v2) / 1.25
-		// This ensures even identical stats get a boost (e.g. (10+10)/1.25 = 16)
+		// "Smart Merge"
+		// Bonuses gets boosted (1.6x)
+		// Penalties gets reduced (0.4x)
 
 		const newStats: Partial<TuningState> = {};
 		const allKeys = new Set([
 			...Object.keys(item1.stats),
 			...Object.keys(item2.stats),
 		]) as Set<keyof TuningState>;
+
+		// Define which direction is "Good" for each stat
+		// TRUE = Higher is Better
+		// FALSE = Lower is Better
+		const STAT_DIRECTION: Partial<Record<keyof TuningState, boolean>> = {
+			maxTorque: true,
+			redlineRPM: true,
+			flywheelMass: false, // Lighter is better
+			tireGrip: true,
+			brakingForce: true,
+			mass: false, // Lighter is better
+			dragCoefficient: false, // Less drag is better
+			turboIntensity: true,
+			// Others assume neutral or positive-good
+		};
 
 		allKeys.forEach((key) => {
 			const v1 = (item1.stats as any)[key] ?? 0;
@@ -118,8 +149,26 @@ export class ItemMerge {
 				return;
 			}
 
-			// Always merge numeric stats
-			const mergedVal = (v1 + v2) / 1.25;
+			// Determine if this specific value is a Penalty
+			// It is a penalty if:
+			// 1. HigherIsBetter AND Value < 0 (e.g. Redline -100)
+			// 2. LowerIsBetter AND Value > 0 (e.g. Mass +10)
+			const higherIsBetter = STAT_DIRECTION[key] ?? true; // Default to HigherIsBetter
+			const isPenalty = higherIsBetter ? v1 < 0 : v1 > 0;
+
+			let mergedVal = 0;
+			if (isPenalty) {
+				// Penalty Reduction: (v1 + v2) * 0.4
+				// Example: -100 + -100 = -200. * 0.4 = -80 (Closer to 0)
+				// Example: 10 + 10 = 20. * 0.4 = 8 (Closer to 0)
+				mergedVal = (v1 + v2) * 0.4;
+			} else {
+				// Bonus Growth: (v1 + v2) * 0.8 (same as / 1.25)
+				// Example: 100 + 100 = 200. * 0.8 = 160 (Growth)
+				// Example: -10 + -10 = -20. * 0.8 = -16 (Growth in negative direction, e.g. weight reduction)
+				mergedVal = (v1 + v2) * 0.8;
+			}
+
 			(newStats as any)[key] = mergedVal;
 		});
 

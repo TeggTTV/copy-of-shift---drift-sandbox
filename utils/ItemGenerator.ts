@@ -15,6 +15,7 @@ const RARITY_MULTIPLIERS: Record<ItemRarity, number> = {
 	RARE: 1.5,
 	EPIC: 2.0,
 	LEGENDARY: 3.0,
+	EXOTIC: 5.0,
 };
 
 const RARITY_COLORS: Record<ItemRarity, string> = {
@@ -23,6 +24,7 @@ const RARITY_COLORS: Record<ItemRarity, string> = {
 	RARE: '#3b82f6', // Blue
 	EPIC: '#a855f7', // Purple
 	LEGENDARY: '#fbbf24', // Gold
+	EXOTIC: '#ec4899', // Pink
 };
 
 export const CRATES: Crate[] = [
@@ -183,5 +185,52 @@ export class ItemGenerator {
 
 	static getRarityColor(rarity: ItemRarity): string {
 		return RARITY_COLORS[rarity];
+	}
+
+	static generateDailySpecial(): InventoryItem {
+		// 1. Pick a random base item, preferring higher tiers (Uncommon+)
+		const highTierItems = GAME_ITEMS.filter((i) => i.rarity !== 'COMMON');
+		const baseItem =
+			highTierItems[Math.floor(Math.random() * highTierItems.length)];
+
+		// 2. Generate standard item
+		const item = this.generateItem(baseItem);
+
+		// 3. Make it SPECIAL
+		item.isSpecial = true;
+		item.condition = 100; // Daily specials are always pristine
+		item.rarity = 'LEGENDARY'; // Force display as Legendary (or keep base and add glowing border?) -> Let's bump rarity
+
+		// Boost stats slightly for "Special" status
+		for (const key in item.stats) {
+			const k = key as keyof TuningState;
+			if (typeof item.stats[k] === 'number') {
+				(item.stats as any)[k] = (item.stats as any)[k] * 1.15; // 15% boost
+				(item.stats as any)[k] =
+					Math.round((item.stats as any)[k] * 10) / 10;
+			}
+		}
+
+		// 4. Give it a cool name
+		const prefixes = [
+			'Midnight',
+			'Ghost',
+			'Viper',
+			'Storm',
+			'Rocket',
+			'Apex',
+			'Drift',
+			'Outlaw',
+			'Neon',
+			'Cyber',
+		];
+		const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+		item.specialName = `${prefix} ${item.name}`;
+		item.name = item.specialName; // Override name for easier display
+
+		// 5. Increase Value
+		item.value = Math.floor(item.value * 2.5);
+
+		return item;
 	}
 }
