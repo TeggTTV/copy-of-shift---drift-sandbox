@@ -228,7 +228,7 @@ export const TopBar = ({
 					<LevelBadge level={displayLevel} />
 				</div>
 				<div className="flex-1 flex flex-col justify-center">
-					<div className="flex justify-between text-[10px] text-gray-400 mb-1 font-mono">
+					<div className="flex justify-between text-[10px] text-gray-400 mb-1 font-pixel">
 						<span>XP</span>
 						<span>
 							{Math.floor(current)} / {max}
@@ -282,7 +282,7 @@ export const TopBar = ({
 					<span className="text-green-400 text-xl font-bold pixel-text mr-1">
 						$
 					</span>
-					<span className="text-white text-xl font-mono">
+					<span className="font-pixel text-white">
 						{displayMoney.toLocaleString()}
 					</span>
 

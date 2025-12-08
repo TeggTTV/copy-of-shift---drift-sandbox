@@ -55,15 +55,73 @@ export const Inventory: React.FC<InventoryProps> = ({
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 	const containerRef = useRef<HTMLDivElement>(null);
 
+	// Sorting State
+	type SortMethod = 'RECENT' | 'RARITY' | 'VALUE' | 'NAME';
+	const [sortMethod, setSortMethod] = useState<SortMethod>('RECENT');
+	const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
+
 	const COLS = 8;
-	const TOTAL_SLOTS = 64; // Fixed grid size for visual consistency
+	const ITEMS_PER_PAGE = 64;
+	const [currentPage, setCurrentPage] = useState(1);
+
+	// Helper to sort items
+	const sortItems = (items: InventoryItem[]) => {
+		return [...items].sort((a, b) => {
+			let res = 0;
+			switch (sortMethod) {
+				case 'RARITY':
+					const rarityWeight = {
+						COMMON: 1,
+						UNCOMMON: 2,
+						RARE: 3,
+						EPIC: 4,
+						LEGENDARY: 5,
+						EXOTIC: 6,
+					};
+					res =
+						(rarityWeight[a.rarity] || 0) -
+						(rarityWeight[b.rarity] || 0);
+					break;
+				case 'VALUE':
+					res = a.value - b.value;
+					break;
+				case 'NAME':
+					res = a.name.localeCompare(b.name);
+					break;
+				case 'RECENT':
+				default:
+					// Assuming items are pushed in chronological order, index is proxy for time?
+					// Or we can rely on ID if it has timestamp?
+					// For now, let's assume original order is "Recent".
+					// So actually, if we want "Recent" (Newest first), we might just reverse?
+					// But if we return 0, stable sort preserves it.
+					// Let's rely on array index.
+					return sortDirection === 'DESC' ? -1 : 1;
+			}
+			return sortDirection === 'ASC' ? res : -res;
+		});
+	};
 
 	// Helper to render a grid of items
 	const renderGrid = (itemList: InventoryItem[], isInstalled: boolean) => {
-		const displaySlots = Math.max(itemList.length, 12); // Minimum rows
+		// Only sort uninstalled items if requested? Or both?
+		// Usually sorting is most useful for the large uninstalled inventory.
+		const sortedList = isInstalled ? itemList : sortItems(itemList);
+
+		// Pagination for uninstalled items only
+		let displayList = sortedList;
+		if (!isInstalled) {
+			const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+			displayList = sortedList.slice(
+				startIndex,
+				startIndex + ITEMS_PER_PAGE
+			);
+		}
+
+		const displaySlots = Math.max(displayList.length, 12); // Minimum rows
 		const slots = Array(displaySlots)
 			.fill(null)
-			.map((_, i) => itemList[i] || null);
+			.map((_, i) => displayList[i] || null);
 
 		return (
 			<div
@@ -165,6 +223,81 @@ export const Inventory: React.FC<InventoryProps> = ({
 						{items.length} parts
 					</span>
 				</h2>
+
+				{/* Sort Controls */}
+				<div className="flex gap-2 mb-2 px-2">
+					<span className="text-xs text-gray-500 self-center mr-2">
+						SORT:
+					</span>
+					{(
+						['RECENT', 'RARITY', 'VALUE', 'NAME'] as SortMethod[]
+					).map((method) => (
+						<button
+							key={method}
+							onClick={() => {
+								if (sortMethod === method) {
+									setSortDirection((prev) =>
+										prev === 'ASC' ? 'DESC' : 'ASC'
+									);
+								} else {
+									setSortMethod(method);
+									setSortDirection('DESC'); // Default to DESC for most things
+								}
+							}}
+							className={`
+                                px-2 py-1 text-[10px] uppercase font-bold rounded border
+                                ${
+									sortMethod === method
+										? 'bg-indigo-600 border-indigo-400 text-white'
+										: 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'
+								}
+                            `}
+						>
+							{method}{' '}
+							{sortMethod === method &&
+								(sortDirection === 'ASC' ? '▲' : '▼')}
+						</button>
+					))}
+				</div>
+
+				{/* Pagination Controls */}
+				{items.length > ITEMS_PER_PAGE && (
+					<div className="flex justify-between items-center px-2 mb-2">
+						<button
+							onClick={() =>
+								setCurrentPage((p) => Math.max(1, p - 1))
+							}
+							disabled={currentPage === 1}
+							className="px-2 py-1 text-xs bg-gray-800 text-white rounded disabled:opacity-50 hover:bg-gray-700"
+						>
+							◀ PREV
+						</button>
+						<span className="text-xs text-gray-400">
+							Page {currentPage} of{' '}
+							{Math.ceil(items.length / ITEMS_PER_PAGE)}
+						</span>
+						<button
+							onClick={() =>
+								setCurrentPage((p) =>
+									Math.min(
+										Math.ceil(
+											items.length / ITEMS_PER_PAGE
+										),
+										p + 1
+									)
+								)
+							}
+							disabled={
+								currentPage >=
+								Math.ceil(items.length / ITEMS_PER_PAGE)
+							}
+							className="px-2 py-1 text-xs bg-gray-800 text-white rounded disabled:opacity-50 hover:bg-gray-700"
+						>
+							NEXT ▶
+						</button>
+					</div>
+				)}
+
 				<div className="flex-1 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 					{renderGrid(items, false)}
 				</div>

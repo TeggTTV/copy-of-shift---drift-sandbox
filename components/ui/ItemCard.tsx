@@ -2,6 +2,7 @@ import React from 'react';
 import { InventoryItem, ModType, ItemRarity } from '../../types';
 import { ItemGenerator } from '../../utils/ItemGenerator';
 import { GAME_ITEMS } from '../../data/GameItems';
+import { useGame } from '@/contexts/GameContext';
 
 interface ItemCardProps {
 	item: InventoryItem | null;
@@ -73,6 +74,12 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 	const def = item ? GAME_ITEMS.find((g) => g.id === item.baseId) : null;
 	const spriteIdx = def?.spriteIndex ?? item?.spriteIndex;
 
+	// Optimization: Pagination now handles performance, so we can re-enable animations
+	// BUT user added a setting to toggle them
+	const { settings } = useGame();
+	const [isHovered, setIsHovered] = React.useState(false);
+	const shouldShowParticles = settings.particles; // Controlled by global setting
+
 	const particleCount = item ? getParticleCount(item.rarity) : 0;
 	const rarityColor = item
 		? ItemGenerator.getRarityColor(item.rarity)
@@ -80,7 +87,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
 	// Generate particle elements
 	const particles =
-		particleCount > 0
+		particleCount > 0 && shouldShowParticles
 			? Array.from({ length: particleCount }, (_, i) => {
 					const angle = (i / particleCount) * 360;
 					const duration = 3 + (i % 3); // Vary between 3-5s
@@ -93,8 +100,14 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 	return (
 		<div
 			onClick={onClick}
-			onMouseEnter={onMouseEnter}
-			onMouseLeave={onMouseLeave}
+			onMouseEnter={() => {
+				setIsHovered(true);
+				onMouseEnter?.();
+			}}
+			onMouseLeave={() => {
+				setIsHovered(false);
+				onMouseLeave?.();
+			}}
 			className={`
 				relative aspect-square bg-gray-800 border-2 rounded cursor-pointer transition-all
 				hover:border-white group flex items-center justify-center

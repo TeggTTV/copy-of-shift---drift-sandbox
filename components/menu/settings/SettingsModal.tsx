@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useSound } from '@/contexts/SoundContext';
+import { useGame } from '@/contexts/GameContext';
 import PixelSlider from '@/components/ui/PixelSlider';
 
 interface SettingsModalProps {
@@ -11,6 +12,7 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 	const music = useMusic();
 	const { play } = useSound();
+	const { settings, setSettings } = useGame();
 
 	const [musicVolume, setMusicVolume] = useState(music.getVolume() * 100);
 	const [sfxVolume, setSfxVolume] = useState(100);
@@ -70,6 +72,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 		setIsUISoundEnabled(newValue);
 		localStorage.setItem('uiSoundEnabled', newValue.toString());
 		// TODO: Apply to SoundContext when integrated
+	};
+
+	const toggleParticles = () => {
+		setSettings((prev) => ({ ...prev, particles: !prev.particles }));
 	};
 
 	if (!isOpen) return null;
@@ -153,6 +159,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 						</div>
 					</div>
 
+					{/* Visuals Section */}
+					<div className="border-b border-gray-700 pb-6">
+						<h3 className="text-sm text-indigo-400 mb-4 pixel-text">
+							👁️ VISUALS
+						</h3>
+
+						{/* Particle FX Toggle */}
+						<div className="flex items-center justify-between mb-3">
+							<label className="text-sm text-gray-300">
+								Particle FX
+							</label>
+							<button
+								onClick={toggleParticles}
+								className={`pixel-btn px-4 py-2 text-xs transition-all ${
+									settings.particles
+										? 'bg-green-900/50 border-green-500 text-green-400'
+										: 'bg-gray-800 border-gray-600 text-gray-400'
+								}`}
+							>
+								{settings.particles ? '✓ ON' : '✕ OFF'}
+							</button>
+						</div>
+					</div>
+
 					{/* Sound Effects Section */}
 					<div className="border-b border-gray-700 pb-6">
 						<h3 className="text-sm text-indigo-400 mb-4 pixel-text">
@@ -209,26 +239,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 							>
 								{isUISoundEnabled ? '✓ ON' : '✕ OFF'}
 							</button>
-						</div>
-					</div>
-
-					{/* Music Info */}
-					<div>
-						<div className="text-[10px] text-gray-500 leading-relaxed">
-							<p className="mb-2">
-								🎵 To add custom music tracks, place MP3 files
-								in:
-							</p>
-							<code className="bg-black/50 px-2 py-1 rounded text-green-400 block mb-2">
-								public/music/
-							</code>
-							<p>
-								See{' '}
-								<span className="text-indigo-400">
-									public/music/README.md
-								</span>{' '}
-								for details.
-							</p>
 						</div>
 					</div>
 				</div>

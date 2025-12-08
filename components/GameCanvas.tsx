@@ -42,7 +42,9 @@ import {
 	InputState,
 	JunkyardCar,
 	InventoryItem,
+	Season,
 } from '../types';
+import { GameSettings } from '../contexts/GameContext'; // Import new type
 import { GameMenu } from './GameMenu';
 
 const PPM = 40; // Pixels Per Meter - Visual Scale
@@ -82,14 +84,53 @@ const GameCanvas: React.FC = () => {
 		'CAMPAIGN' | 'UNDERGROUND' | 'DAILY' | 'RIVALS'
 	>('CAMPAIGN');
 
+	// Game Settings
+	const [settings, setSettings] = useState<GameSettings>({
+		particles: true,
+	});
+
 	// Weather State
 	const [weather, setWeather] = useState<{
 		type: 'SUNNY' | 'RAIN';
 		intensity: number;
+		season: Season;
 	}>({
 		type: 'SUNNY',
 		intensity: 0,
+		season: 'SUMMER',
 	});
+
+	// Background Decor State
+	const [bgTrees, setBgTrees] = useState<
+		{ x: number; y: number; scale: number }[]
+	>([]);
+	const [seasonalTreesImg, setSeasonalTreesImg] =
+		useState<HTMLImageElement | null>(null);
+
+	useEffect(() => {
+		const img = new Image();
+		img.src = '/seasonal-trees.png';
+		img.onload = () => setSeasonalTreesImg(img);
+	}, []);
+
+	// Music Logic
+	useEffect(() => {
+		if (phase === 'RACE' || phase === 'VERSUS') {
+			music.play('race');
+		} else if (
+			phase === 'MAP' ||
+			phase === 'GARAGE' ||
+			phase === 'MISSION_SELECT' ||
+			phase === 'SHOP' ||
+			phase === 'AUCTION' ||
+			phase === 'JUNKYARD'
+		) {
+			music.play('menu');
+		} else if (phase === 'RESULTS') {
+			// let results handle victory/defeat music if needed, or keep race music?
+			// Usually results screen has its own music or keeps playing
+		}
+	}, [phase, music]);
 
 	// Dyno History State
 	const [dynoHistory, setDynoHistory] = useState<
@@ -985,6 +1026,35 @@ const GameCanvas: React.FC = () => {
 		currentGhostRecording.current = [];
 		raceFinishedProcessingRef.current = false;
 
+		// --- Setup Environment ---
+		const seasons: Season[] = ['SPRING', 'SUMMER', 'FALL', 'WINTER'];
+		const randomSeason =
+			seasons[Math.floor(Math.random() * seasons.length)];
+
+		// Weather Logic
+		const isRain = Math.random() < 0.2 && randomSeason !== 'WINTER';
+		setWeather({
+			type: isRain ? 'RAIN' : 'SUNNY',
+			intensity: isRain ? 0.5 + Math.random() * 0.5 : 0,
+			season: randomSeason,
+		});
+
+		// Generate Trees
+		const newTrees: { x: number; y: number; scale: number }[] = [];
+		const treeCount = Math.floor(mission.distance * 8); // High density: ~1 tree per 2m
+		// Place trees widely
+		for (let i = 0; i < treeCount; i++) {
+			const side = Math.random() > 0.5 ? 1 : -1;
+			// 10m to 40m from center
+			const x = side * (5 + Math.random() * 30);
+			const y = -20 + Math.random() * (mission.distance + 100);
+			const scale = 0.8; // Smaller trees: 0.3 - 0.6
+			newTrees.push({ x, y, scale });
+		}
+		// Sort trees by Y (descending) so they render back-to-front
+		newTrees.sort((a, b) => b.y - a.y);
+		setBgTrees(newTrees);
+
 		// Reset Car States
 		playerRef.current = {
 			y: 0,
@@ -1340,14 +1410,78 @@ const GameCanvas: React.FC = () => {
 
 				const totalHeight = trackStartVisualY - trackEndVisualY;
 
-				// Grass
-				ctx.fillStyle = '#14532d';
+				// --- BACKGROUND RENDERING ---
+				let groundColor = '#3CB371';
+				if (weather.season === 'SPRING') groundColor = '#4ade80'; // Bright Green
+				if (weather.season === 'SUMMER') groundColor = '#15803d'; // Deep Green
+				if (weather.season === 'FALL') groundColor = '#d97706'; // Orange/Brown
+				if (weather.season === 'WINTER') groundColor = '#f3f4f6'; // Snow White
+
+				// Fill Full Background
+				ctx.fillStyle = groundColor;
+				// Draw a huge rect to cover visible area
+				// Since we are translated, we need to cover the viewport relative to camera
+				// Viewport top in world space: -camTransY
+				// Viewport height: canvas.height
+				// Easier: just fill a huge area around the track that is guaranteed to cover screen
 				ctx.fillRect(
-					-trackWidth / 2 - 40,
-					trackEndVisualY,
-					trackWidth + 80,
-					totalHeight
+					-canvas.width * 2,
+					-m.distance * PPM - 2000,
+					canvas.width * 4,
+					m.distance * PPM + 4000
 				);
+
+				// Draw Trees (Background Layer)
+				if (seasonalTreesImg) {
+					// Select source X based on season
+					let srcX = 0;
+					if (weather.season === 'SUMMER') srcX = 256;
+					if (weather.season === 'FALL') srcX = 512;
+					if (weather.season === 'WINTER') srcX = 768;
+
+					bgTrees.forEach((tree) => {
+						const treeVisualY = -tree.y * PPM;
+						// Cull if off screen
+						if (
+							treeVisualY + camTransY < -500 ||
+							treeVisualY + camTransY > canvas.height + 500
+						)
+							return;
+
+						const w = 256 * tree.scale * 0.5; // Scale down a bit, 256 is huge
+						const h = 1024 * tree.scale * 0.5;
+
+						// Shadow
+						ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+						ctx.beginPath();
+						ctx.ellipse(
+							tree.x * PPM, // Center X
+							treeVisualY + 10, // Center Y (slightly below anchor)
+							w * 0.3, // Radius X
+							w * 0.1, // Radius Y (flattened)
+							0,
+							0,
+							Math.PI * 2
+						);
+						ctx.fill();
+
+						ctx.drawImage(
+							seasonalTreesImg,
+							srcX,
+							0,
+							256,
+							1024,
+							tree.x * PPM - w / 2,
+							treeVisualY - h + 20, // Anchor at bottom (approx)
+							w,
+							h
+						);
+					});
+				}
+
+				// Old Grass Strip (Removed/Replaced by Ground Color)
+				// ctx.fillStyle = '#14532d';
+				// ctx.fillRect(...);
 
 				// Asphalt
 				ctx.fillStyle = '#333';
@@ -1827,10 +1961,11 @@ const GameCanvas: React.FC = () => {
 							dealershipCars,
 							onBuyDealershipCar: buyDealershipCar,
 							onRefreshDealership: refreshDealership,
-							dailyShopItems,
 							onBuyShopItem: buyShopItem,
 							onRefreshDailyShop: refreshDailyShop,
 							onManualTuningChange,
+							settings,
+							setSettings,
 						}}
 					>
 						<GameMenu />

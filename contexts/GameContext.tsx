@@ -70,6 +70,12 @@ export interface GameContextType {
 	onBuyShopItem: (item: InventoryItem) => void;
 	onRefreshDailyShop: () => void;
 	onManualTuningChange: (tuning: Partial<TuningState>) => void;
+	settings: GameSettings;
+	setSettings: React.Dispatch<React.SetStateAction<GameSettings>>;
+}
+
+export interface GameSettings {
+	particles: boolean;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);

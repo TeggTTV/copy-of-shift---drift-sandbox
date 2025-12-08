@@ -78,6 +78,9 @@ export class MusicEngine {
 		],
 	]);
 
+	// Request deduplication
+	private loadingPromises: Map<string, Promise<void>> = new Map();
+
 	constructor() {}
 
 	async init() {
@@ -115,38 +118,74 @@ export class MusicEngine {
 		}
 
 		// Load all URL variants for this track
-		for (let i = 0; i < config.urls.length; i++) {
-			const url = config.urls[i];
+		const promises = config.urls.map(async (url, i) => {
 			const key = `${track}-${i}`;
 
-			try {
-				const response = await fetch(url);
-				if (!response.ok) {
-					// console.warn(
-					// 	`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
-					// );
-					continue; // Skip this variant, try next
-				}
-
-				const arrayBuffer = await response.arrayBuffer();
-				const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-				this.tracks.set(key, audioBuffer);
-				// console.log(`[MusicEngine] Loaded track: ${key}`);
-			} catch (error) {
-				// console.warn(
-				// 	`[MusicEngine] Error loading ${track} variant ${i}:`,
-				// 	error
-				// );
+			// 1. Check if already loaded
+			if (this.tracks.has(key)) {
+				return;
 			}
+
+			// 2. Check if currently loading (dedup)
+			if (this.loadingPromises.has(key)) {
+				await this.loadingPromises.get(key);
+				return;
+			}
+
+			// 3. Start loading
+			const loadPromise = (async () => {
+				try {
+					const response = await fetch(url);
+					if (!response.ok) {
+						// console.warn(
+						// 	`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
+						// );
+						throw new Error(`Failed to load ${url}`);
+					}
+
+					const arrayBuffer = await response.arrayBuffer();
+					if (this.ctx) {
+						const audioBuffer = await this.ctx.decodeAudioData(
+							arrayBuffer
+						);
+						this.tracks.set(key, audioBuffer);
+						// console.log(`[MusicEngine] Loaded track: ${key}`);
+					}
+				} catch (error) {
+					// console.warn(
+					// 	`[MusicEngine] Error loading ${track} variant ${i}:`,
+					// 	error
+					// );
+				}
+			})();
+
+			this.loadingPromises.set(key, loadPromise);
+
+			try {
+				await loadPromise;
+			} finally {
+				this.loadingPromises.delete(key);
+			}
+		});
+
+		await Promise.all(promises);
+	}
+
+	async loadTrackCategory(category: MusicTrack): Promise<void> {
+		if (
+			this.trackConfigs
+				.get(category)
+				?.urls.every((_, i) => this.tracks.has(`${category}-${i}`))
+		) {
+			return; // Already loaded
 		}
+		await this.loadTrack(category);
 	}
 
 	async loadAllTracks(): Promise<void> {
-		const loadPromises = Array.from(this.trackConfigs.keys()).map((track) =>
-			this.loadTrack(track)
-		);
-		await Promise.all(loadPromises);
-		// console.log('[MusicEngine] All tracks loaded');
+		// Only load menu tracks initially
+		await this.loadTrack('menu');
+		// console.log('[MusicEngine] Menu tracks loaded');
 	}
 
 	async play(track: MusicTrack, fadeInDuration: number = 1.0) {

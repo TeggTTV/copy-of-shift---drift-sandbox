@@ -12,6 +12,7 @@ import {
 	TuningState,
 	JunkyardCar,
 	Rival,
+	AuctionListing,
 } from '../types';
 import { MOD_TREE, BASE_TUNING } from '../constants';
 import MissionSelect from './menu/race/MissionSelect';
@@ -24,7 +25,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { TopBar } from './menu/shared/TopBar';
 import { LevelBadge } from './menu/shared/LevelBadge';
 import { Inventory } from './menu/inventory/Inventory';
-import { ShopHub } from './menu/shop/ShopHub';
+import { CrateShop } from './menu/shop/CrateShop'; // Import CrateShop
 
 import { AuctionHouse } from './menu/auction/AuctionHouse';
 import { Garage } from './menu/garage/Garage';
@@ -85,9 +86,16 @@ export const GameMenu = () => {
 
 	const { play } = useSound();
 	const [showSettings, setShowSettings] = useState(false);
+	const [activeListings, setActiveListings] = useState<AuctionListing[]>([]);
 
-	const handleBuyCrate = (crate: Crate) => {
-		// console.log('Bought crate', crate);
+	const handleBuyCrate = (crate: Crate, amount: number) => {
+		// Logic moved to CrateShop component generally, but we verify money there
+		if (money >= crate.price * amount) {
+			setMoney((prev) => prev - crate.price * amount);
+			play('purchase');
+		} else {
+			play('error');
+		}
 	};
 
 	const handleItemReveal = (item: InventoryItem) => {
@@ -204,6 +212,74 @@ export const GameMenu = () => {
 		);
 		showToast(`Repaired ${item.name} for $${cost}`, 'SUCCESS');
 	};
+
+	// Auction Logic
+	const handleListItem = (item: InventoryItem, price: number) => {
+		// 1. Remove from Inventory
+		setUserInventory((prev) =>
+			prev.filter((i) => i.instanceId !== item.instanceId)
+		);
+		// 2. Add to Listings
+		const newListing: AuctionListing = {
+			id: Math.random().toString(36).substr(2, 9),
+			item,
+			price,
+			listedAt: Date.now(),
+			status: 'ACTIVE',
+		};
+		setActiveListings((prev) => [...prev, newListing]);
+		showToast(
+			`Listed ${item.name} for $${price.toLocaleString()}`,
+			'SUCCESS'
+		);
+	};
+
+	const handleCancelListing = (listingId: string) => {
+		const listing = activeListings.find((l) => l.id === listingId);
+		if (!listing) return;
+
+		// 1. Remove from Listings
+		setActiveListings((prev) => prev.filter((l) => l.id !== listingId));
+		// 2. Return to Inventory
+		setUserInventory((prev) => [...prev, listing.item]);
+		showToast(`Listing cancelled`, 'INFO');
+	};
+
+	const handleCollectListing = (listingId: string) => {
+		const listing = activeListings.find((l) => l.id === listingId);
+		if (!listing || listing.status !== 'SOLD') return;
+
+		// 1. Remove from Listings
+		setActiveListings((prev) => prev.filter((l) => l.id !== listingId));
+		// 2. Add Money
+		setMoney((m) => m + listing.price);
+		showToast(`Collected $${listing.price.toLocaleString()}`, 'SUCCESS');
+	};
+
+	// Mock Auction Economy Loop
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setActiveListings((prev) => {
+				let changed = false;
+				const next = prev.map((listing) => {
+					if (listing.status !== 'ACTIVE') return listing;
+
+					// Simple chance to sell based on value vs price?
+					// For now, random 10% chance every 3 seconds per item
+					if (Math.random() < 0.1) {
+						changed = true;
+						return { ...listing, status: 'SOLD' as const };
+					}
+					return listing;
+				});
+				if (changed) {
+					// showToast('An item has sold!', 'SUCCESS'); // Maybe too spammy?
+				}
+				return changed ? next : prev;
+			});
+		}, 3000);
+		return () => clearInterval(interval);
+	}, []);
 
 	// Escape key navigation
 	useEffect(() => {
@@ -401,7 +477,20 @@ export const GameMenu = () => {
 						/>
 					)}
 
-					{phase === 'SHOP' && <ShopHub />}
+					{phase === 'SHOP' && (
+						<div className="absolute inset-0 z-10 bg-black/90 pt-16">
+							<CrateShop
+								money={money}
+								onBuyCrate={handleBuyCrate}
+								onItemReveal={(items) => {
+									setUserInventory((prev) => [
+										...prev,
+										...items,
+									]);
+								}}
+							/>
+						</div>
+					)}
 
 					{phase === 'AUCTION' && (
 						<div className="absolute inset-0 bg-neutral-900 flex flex-col z-50">
@@ -413,9 +502,12 @@ export const GameMenu = () => {
 							<div className="flex-1 overflow-hidden p-4">
 								<AuctionHouse
 									inventory={userInventory}
-									onSellItem={handleSellItem}
+									onSellItem={handleListItem}
 									money={money}
 									onBuyItem={handleBuyItem}
+									listings={activeListings}
+									onCancelListing={handleCancelListing}
+									onCollectListing={handleCollectListing}
 									playerTuning={effectiveTuning}
 									ownedMods={[]}
 								/>

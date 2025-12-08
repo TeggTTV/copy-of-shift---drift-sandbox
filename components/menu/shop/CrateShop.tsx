@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CRATES, ItemGenerator } from '@/utils/ItemGenerator';
 import { Crate, InventoryItem } from '@/types';
+import { ItemCard } from '@/components/ui/ItemCard';
 
 interface CrateShopProps {
 	money: number;
@@ -15,153 +16,405 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 }) => {
 	const [openingCrate, setOpeningCrate] = useState<Crate | null>(null);
 	const [revealedItems, setRevealedItems] = useState<InventoryItem[]>([]);
-	const [openingAmount, setOpeningAmount] = useState(1);
-	const [isAnimating, setIsAnimating] = useState(false);
+	const [buyAmount, setBuyAmount] = useState(1);
+	const [revealedCount, setRevealedCount] = useState(0);
+	const [autoOpen, setAutoOpen] = useState(false);
 
-	const handleBuy = (crate: Crate, amount: number) => {
-		if (money < crate.price * amount) return;
+	const autoOpenInterval = useRef<NodeJS.Timeout | null>(null);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-		setOpeningCrate(crate);
-		setOpeningAmount(amount);
-		setIsAnimating(true);
-		onBuyCrate(crate, amount);
+	// Tooltip State
+	const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
+	const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-		// Simulate animation delay
-		setTimeout(() => {
+	const handleMouseMove = (e: React.MouseEvent) => {
+		setMousePos({ x: e.clientX, y: e.clientY });
+	};
+
+	// Stop auto-open if money runs out
+	useEffect(() => {
+		if (autoOpen && !openingCrate) {
+			// Find random crate or just stop? Let's just stop if no context.
+			// Ideally auto-open should target a specific crate.
+			// For simplicity, let's make the "Auto Open" toggle global but it only acts when a crate is selected?
+			// Actually, better UI: "Auto Open" toggle on each crate card? Or a global toggle that affects the "Buy" button behavior?
+			// Let's do: Global switch "DEV: AUTO-OPEN". If ON, clicking "Buy" starts a loop.
+		}
+	}, [money, autoOpen]);
+
+	useEffect(() => {
+		return () => {
+			if (autoOpenInterval.current)
+				clearInterval(autoOpenInterval.current);
+		};
+	}, []);
+
+	const handleBuy = (crate: Crate) => {
+		if (money < crate.price * buyAmount) return;
+
+		// If Auto-Open is enabled, start the loop
+		if (autoOpen) {
+			if (autoOpenInterval.current) {
+				clearInterval(autoOpenInterval.current);
+				autoOpenInterval.current = null;
+				return; // Toggle off if clicking again?
+			}
+
+			autoOpenInterval.current = setInterval(() => {
+				// Stop if out of money
+				if (moneyRef.current < crate.price * buyAmount) {
+					if (autoOpenInterval.current)
+						clearInterval(autoOpenInterval.current);
+					autoOpenInterval.current = null;
+					return;
+				}
+
+				// Instant buy, skip animation screen
+				onBuyCrate(crate, buyAmount);
+
+				// Generate items instantly
+				const newItems: InventoryItem[] = [];
+				for (let i = 0; i < buyAmount; i++) {
+					newItems.push(ItemGenerator.openCrate(crate));
+				}
+				onItemReveal(newItems);
+			}, 200);
+		} else {
+			// Normal Buy (with staggered animation)
 			const newItems: InventoryItem[] = [];
-			for (let i = 0; i < amount; i++) {
+			for (let i = 0; i < buyAmount; i++) {
 				newItems.push(ItemGenerator.openCrate(crate));
 			}
-			setRevealedItems(newItems);
+
+			// Deduct money & Grant items immediately
+			onBuyCrate(crate, buyAmount);
 			onItemReveal(newItems);
-			setIsAnimating(false);
-		}, 2000);
+
+			// Start Animation
+			setRevealedItems(newItems);
+			setRevealedCount(0);
+			setOpeningCrate(crate);
+		}
+	};
+
+	// Staggered Reveal Effect
+	// Staggered Reveal Effect
+	useEffect(() => {
+		if (!openingCrate || revealedCount >= revealedItems.length || autoOpen)
+			return;
+
+		// Fixed 1s delay per user request
+		const delay = 500;
+
+		const timer = setTimeout(() => {
+			setRevealedCount((prev) => prev + 1);
+		}, delay);
+
+		return () => clearTimeout(timer);
+	}, [revealedCount, openingCrate, revealedItems.length, autoOpen]);
+
+	// Auto-scroll effect
+	useEffect(() => {
+		if (scrollContainerRef.current) {
+			const activeElement = document.getElementById(
+				`crate-slot-${revealedCount}`
+			);
+			if (activeElement) {
+				activeElement.scrollIntoView({
+					behavior: 'smooth',
+					block: 'center',
+				});
+			}
+		}
+	}, [revealedCount]);
+
+	// Ref to track money for the auto-buyer interval
+	const moneyRef = useRef(money);
+	useEffect(() => {
+		moneyRef.current = money;
+	}, [money]);
+
+	const toggleAutoOpenLoop = (crate: Crate) => {
+		if (autoOpenInterval.current) {
+			clearInterval(autoOpenInterval.current);
+			autoOpenInterval.current = null;
+			return; // Stop
+		}
+
+		autoOpenInterval.current = setInterval(() => {
+			if (moneyRef.current < crate.price * buyAmount) {
+				if (autoOpenInterval.current)
+					clearInterval(autoOpenInterval.current);
+				autoOpenInterval.current = null;
+				return;
+			}
+
+			// Instant buy, skip animation screen
+			onBuyCrate(crate, buyAmount);
+
+			// Generate items instantly
+			const newItems: InventoryItem[] = [];
+			for (let i = 0; i < buyAmount; i++) {
+				newItems.push(ItemGenerator.openCrate(crate));
+			}
+			onItemReveal(newItems);
+		}, 200);
 	};
 
 	const closeReveal = () => {
 		setOpeningCrate(null);
 		setRevealedItems([]);
-		setIsAnimating(false);
+		setRevealedCount(0);
 	};
 
-	if (openingCrate) {
+	// Tileset Colors/Styles based on crate type/name keyword
+	// Mapping to sprite index (0-5)
+	const getCrateSpriteIndex = (crate: Crate) => {
+		if (crate.id === 'crate_basic') return 0; // Common (Gray)
+		if (crate.id === 'crate_standard') return 1; // Uncommon (Green)
+		if (crate.id === 'crate_premium') return 2; // Rare (Blue)
+		if (crate.id === 'crate_legendary') return 4; // Legendary (Gold) - skip Epic for now?
+		// Fallback
+		if (crate.name.includes('Basic')) return 0;
+		if (crate.name.includes('Standard')) return 1;
+		if (crate.name.includes('Premium')) return 2;
+		if (crate.name.includes('Elite')) return 3;
+		if (crate.name.includes('Legendary')) return 4;
+		if (crate.name.includes('Exotic')) return 5;
+		return 0;
+	};
+
+	const [cratesImg, setCratesImg] = useState<HTMLImageElement | null>(null);
+	useEffect(() => {
+		const img = new Image();
+		img.src = '/crates_tileset.png';
+		img.onload = () => setCratesImg(img);
+	}, []);
+
+	if (openingCrate && !autoOpen) {
 		return (
-			<div className="w-full h-full flex flex-col items-center justify-center bg-black/95 absolute inset-0 z-50 p-8 font-pixel">
-				{isAnimating ? (
-					<div className="flex flex-col items-center animate-pulse">
-						<div className="flex gap-4">
-							{Array.from({ length: openingAmount }).map(
-								(_, i) => (
-									<div
-										key={i}
-										className="w-32 h-32 bg-yellow-900/50 border-2 border-yellow-600 rounded-lg shadow-[0_0_30px_rgba(234,179,8,0.2)] flex items-center justify-center animate-bounce"
-										style={{
-											animationDelay: `${i * 0.1}s`,
-										}}
-									>
-										<span className="text-4xl">📦</span>
-									</div>
-								)
-							)}
-						</div>
-						<div className="text-2xl font-bold text-white pixel-text mt-8">
-							OPENING {openingCrate.name} (x{openingAmount})...
-						</div>
+			<div
+				className="w-full h-full flex flex-col items-center justify-center bg-black/95 absolute inset-0 z-50 p-8 font-pixel overflow-y-auto"
+				onMouseMove={handleMouseMove}
+			>
+				<div className="flex flex-col items-center animate-in zoom-in duration-300 w-full max-w-6xl my-auto">
+					<div className="text-yellow-400 font-bold text-3xl mb-8 pixel-text flex items-center gap-4">
+						{revealedCount < revealedItems.length ? (
+							<span className="animate-pulse">
+								OPENING CRATES... ({revealedCount}/
+								{revealedItems.length})
+							</span>
+						) : (
+							<span>ITEMS ACQUIRED!</span>
+						)}
 					</div>
-				) : (
-					<div className="flex flex-col items-center animate-in zoom-in duration-300 w-full max-w-6xl">
-						<div className="text-yellow-400 font-bold text-2xl mb-8 pixel-text">
-							ITEMS ACQUIRED!
-						</div>
 
-						<div className="flex flex-wrap justify-center gap-6 mb-8 w-full">
-							{revealedItems.map((item, idx) => (
-								<div
-									key={idx}
-									className="bg-gray-900 border-4 rounded-lg flex flex-col items-center p-4 shadow-2xl relative w-64 group"
-									style={{
-										borderColor:
-											ItemGenerator.getRarityColor(
-												item.rarity
-											),
-										boxShadow: `0 0 20px ${ItemGenerator.getRarityColor(
-											item.rarity
-										)}40`,
-									}}
-								>
-									{/* <div className="text-4xl mb-2">
-										{item.rarity === 'LEGENDARY'
-											? '🌟'
-											: item.rarity === 'EPIC'
-											? '🟣'
-											: item.rarity === 'RARE'
-											? '🔵'
-											: item.rarity === 'UNCOMMON'
-											? '🟢'
-											: '⚪'}
-									</div> */}
+					<div
+						ref={scrollContainerRef}
+						className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8 w-full max-h-[60vh] overflow-y-auto pr-2 rounded p-4 bg-gray-900/50 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+					>
+						{revealedItems.map((item, idx) => {
+							const isRevealed = idx < revealedCount;
+
+							if (!isRevealed) {
+								// Unrevealed Crate
+								const isCurrent = idx === revealedCount;
+								return (
 									<div
-										className="text-lg font-bold text-center mb-1 break-words w-full px-2 leading-tight"
-										style={{
-											color: ItemGenerator.getRarityColor(
-												item.rarity
-											),
-										}}
+										id={`crate-slot-${idx}`}
+										key={idx}
+										className="w-full aspect-square flex items-center justify-center bg-gray-800 rounded border-2 border-gray-700"
 									>
-										{item.name}
+										<div
+											className={`pixel-art opacity-80 ${
+												isCurrent
+													? 'animate-bounce'
+													: ''
+											}`}
+											style={{
+												width: 64 * 2,
+												height: 64 * 2,
+												backgroundImage:
+													'url(/crates_tileset.png)',
+												backgroundPosition: `-${
+													getCrateSpriteIndex(
+														openingCrate
+													) *
+													64 *
+													2
+												}px 0px`,
+												backgroundSize: `${384 * 2}px ${
+													64 * 2
+												}px`,
+												imageRendering: 'pixelated',
+											}}
+										/>
 									</div>
-									<div className="text-gray-500 text-[10px] mb-3 uppercase">
-										{item.rarity} {item.type}
-									</div>
+								);
+							}
 
-									<div className="w-full bg-black/50 rounded p-2 text-xs space-y-1">
-										{Object.entries(item.stats).map(
-											([key, val]) => {
-												if (typeof val !== 'number')
-													return null;
-												return (
-													<div
-														key={key}
-														className="flex justify-between text-gray-400"
-													>
-														<span className="capitalize">
-															{key
-																.replace(
-																	/([A-Z]+)([A-Z][a-z])/g,
-																	'$1 $2'
-																)
-																.replace(
-																	/([a-z\d])([A-Z])/g,
-																	'$1 $2'
-																)}
-														</span>
-														<span className="text-white font-mono">
-															{val.toString()[0] ==
-															'-'
-																? val
-																: '+' + val}
-														</span>
-													</div>
-												);
-											}
-										)}
-										{Object.keys(item.stats).length ===
-											0 && (
-											<div className="text-gray-600 italic text-center">
-												No stats
-											</div>
-										)}
-									</div>
+							return (
+								<div
+									id={`crate-slot-${idx}`}
+									key={idx}
+									className="flex flex-col gap-2 items-center animate-in fade-in zoom-in duration-1000"
+								>
+									<ItemCard
+										item={item}
+										className="w-full"
+										showCondition={true}
+										onMouseEnter={() =>
+											setHoveredItem(item)
+										}
+										onMouseLeave={() =>
+											setHoveredItem(null)
+										}
+									/>
 								</div>
-							))}
-						</div>
+							);
+						})}
+					</div>
 
+					{revealedCount >= revealedItems.length && (
 						<button
 							onClick={closeReveal}
-							className="px-12 py-4 bg-blue-600 text-white font-bold rounded hover:bg-blue-500 pixel-text text-xl shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1"
+							className="px-12 py-4 bg-blue-600 text-white font-bold rounded hover:bg-blue-500 pixel-text text-xl shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 animate-in fade-in slide-in-from-bottom-4"
 						>
 							CONTINUE TO SHOP
 						</button>
+					)}
+				</div>
+
+				{hoveredItem && (
+					<div
+						className="fixed z-[200] w-80 bg-black/95 border-2 p-5 rounded-lg shadow-2xl pointer-events-none animate-in fade-in duration-75"
+						style={{
+							left:
+								mousePos.x + 280 > window.innerWidth
+									? mousePos.x - 270
+									: mousePos.x + 15,
+							top:
+								mousePos.y + 400 > window.innerHeight
+									? undefined
+									: mousePos.y + 15,
+							bottom:
+								mousePos.y + 400 > window.innerHeight
+									? window.innerHeight - mousePos.y + 15
+									: undefined,
+							borderColor: ItemGenerator.getRarityColor(
+								hoveredItem.rarity
+							),
+						}}
+					>
+						<div
+							className="text-xl font-bold pixel-text mb-2 tracking-wide"
+							style={{
+								color: ItemGenerator.getRarityColor(
+									hoveredItem.rarity
+								),
+							}}
+						>
+							{hoveredItem.name}
+						</div>
+						<div className="text-xs font-bold uppercase tracking-widest mb-3 text-gray-400">
+							{hoveredItem.rarity} {hoveredItem.type} Part
+						</div>
+
+						<p className="text-sm text-gray-200 mb-4 leading-relaxed border-b border-gray-700 pb-3 font-medium">
+							{hoveredItem.description}
+						</p>
+
+						<div className="space-y-1">
+							{Object.entries(hoveredItem.stats).map(
+								([key, val]: [string, any]) => {
+									if (typeof val === 'object') return null;
+
+									const degradableStats = [
+										'maxTorque',
+										'tireGrip',
+										'brakingForce',
+										'turboIntensity',
+										'dragCoefficient',
+									];
+									const isDegradable =
+										degradableStats.includes(key);
+									const rawCondition =
+										hoveredItem.condition ?? 100;
+									const conditionFactor =
+										rawCondition > 1
+											? rawCondition / 100
+											: rawCondition;
+
+									let displayVal = val;
+									let penaltyText = null;
+
+									if (
+										isDegradable &&
+										conditionFactor < 1 &&
+										typeof val === 'number'
+									) {
+										displayVal = val * conditionFactor;
+										// Round logic: integer for large numbers, decimals for small
+										if (Math.abs(displayVal) >= 10) {
+											displayVal = Math.round(displayVal);
+										} else {
+											displayVal = parseFloat(
+												displayVal.toFixed(2)
+											);
+										}
+
+										const lostPercent = Math.round(
+											(1 - conditionFactor) * 100
+										);
+										if (lostPercent > 0)
+											penaltyText = `(-${lostPercent}%)`;
+									}
+
+									return (
+										<div
+											key={key}
+											className="flex justify-between text-sm font-mono py-0.5"
+										>
+											<span className="text-gray-400 capitalize">
+												{key
+													.replace(
+														/([A-Z]+)([A-Z][a-z])/g,
+														'$1 $2'
+													)
+													.replace(
+														/([a-z\d])([A-Z])/g,
+														'$1 $2'
+													)}
+											</span>
+											<div className="flex gap-2">
+												<span className="text-cyan-400">
+													{typeof displayVal ===
+														'number' &&
+													displayVal > 0
+														? '+'
+														: ''}
+													{typeof displayVal ===
+													'number'
+														? displayVal.toFixed(2)
+														: displayVal}
+												</span>
+												{penaltyText && (
+													<span className="text-red-500">
+														{penaltyText}
+													</span>
+												)}
+											</div>
+										</div>
+									);
+								}
+							)}
+						</div>
+						<div className="mt-4 pt-3 border-t border-gray-700 flex justify-between text-sm font-bold font-mono">
+							<span className="text-gray-500">Value</span>
+							<span className="text-green-400">
+								${hoveredItem.value.toLocaleString()}
+							</span>
+						</div>
 					</div>
 				)}
 			</div>
@@ -169,108 +422,389 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 	}
 
 	return (
-		<div className="w-full h-full p-4 overflow-y-auto font-pixel">
-			<div className="flex justify-center mb-8">
-				<div className="text-center">
-					<h2 className="text-3xl font-bold text-white pixel-text mb-2">
-						SUPPLY CRATES
+		<div
+			className="w-full h-full p-6 overflow-y-auto font-pixel bg-neutral-900"
+			onMouseMove={handleMouseMove}
+		>
+			{/* Header */}
+			<div className="flex justify-between items-end mb-8 border-b-2 border-gray-800 pb-4">
+				<div>
+					<h2 className="text-4xl font-bold text-white pixel-text mb-2 tracking-wide">
+						SUPPLY CENTER
 					</h2>
 					<p className="text-gray-400 text-sm">
-						Purchase randomized parts for your build.
+						Acquire parts for your build.
 					</p>
 				</div>
-			</div>
 
-			<div className="grid grid-cols-1 gap-6 max-w-5xl mx-auto">
-				{CRATES.map((crate) => (
-					<div
-						key={crate.id}
-						className="bg-gray-900 border border-gray-700 rounded-xl p-6 flex flex-col md:flex-row gap-6 hover:border-gray-500 transition-all group relative overflow-hidden"
-					>
-						{/* Crate Visual */}
-						<div className="bg-black/40 p-6 rounded-lg flex items-center justify-center border border-gray-800 w-full md:w-48 aspect-square shrink-0">
-							<span className="text-7xl group-hover:scale-110 transition-transform">
-								📦
-							</span>
-						</div>
+				<div className="flex flex-col items-end gap-2">
+					<div className="flex items-center gap-4 bg-black/40 p-2 rounded border border-gray-700">
+						<span className="text-gray-400 text-xs uppercase font-bold">
+							Quantity: {buyAmount}
+						</span>
+						<input
+							type="range"
+							min="1"
+							max="50"
+							value={buyAmount}
+							onChange={(e) =>
+								setBuyAmount(parseInt(e.target.value))
+							}
+							className="w-32 accent-indigo-500 cursor-pointer"
+						/>
+					</div>
 
-						{/* Info */}
-						<div className="flex-1 flex flex-col">
-							<h3 className="text-2xl font-bold text-white mb-2">
-								{crate.name}
-							</h3>
-							<p className="text-gray-400 text-sm mb-4 h-10">
-								{crate.description}
+					{hoveredItem && (
+						<div
+							className="fixed z-[200] w-80 bg-black/95 border-2 p-5 rounded-lg shadow-2xl pointer-events-none animate-in fade-in duration-75"
+							style={{
+								left:
+									mousePos.x + 280 > window.innerWidth
+										? mousePos.x - 270
+										: mousePos.x + 15,
+								top:
+									mousePos.y + 400 > window.innerHeight
+										? undefined
+										: mousePos.y + 15,
+								bottom:
+									mousePos.y + 400 > window.innerHeight
+										? window.innerHeight - mousePos.y + 15
+										: undefined,
+								borderColor: ItemGenerator.getRarityColor(
+									hoveredItem.rarity
+								),
+							}}
+						>
+							<div
+								className="text-xl font-bold pixel-text mb-2 tracking-wide"
+								style={{
+									color: ItemGenerator.getRarityColor(
+										hoveredItem.rarity
+									),
+								}}
+							>
+								{hoveredItem.name}
+							</div>
+							<div className="text-xs font-bold uppercase tracking-widest mb-3 text-gray-400">
+								{hoveredItem.rarity} {hoveredItem.type} Part
+							</div>
+
+							<p className="text-sm text-gray-200 mb-4 leading-relaxed border-b border-gray-700 pb-3 font-medium">
+								{hoveredItem.description}
 							</p>
 
-							{/* Probabilities */}
-							<div className="flex gap-4 mb-4 text-xs font-mono bg-black/20 p-2 rounded w-fit">
-								{Object.entries(crate.dropRates).map(
-									([rarity, rate]) => {
-										if (rate === 0) return null;
-										const color =
-											ItemGenerator.getRarityColor(
-												rarity as any
+							<div className="space-y-1">
+								{Object.entries(hoveredItem.stats).map(
+									([key, val]: [string, any]) => {
+										if (typeof val === 'object')
+											return null;
+
+										const degradableStats = [
+											'maxTorque',
+											'tireGrip',
+											'brakingForce',
+											'turboIntensity',
+											'dragCoefficient',
+										];
+										const isDegradable =
+											degradableStats.includes(key);
+										const rawCondition =
+											hoveredItem.condition ?? 100;
+										const conditionFactor =
+											rawCondition > 1
+												? rawCondition / 100
+												: rawCondition;
+
+										let displayVal = val;
+										let penaltyText = null;
+
+										if (
+											isDegradable &&
+											conditionFactor < 1 &&
+											typeof val === 'number'
+										) {
+											displayVal = val * conditionFactor;
+											// Round logic: integer for large numbers, decimals for small
+											if (Math.abs(displayVal) >= 10) {
+												displayVal =
+													Math.round(displayVal);
+											} else {
+												displayVal = parseFloat(
+													displayVal.toFixed(2)
+												);
+											}
+
+											const lostPercent = Math.round(
+												(1 - conditionFactor) * 100
 											);
+											if (lostPercent > 0)
+												penaltyText = `(-${lostPercent}%)`;
+										}
+
 										return (
 											<div
-												key={rarity}
-												style={{ color }}
-												className="flex flex-col items-center px-2 border-r border-gray-800 last:border-0"
+												key={key}
+												className="flex justify-between text-sm font-mono py-0.5"
 											>
-												<span className="font-bold">
-													{(rate * 100).toFixed(0)}%
+												<span className="text-gray-400 capitalize">
+													{key
+														.replace(
+															/([A-Z]+)([A-Z][a-z])/g,
+															'$1 $2'
+														)
+														.replace(
+															/([a-z\d])([A-Z])/g,
+															'$1 $2'
+														)}
 												</span>
-												<span className="opacity-70 text-[10px]">
-													{rarity.slice(0, 3)}
-												</span>
+												<div className="flex gap-2">
+													<span className="text-cyan-400">
+														{typeof displayVal ===
+															'number' &&
+														displayVal > 0
+															? '+'
+															: ''}
+														{typeof displayVal ===
+														'number'
+															? displayVal.toFixed(
+																	2
+															  )
+															: displayVal}
+													</span>
+													{penaltyText && (
+														<span className="text-red-500">
+															{penaltyText}
+														</span>
+													)}
+												</div>
 											</div>
 										);
 									}
 								)}
 							</div>
-
-							{/* Buttons */}
-							<div className="mt-auto flex gap-4">
-								<button
-									onClick={() => handleBuy(crate, 1)}
-									disabled={money < crate.price}
-									className={`
-                                        flex-1 py-3 px-4 font-bold rounded pixel-text transition-colors flex items-center justify-center gap-2
-                                        ${
-											money >= crate.price
-												? 'bg-green-700 hover:bg-green-600 text-white border-b-4 border-green-900 active:border-b-0 active:translate-y-1'
-												: 'bg-gray-800 text-gray-500 cursor-not-allowed'
-										}
-                                    `}
-								>
-									<span>BUY 1</span>
-									<span className="text-green-300 font-mono text-sm bg-black/30 px-2 rounded">
-										${crate.price.toLocaleString()}
-									</span>
-								</button>
-
-								<button
-									onClick={() => handleBuy(crate, 5)}
-									disabled={money < crate.price * 5}
-									className={`
-                                        flex-1 py-3 px-4 font-bold rounded pixel-text transition-colors flex items-center justify-center gap-2
-                                        ${
-											money >= crate.price * 5
-												? 'bg-indigo-700 hover:bg-indigo-600 text-white border-b-4 border-indigo-900 active:border-b-0 active:translate-y-1'
-												: 'bg-gray-800 text-gray-500 cursor-not-allowed'
-										}
-                                    `}
-								>
-									<span>BUY 5</span>
-									<span className="text-indigo-300 font-mono text-sm bg-black/30 px-2 rounded min-w-[60px] text-center">
-										${(crate.price * 5).toLocaleString()}
-									</span>
-								</button>
+							<div className="mt-4 pt-3 border-t border-gray-700 flex justify-between text-sm font-bold font-mono">
+								<span className="text-gray-500">Value</span>
+								<span className="text-green-400">
+									${hoveredItem.value.toLocaleString()}
+								</span>
 							</div>
 						</div>
-					</div>
-				))}
+					)}
+
+					<label className="flex items-center gap-2 cursor-pointer group">
+						<span
+							className={`text-xs font-bold transition-colors ${
+								autoOpen
+									? 'text-red-400'
+									: 'text-gray-500 group-hover:text-gray-300'
+							}`}
+						>
+							DEV: AUTO-OPEN
+						</span>
+						<div
+							className={`w-10 h-5 rounded-full p-0.5 transition-colors border-2 ${
+								autoOpen
+									? 'bg-red-900 border-red-600'
+									: 'bg-gray-800 border-gray-600'
+							}`}
+							onClick={() => setAutoOpen(!autoOpen)}
+						>
+							<div
+								className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${
+									autoOpen ? 'translate-x-[18px]' : ''
+								}`}
+							/>
+						</div>
+					</label>
+				</div>
+			</div>
+
+			<div className="grid grid-cols-1 gap-6 max-w-6xl mx-auto pb-20">
+				{CRATES.map((crate) => {
+					return (
+						<div
+							key={crate.id}
+							className={`relative overflow-hidden rounded-xl border-2 transition-all group hover:border-white ${
+								getCrateSpriteIndex(crate) === 0
+									? 'bg-gray-900/60 border-gray-700'
+									: getCrateSpriteIndex(crate) === 1
+									? 'bg-green-900/40 border-green-800'
+									: getCrateSpriteIndex(crate) === 2
+									? 'bg-blue-900/40 border-blue-800'
+									: getCrateSpriteIndex(crate) === 3
+									? 'bg-purple-900/40 border-purple-800'
+									: getCrateSpriteIndex(crate) === 4
+									? 'bg-yellow-900/40 border-yellow-800'
+									: 'bg-pink-900/40 border-pink-800'
+							}`}
+						>
+							<div
+								className="absolute top-0 right-0 p-4 opacity-10 font-bold select-none pointer-events-none"
+								style={{
+									width: 64 * 3,
+									height: 64 * 3,
+									backgroundImage: 'url(/crates_tileset.png)',
+									backgroundPosition: `-${
+										getCrateSpriteIndex(crate) * 64 * 3
+									}px 0px`,
+									backgroundSize: `${384 * 3}px ${64 * 3}px`,
+									imageRendering: 'pixelated',
+								}}
+							/>
+
+							<div className="p-6 relative z-10 flex flex-col md:flex-row gap-6 items-center">
+								{/* Left: Icon & Name */}
+								<div className="flex flex-col items-center md:items-start text-center md:text-left min-w-[150px]">
+									<div
+										className="mb-4 drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300 pixel-art"
+										style={{
+											width: 64 * 1.5,
+											height: 64 * 1.5,
+											backgroundImage:
+												'url(/crates_tileset.png)',
+											backgroundPosition: `-${
+												getCrateSpriteIndex(crate) *
+												64 *
+												1.5
+											}px 0px`,
+											backgroundSize: `${384 * 1.5}px ${
+												64 * 1.5
+											}px`,
+											imageRendering: 'pixelated',
+										}}
+									/>
+									<h3
+										className={`text-2xl font-bold mb-1 ${
+											getCrateSpriteIndex(crate) === 0
+												? 'text-gray-400'
+												: getCrateSpriteIndex(crate) ===
+												  1
+												? 'text-green-400'
+												: getCrateSpriteIndex(crate) ===
+												  2
+												? 'text-blue-400'
+												: getCrateSpriteIndex(crate) ===
+												  3
+												? 'text-purple-400'
+												: getCrateSpriteIndex(crate) ===
+												  4
+												? 'text-yellow-400'
+												: 'text-pink-400'
+										}`}
+									>
+										{crate.name}
+									</h3>
+									<div className="text-white font-mono bg-black/50 px-3 py-1 rounded text-lg">
+										${crate.price.toLocaleString()}
+										<span className="text-xs text-gray-500 ml-1">
+											ea
+										</span>
+									</div>
+								</div>
+
+								{/* Middle: Drops */}
+								<div className="flex-1 w-full">
+									<div className="flex flex-wrap gap-2 justify-center md:justify-start">
+										{Object.entries(crate.dropRates).map(
+											([rarity, rate]) => {
+												if (rate <= 0) return null;
+												const rColor =
+													ItemGenerator.getRarityColor(
+														rarity as any
+													);
+												return (
+													<div
+														key={rarity}
+														className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded border border-white/5"
+														title={rarity}
+													>
+														<div
+															className="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]"
+															style={{
+																backgroundColor:
+																	rColor,
+																color: rColor,
+															}}
+														/>
+														<div className="flex flex-col leading-none">
+															<span className="text-sm font-bold text-white">
+																{(
+																	rate * 100
+																).toFixed(0)}
+																%
+															</span>
+															<span
+																className="text-[10px] opacity-60 uppercase"
+																style={{
+																	color: rColor,
+																}}
+															>
+																{rarity}
+															</span>
+														</div>
+													</div>
+												);
+											}
+										)}
+									</div>
+
+									<p className="text-gray-400 text-xs mt-4 leading-relaxed max-w-md">
+										{crate.description}
+									</p>
+								</div>
+
+								{/* Right: Action */}
+								<div className="flex flex-col items-stretch gap-2 min-w-[160px]">
+									<button
+										onClick={() =>
+											autoOpen
+												? toggleAutoOpenLoop(crate)
+												: handleBuy(crate)
+										}
+										disabled={
+											!autoOpen &&
+											money < crate.price * buyAmount
+										}
+										className={`
+											relative py-4 px-6 font-bold rounded pixel-text text-xl shadow-xl transition-all
+											flex items-center justify-center gap-2
+											${
+												autoOpen
+													? 'bg-red-700 hover:bg-red-600 text-white border-b-4 border-red-900 animate-pulse'
+													: money >=
+													  crate.price * buyAmount
+													? 'bg-blue-600 hover:bg-blue-500 text-white border-b-4 border-blue-800 active:border-b-0 active:translate-y-1'
+													: 'bg-gray-700 text-gray-500 border-b-4 border-gray-800 cursor-not-allowed opacity-50'
+											}
+										`}
+									>
+										{autoOpen
+											? autoOpenInterval.current
+												? 'STOP LOOP'
+												: 'START LOOP'
+											: `BUY x${buyAmount}`}
+									</button>
+
+									<div className="text-center text-xs font-mono text-gray-500">
+										Total:{' '}
+										<span
+											className={
+												money >= crate.price * buyAmount
+													? 'text-white'
+													: 'text-red-500'
+											}
+										>
+											$
+											{(
+												crate.price * buyAmount
+											).toLocaleString()}
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					);
+				})}
 			</div>
 		</div>
 	);

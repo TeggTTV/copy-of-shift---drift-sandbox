@@ -275,7 +275,18 @@ export type ToastType =
 	| 'ERROR'
 	| 'SUCCESS';
 
+export type Season = 'SPRING' | 'SUMMER' | 'FALL' | 'WINTER';
+
 export interface WeatherState {
 	type: 'SUNNY' | 'RAIN';
 	intensity: number; // 0-1
+	season: Season;
+}
+
+export interface AuctionListing {
+	id: string;
+	item: InventoryItem;
+	price: number;
+	listedAt: number;
+	status: 'ACTIVE' | 'SOLD' | 'EXPIRED';
 }

@@ -10,6 +10,9 @@ interface AuctionHouseProps {
 	onSellItem: (item: InventoryItem, price: number) => void;
 	money: number;
 	onBuyItem: (item: InventoryItem, price: number) => void;
+	listings: import('@/types').AuctionListing[];
+	onCancelListing: (id: string) => void;
+	onCollectListing: (id: string) => void;
 	playerTuning: TuningState;
 	ownedMods: string[];
 }
@@ -19,6 +22,9 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 	onSellItem,
 	money,
 	onBuyItem,
+	listings,
+	onCancelListing,
+	onCollectListing,
 	playerTuning,
 	ownedMods,
 }) => {
@@ -273,7 +279,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 						</div>
 					</div>
 					<div
-						className="flex-1 bg-gray-900/80 rounded-lg p-3 grid gap-3 overflow-y-auto content-start border border-gray-700"
+						className="flex-1 overflow-hidden bg-gray-900/80 rounded-lg p-3 grid gap-2 content-start border border-gray-700"
 						style={{
 							gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
 						}}
@@ -431,110 +437,118 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 				{/* DIVIDER */}
 				<div className="h-px bg-gray-700 w-full" />
 
-				{/* BOTTOM HALF: SELL (INVENTORY) */}
-				<div className="flex-1 flex flex-col gap-2 min-h-0">
-					<div className="flex justify-between items-center px-1">
-						<div className="text-xs font-bold text-green-500 tracking-widest">
-							YOUR INVENTORY
+				{/* BOTTOM HALF: SPLIT VIEW (INVENTORY + LISTINGS) */}
+				<div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+					{/* LEFT: INVENTORY (LIST ITEM) */}
+					<div className="flex flex-col gap-2 min-h-0">
+						<div className="flex justify-between items-center px-1">
+							<div className="text-xs font-bold text-green-500 tracking-widest">
+								YOUR INVENTORY
+							</div>
+							<div className="text-xs text-gray-500">
+								Select to List
+							</div>
 						</div>
-						<div className="text-xs text-gray-500">
-							Select to Sell
+						<div
+							className="flex-1 bg-gray-900/80 rounded-lg p-3 grid gap-3 overflow-y-auto content-start border border-gray-700 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+							style={{
+								gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
+							}}
+						>
+							{inventory.map((item) => (
+								<ItemCard
+									key={item.instanceId}
+									item={item}
+									onClick={(e) =>
+										item && setSelectedSellItem(item)
+									}
+									onMouseEnter={() =>
+										item && setHoveredMarketItem(item)
+									}
+									onMouseLeave={() =>
+										setHoveredMarketItem(null)
+									}
+								/>
+							))}
+							{inventory.length === 0 && (
+								<div className="col-span-full text-center text-gray-500 py-10">
+									Inventory Empty
+								</div>
+							)}
 						</div>
 					</div>
-					<div
-						className="flex-1 bg-gray-900/80 rounded-lg p-3 grid gap-3 overflow-y-auto content-start border border-gray-700"
-						style={{
-							gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
-						}}
-					>
-						{inventory.map((item) => (
-							// <div
-							// 	key={item.instanceId}
-							// 	onClick={() => handleSelectSellItem(item)}
-							// 	onMouseEnter={() => setHoveredMarketItem(item)}
-							// 	onMouseLeave={() => setHoveredMarketItem(null)}
-							// 	className={`
-							//             relative group cursor-pointer bg-gray-800 border-2 rounded p-2 flex flex-col gap-1 transition-all h-28
-							//             ${
-							// 				selectedSellItem?.instanceId ===
-							// 				item.instanceId
-							// 					? 'border-yellow-500 bg-gray-700 ring-2 ring-yellow-500/50'
-							// 					: 'border-gray-700 hover:border-gray-500 hover:-translate-y-1'
-							// 			}
-							//         `}
-							// 	style={{
-							// 		borderColor:
-							// 			selectedSellItem?.instanceId ===
-							// 			item.instanceId
-							// 				? undefined
-							// 				: ItemGenerator.getRarityColor(
-							// 						item.rarity
-							// 				  ),
-							// 	}}
-							// >
-							// 	<div className="flex justify-between items-start pointer-events-none">
-							// 		<div
-							// 			className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20 overflow-hidden relative"
-							// 			style={{ borderColor: 'transparent' }}
-							// 		>
-							// 			{item.spriteIndex !== undefined ? (
-							// 				<div
-							// 					className="absolute inset-0 bg-no-repeat"
-							// 					style={{
-							// 						backgroundImage:
-							// 							'url(/icons/parts.png)',
-							// 						backgroundSize: '500% 500%',
-							// 						backgroundPosition: `${
-							// 							(item.spriteIndex % 5) *
-							// 							25
-							// 						}% ${
-							// 							Math.floor(
-							// 								item.spriteIndex / 5
-							// 							) * 25
-							// 						}%`,
-							// 						imageRendering: 'pixelated',
-							// 						width: '100%',
-							// 						height: '100%',
-							// 						transform: 'scale(0.8)',
-							// 						transformOrigin: 'center',
-							// 					}}
-							// 				/>
-							// 			) : (
-							// 				getItemIcon(item.type)
-							// 			)}
-							// 		</div>
-							// 		<div className="text-right">
-							// 			<div className="text-yellow-400 font-mono font-bold text-xs">
-							// 				${item.value.toLocaleString()}
-							// 			</div>
-							// 		</div>
-							// 	</div>
-							// 	<div
-							// 		className="font-bold text-gray-200 text-xs truncate pointer-events-none mt-auto"
-							// 		style={{
-							// 			color: ItemGenerator.getRarityColor(
-							// 				item.rarity
-							// 			),
-							// 		}}
-							// 	>
-							// 		{item.name}
-							// 	</div>
-							// 	<div className="text-[9px] text-gray-500 uppercase">
-							// 		{item.rarity}
-							// 	</div>
-							// </div>
-							<ItemCard
-								key={item.instanceId}
-								item={item}
-								onClick={(e) =>
-									item && setSelectedSellItem(item)
-								}
-								onMouseEnter={() =>
-									item && setHoveredMarketItem(item)
-								}
-								onMouseLeave={() => setHoveredMarketItem(null)}
-							/>
-						))}
+
+					{/* RIGHT: ACTIVE LISTINGS */}
+					<div className="flex flex-col gap-2 min-h-0">
+						<div className="flex justify-between items-center px-1">
+							<div className="text-xs font-bold text-blue-500 tracking-widest">
+								MY LISTINGS
+							</div>
+							<div className="text-xs text-gray-500">
+								Manage Auctions
+							</div>
+						</div>
+						<div className="flex-1 bg-gray-900/80 rounded-lg p-3 flex flex-col gap-2 overflow-y-auto border border-gray-700 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+							{listings.map((listing) => (
+								<div
+									key={listing.id}
+									className={`flex items-center gap-3 p-2 rounded border bg-gray-800 ${
+										listing.status === 'SOLD'
+											? 'border-green-500/50'
+											: 'border-gray-600'
+									}`}
+								>
+									{/* Mini Item Preview */}
+									<div className="w-12 h-12 relative shrink-0">
+										<ItemCard
+											item={listing.item}
+											className="w-full h-full text-[8px]" // Tiny card?
+											showCondition={false}
+											onClick={() => {}} // No action
+										/>
+									</div>
+
+									<div className="flex-1 min-w-0">
+										<div className="font-bold text-white truncate text-sm">
+											{listing.item.name}
+										</div>
+										<div className="text-xs font-mono text-gray-400">
+											Listed: $
+											{listing.price.toLocaleString()}
+										</div>
+									</div>
+
+									{/* Status / Action */}
+									<div className="shrink-0">
+										{listing.status === 'SOLD' ? (
+											<button
+												onClick={() =>
+													onCollectListing(listing.id)
+												}
+												className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white font-bold text-xs rounded pixel-text animate-pulse"
+											>
+												COLLECT $
+												{listing.price.toLocaleString()}
+											</button>
+										) : (
+											<button
+												onClick={() =>
+													onCancelListing(listing.id)
+												}
+												className="px-3 py-1 bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-800 font-bold text-xs rounded pixel-text"
+											>
+												CANCEL
+											</button>
+										)}
+									</div>
+								</div>
+							))}
+							{listings.length === 0 && (
+								<div className="text-center text-gray-500 py-10">
+									No active listings.
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 
@@ -571,7 +585,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 								}}
 								className="py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded pixel-text text-sm"
 							>
-								AUCTION ITEM
+								LIST FOR SALE
 							</button>
 							<button
 								onClick={() => setSelectedSellItem(null)}
@@ -679,7 +693,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 									onClick={handleSell}
 									className="flex-1 py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded text-lg pixel-text transition-all active:scale-95"
 								>
-									LIST
+									LIST ITEM
 								</button>
 								<button
 									onClick={() => {
