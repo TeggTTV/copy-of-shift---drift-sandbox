@@ -99,13 +99,30 @@ export const Garage: React.FC<GarageProps> = ({
 			previewOwnedMods.push(hoveredMod.id);
 		}
 
+		// Prepare base tuning from current car
+		let baseTuning = BASE_TUNING;
+		if (garage[currentCarIndex]) {
+			baseTuning = {
+				...BASE_TUNING,
+				...garage[currentCarIndex].manualTuning,
+			};
+		}
+
 		return CarBuilder.calculateTuning(
-			BASE_TUNING,
+			baseTuning,
 			previewOwnedMods,
 			disabledMods,
-			modSettings
+			modSettings,
+			garage[currentCarIndex]?.installedItems || []
 		);
-	}, [hoveredMod, ownedMods, disabledMods, modSettings]);
+	}, [
+		hoveredMod,
+		ownedMods,
+		disabledMods,
+		modSettings,
+		garage,
+		currentCarIndex,
+	]);
 
 	const renderParticles = (rarity: string) => {
 		if (rarity !== 'LEGENDARY' && rarity !== 'EXOTIC') return null;
@@ -315,10 +332,11 @@ export const Garage: React.FC<GarageProps> = ({
 
 								// Calculate Rating
 								const tuning = CarBuilder.calculateTuning(
-									BASE_TUNING,
+									{ ...BASE_TUNING, ...car.manualTuning },
 									car.ownedMods,
 									car.disabledMods,
-									car.modSettings
+									car.modSettings,
+									car.installedItems
 								);
 								const rating =
 									calculatePerformanceRating(tuning);
@@ -474,7 +492,7 @@ export const Garage: React.FC<GarageProps> = ({
 													WGT
 												</span>
 												<span className="text-white font-mono">
-													{tuning.mass}{' '}
+													{tuning.mass.toFixed(0)}{' '}
 													<span className="text-[8px] text-gray-600">
 														KG
 													</span>
