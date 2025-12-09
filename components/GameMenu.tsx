@@ -31,6 +31,7 @@ import { AuctionHouse } from './menu/auction/AuctionHouse';
 import { Garage } from './menu/garage/Garage';
 import { InventoryItem, Crate } from '../types';
 import { ItemGenerator } from '../utils/ItemGenerator';
+import { ItemMerge } from '../utils/ItemMerge';
 
 import { useGame } from '../contexts/GameContext';
 
@@ -211,6 +212,92 @@ export const GameMenu = () => {
 			)
 		);
 		showToast(`Repaired ${item.name} for $${cost}`, 'SUCCESS');
+	};
+
+	const handleRepairAll = (items: InventoryItem[], cost: number) => {
+		if (money < cost) {
+			showToast('Not enough money!', 'ERROR');
+			return;
+		}
+		setMoney((m) => m - cost);
+
+		// Get IDs of items to repair for efficient lookup
+		const itemIds = new Set(items.map((i) => i.instanceId));
+
+		setUserInventory((prev) =>
+			prev.map((i) =>
+				itemIds.has(i.instanceId) ? { ...i, condition: 100 } : i
+			)
+		);
+		showToast(
+			`Repaired ${items.length} items for $${cost.toLocaleString()}`,
+			'SUCCESS'
+		);
+	};
+
+	const handleMergeAll = () => {
+		const unequippedItems = userInventory.filter((i) => !i.equipped);
+		const equippedItems = userInventory.filter((i) => i.equipped);
+
+		// Deep merge logic
+		let mergedCount = 0;
+		let initialCount = unequippedItems.length;
+
+		// Group by baseId
+		const groups: Record<string, InventoryItem[]> = {};
+		unequippedItems.forEach((item) => {
+			if (!groups[item.baseId]) groups[item.baseId] = [];
+			groups[item.baseId].push(item);
+		});
+
+		const finalItems: InventoryItem[] = [];
+
+		Object.values(groups).forEach((group) => {
+			// Sorting might help deterministic behavior, e.g. best items first?
+			// Actually ItemMerge.mergeItems is logic heavy.
+			const stack = [...group];
+
+			// Iteratively merge
+			// While we have at least 2 items, try to merge
+			const processedStack: InventoryItem[] = [];
+
+			while (stack.length > 0) {
+				const current = stack.pop();
+				if (!current) break;
+
+				// Try to find a match in the remaining stack
+				let merged = false;
+				for (let i = stack.length - 1; i >= 0; i--) {
+					const other = stack[i];
+					const result = ItemMerge.mergeItems(current, other);
+					if (result) {
+						// Success! Remove 'other' and push 'result' back to stack to be potentially merged again
+						stack.splice(i, 1);
+						stack.push(result);
+						mergedCount++;
+						merged = true;
+						break;
+					}
+				}
+
+				if (!merged) {
+					// No match found for 'current', it is finalized
+					processedStack.push(current);
+				}
+			}
+			finalItems.push(...processedStack);
+		});
+
+		if (mergedCount > 0) {
+			setUserInventory([...equippedItems, ...finalItems]);
+			showToast(
+				`Merged ${mergedCount} times! Inventory reduced from ${initialCount} to ${finalItems.length}`,
+				'SUCCESS'
+			);
+			play('upgrade'); // Reuse upgrade sound
+		} else {
+			showToast('No items could be merged.', 'INFO');
+		}
 	};
 
 	// Auction Logic
@@ -555,6 +642,8 @@ export const GameMenu = () => {
 							onScrapCar={onScrapCar}
 							onRepair={handleRepairItem}
 							onMerge={onMerge}
+							onRepairAll={handleRepairAll}
+							onMergeAll={handleMergeAll}
 						/>
 					)}
 				</div>

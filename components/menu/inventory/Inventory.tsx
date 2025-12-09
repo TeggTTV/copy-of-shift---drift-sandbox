@@ -14,6 +14,8 @@ interface InventoryProps {
 	onDestroy: (item: InventoryItem) => void;
 	onRepair: (item: InventoryItem, cost: number) => void;
 	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
+	onRepairAll: (items: InventoryItem[], cost: number) => void;
+	onMergeAll: () => void;
 	money: number;
 }
 
@@ -27,6 +29,8 @@ export const Inventory: React.FC<InventoryProps> = ({
 	onDestroy,
 	onRepair,
 	onMerge,
+	onRepairAll,
+	onMergeAll,
 	money,
 }) => {
 	const [mergeSourceItem, setMergeSourceItem] =
@@ -49,6 +53,13 @@ export const Inventory: React.FC<InventoryProps> = ({
 		const damage = 100 - item.condition;
 
 		return Math.floor(item.value * damage * 0.2); // 20% of value to fully repair from 0
+	};
+
+	const calculateRepairAllCost = (list?: InventoryItem[]) => {
+		const targetList = list || items;
+		return targetList.reduce((total, item) => {
+			return total + calculateRepairCost(item);
+		}, 0);
 	};
 
 	const [hoveredItem, setHoveredItem] = useState<InventoryItem | null>(null);
@@ -241,7 +252,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 									);
 								} else {
 									setSortMethod(method);
-									setSortDirection('DESC'); // Default to DESC for most things
+									setSortDirection('DESC');
 								}
 							}}
 							className={`
@@ -258,6 +269,34 @@ export const Inventory: React.FC<InventoryProps> = ({
 								(sortDirection === 'ASC' ? '▲' : '▼')}
 						</button>
 					))}
+				</div>
+
+				{/* Bulk Operations Buttons - Only for uninstalled inventory */}
+				<div className="flex gap-2 mb-2 px-2">
+					<button
+						onClick={() => {
+							const cost = calculateRepairAllCost(items);
+							if (cost > 0) {
+								onRepairAll(items, cost);
+							}
+						}}
+						disabled={calculateRepairAllCost(items) === 0}
+						className={`flex-1 py-2 text-xs font-bold font-pixel border-2 transition-all ${
+							calculateRepairAllCost(items) > 0
+								? 'bg-green-900/50 border-green-600 text-green-400 hover:bg-green-800 hover:text-white cursor-pointer'
+								: 'bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed'
+						}`}
+					>
+						REPAIR ALL ($
+						{calculateRepairAllCost(items).toLocaleString()})
+					</button>
+
+					<button
+						onClick={() => onMergeAll()}
+						className="flex-1 py-2 text-xs font-bold font-pixel border-2 bg-purple-900/50 border-purple-600 text-purple-400 hover:bg-purple-800 hover:text-white transition-all cursor-pointer"
+					>
+						MERGE ALL (RECURSIVE)
+					</button>
 				</div>
 
 				{/* Pagination Controls */}
@@ -313,6 +352,31 @@ export const Inventory: React.FC<InventoryProps> = ({
 						{installedItems.length} parts
 					</span>
 				</h2>
+
+				{/* Installed Repair All */}
+				<div className="flex gap-2 mb-2 px-2">
+					<button
+						onClick={() => {
+							const cost = calculateRepairAllCost(installedItems);
+							if (cost > 0) {
+								onRepairAll(installedItems, cost);
+							}
+						}}
+						disabled={calculateRepairAllCost(installedItems) === 0}
+						className={`flex-1 py-1 text-[10px] font-bold font-pixel border transition-all ${
+							calculateRepairAllCost(installedItems) > 0
+								? 'bg-green-900/30 border-green-700 text-green-400 hover:bg-green-900 hover:text-white cursor-pointer'
+								: 'bg-gray-900/30 border-gray-800 text-gray-700 cursor-not-allowed'
+						}`}
+					>
+						REPAIR INSTALLED ($
+						{calculateRepairAllCost(
+							installedItems
+						).toLocaleString()}
+						)
+					</button>
+				</div>
+
 				<div className="flex-1 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 					{renderGrid(installedItems, true)}
 				</div>
