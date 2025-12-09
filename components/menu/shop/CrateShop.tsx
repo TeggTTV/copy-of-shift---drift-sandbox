@@ -184,6 +184,55 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 		return 0;
 	};
 
+	// Visual Styles per Crate Tier
+	const getCrateVisuals = (crate: Crate) => {
+		const index = getCrateSpriteIndex(crate);
+		switch (index) {
+			case 1: // Uncommon (Green)
+				return {
+					border: 'border-green-800',
+					bg: 'bg-green-900/20',
+					shadow: 'shadow-[0_0_15px_rgba(22,163,74,0.3)]',
+					animation: 'animate-bounce',
+				};
+			case 2: // Rare (Blue)
+				return {
+					border: 'border-blue-600',
+					bg: 'bg-blue-900/30',
+					shadow: 'shadow-[0_0_20px_rgba(37,99,235,0.5)]',
+					animation: 'animate-bounce duration-700',
+				};
+			case 3: // Epic (Purple)
+				return {
+					border: 'border-purple-600',
+					bg: 'bg-purple-900/30',
+					shadow: 'shadow-[0_0_25px_rgba(147,51,234,0.6)]',
+					animation: 'animate-bounce duration-500',
+				};
+			case 4: // Legendary (Gold)
+				return {
+					border: 'border-yellow-500',
+					bg: 'bg-yellow-900/40',
+					shadow: 'shadow-[0_0_35px_rgba(234,179,8,0.7)]',
+					animation: 'animate-pulse duration-100', // Intense pulse
+				};
+			case 5: // Exotic (Pink/Red)
+				return {
+					border: 'border-rose-500',
+					bg: 'bg-rose-900/40',
+					shadow: 'shadow-[0_0_40px_rgba(244,63,94,0.8)]',
+					animation: 'animate-ping duration-300', // Very intense
+				};
+			default: // Common (Gray)
+				return {
+					border: 'border-gray-700',
+					bg: 'bg-gray-800',
+					shadow: '',
+					animation: 'animate-bounce',
+				};
+		}
+	};
+
 	const [cratesImg, setCratesImg] = useState<HTMLImageElement | null>(null);
 	useEffect(() => {
 		const img = new Image();
@@ -205,7 +254,11 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 								{revealedItems.length})
 							</span>
 						) : (
-							<span>ITEMS ACQUIRED!</span>
+							<span>
+								{revealedItems.length} NEW ITEM
+								{revealedItems.length === 1 ? '' : 'S'}{' '}
+								ACQUIRED!
+							</span>
 						)}
 					</div>
 
@@ -219,16 +272,22 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 							if (!isRevealed) {
 								// Unrevealed Crate
 								const isCurrent = idx === revealedCount;
+								const visuals = getCrateVisuals(openingCrate);
+
 								return (
 									<div
 										id={`crate-slot-${idx}`}
 										key={idx}
-										className="w-full aspect-square flex items-center justify-center bg-gray-800 rounded border-2 border-gray-700"
+										className={`w-full aspect-square flex items-center justify-center rounded border-2 transition-all duration-300 ${
+											visuals.border
+										} ${visuals.bg} ${visuals.shadow} ${
+											isCurrent ? 'scale-110 z-10' : ''
+										}`}
 									>
 										<div
-											className={`pixel-art opacity-80 ${
+											className={`pixel-art opacity-90 ${
 												isCurrent
-													? 'animate-bounce'
+													? visuals.animation
 													: ''
 											}`}
 											style={{
