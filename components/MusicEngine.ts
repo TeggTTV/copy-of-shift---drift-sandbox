@@ -15,6 +15,7 @@ export class MusicEngine {
 
 	// Track management - now supports multiple files per category
 	private tracks: Map<string, AudioBuffer> = new Map(); // Key: "menu-0", "menu-1", etc.
+	private failedTracks: Set<string> = new Set(); // Keep track of failed loads
 	private currentSource: AudioBufferSourceNode | null = null;
 	private currentGain: GainNode | null = null;
 	private currentTrack: MusicTrack | null = null;
@@ -33,7 +34,7 @@ export class MusicEngine {
 					'/music/menu.mp3',
 					'/music/menu1.mp3',
 					'/music/menu2.mp3',
-					'/music/menu3.mp3',
+					// '/music/menu3.mp3',
 				],
 				loop: true,
 				volume: 1.0,
@@ -121,8 +122,8 @@ export class MusicEngine {
 		const promises = config.urls.map(async (url, i) => {
 			const key = `${track}-${i}`;
 
-			// 1. Check if already loaded
-			if (this.tracks.has(key)) {
+			// 1. Check if already loaded or failed
+			if (this.tracks.has(key) || this.failedTracks.has(key)) {
 				return;
 			}
 
@@ -137,25 +138,35 @@ export class MusicEngine {
 				try {
 					const response = await fetch(url);
 					if (!response.ok) {
-						// console.warn(
-						// 	`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
-						// );
+						console.warn(
+							`[MusicEngine] Failed to load ${track} variant ${i}: ${response.status}`
+						);
+						this.failedTracks.add(key);
 						throw new Error(`Failed to load ${url}`);
 					}
 
 					const arrayBuffer = await response.arrayBuffer();
 					if (this.ctx) {
-						const audioBuffer = await this.ctx.decodeAudioData(
-							arrayBuffer
-						);
-						this.tracks.set(key, audioBuffer);
-						// console.log(`[MusicEngine] Loaded track: ${key}`);
+						try {
+							const audioBuffer = await this.ctx.decodeAudioData(
+								arrayBuffer
+							);
+							this.tracks.set(key, audioBuffer);
+							// console.log(`[MusicEngine] Loaded track: ${key}`);
+						} catch (decodeError) {
+							console.error(
+								`[MusicEngine] Failed to decode ${track} variant ${i}:`,
+								decodeError
+							);
+							this.failedTracks.add(key);
+						}
 					}
 				} catch (error) {
-					// console.warn(
-					// 	`[MusicEngine] Error loading ${track} variant ${i}:`,
-					// 	error
-					// );
+					console.warn(
+						`[MusicEngine] Error loading ${track} variant ${i}:`,
+						error
+					);
+					this.failedTracks.add(key);
 				}
 			})();
 
@@ -188,7 +199,11 @@ export class MusicEngine {
 		// console.log('[MusicEngine] Menu tracks loaded');
 	}
 
-	async play(track: MusicTrack, fadeInDuration: number = 1.0) {
+	async play(
+		track: MusicTrack,
+		fadeInDuration: number = 1.0,
+		isRetry: boolean = false
+	) {
 		if (!this.ctx || !this.masterGain || !this.isInitialized) {
 			// console.warn('[MusicEngine] Not initialized, initializing now...');
 			await this.init();
@@ -226,12 +241,18 @@ export class MusicEngine {
 		}
 
 		if (availableVariants.length === 0) {
-			// console.warn(
-			// 	`[MusicEngine] No variants loaded for ${track}, attempting to load...`
-			// );
+			if (isRetry) {
+				console.error(
+					`[MusicEngine] Failed to load track ${track} after retry.`
+				);
+				return;
+			}
+			console.warn(
+				`[MusicEngine] No variants loaded for ${track}, attempting to load...`
+			);
 			await this.loadTrack(track);
-			// Retry after loading
-			return this.play(track, fadeInDuration);
+			// Retry after loading, but only once
+			return this.play(track, fadeInDuration, true);
 		}
 
 		// Randomly select a variant

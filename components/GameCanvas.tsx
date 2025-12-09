@@ -113,24 +113,7 @@ const GameCanvas: React.FC = () => {
 		img.onload = () => setSeasonalTreesImg(img);
 	}, []);
 
-	// Music Logic
-	useEffect(() => {
-		if (phase === 'RACE' || phase === 'VERSUS') {
-			music.play('race');
-		} else if (
-			phase === 'MAP' ||
-			phase === 'GARAGE' ||
-			phase === 'MISSION_SELECT' ||
-			phase === 'SHOP' ||
-			phase === 'AUCTION' ||
-			phase === 'JUNKYARD'
-		) {
-			music.play('menu');
-		} else if (phase === 'RESULTS') {
-			// let results handle victory/defeat music if needed, or keep race music?
-			// Usually results screen has its own music or keeps playing
-		}
-	}, [phase, music]);
+	// Music Logic handled in the phased delay effect below
 
 	// Dyno History State
 	const [dynoHistory, setDynoHistory] = useState<
@@ -705,23 +688,24 @@ const GameCanvas: React.FC = () => {
 
 	// Music Phase Switching
 	useEffect(() => {
-		// Small delay to ensure music context is initialized
+		// Small delay to ensure music context is initialized and prevent rapid switching
 		const timer = setTimeout(() => {
-			switch (phase) {
-				case 'MAP':
-				case 'GARAGE':
-				case 'JUNKYARD':
-					// console.log('[GameCanvas] Starting menu music');
-					music.play('menu', 2.0);
-					break;
-				case 'RACE':
-				case 'VERSUS':
-					// console.log('[GameCanvas] Starting race music');
-					music.play('race', 1.5);
-					break;
-				// Victory/defeat music handled separately in race result logic
+			if (
+				phase === 'MAP' ||
+				phase === 'GARAGE' ||
+				phase === 'JUNKYARD' ||
+				phase === 'SHOP' ||
+				phase === 'AUCTION' ||
+				phase === 'MISSION_SELECT'
+			) {
+				// console.log('[GameCanvas] Starting menu music');
+				music.play('menu', 2.0);
+			} else if (phase === 'RACE' || phase === 'VERSUS') {
+				// console.log('[GameCanvas] Starting race music');
+				music.play('race', 1.5);
 			}
-		}, 100); // 100ms delay to ensure context is ready
+			// Victory/defeat music handled separately in race result logic
+		}, 100);
 
 		return () => clearTimeout(timer);
 	}, [phase, music]);
@@ -1795,7 +1779,6 @@ const GameCanvas: React.FC = () => {
 						TIME: {playerFinishTime.toFixed(3)}s
 					</div>
 
-					{/* Wear Summary Animation */}
 					{wearResult && (
 						<div className="bg-gray-900/90 border-2 border-gray-700 p-6 rounded-lg mb-8 max-w-2xl w-full">
 							<h3 className="text-xl text-gray-400 pixel-text mb-4 text-center border-b border-gray-700 pb-2">

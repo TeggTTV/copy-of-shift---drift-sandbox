@@ -133,7 +133,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 			);
 		}
 
-		const displaySlots = Math.max(displayList.length, 12); // Minimum rows
+		const displaySlots = Math.max(displayList.length, 48); // Minimum rows
 		const slots = Array(displaySlots)
 			.fill(null)
 			.map((_, i) => displayList[i] || null);
