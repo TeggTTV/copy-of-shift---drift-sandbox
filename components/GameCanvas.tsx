@@ -1801,7 +1801,7 @@ const GameCanvas: React.FC = () => {
 							<h3 className="text-xl text-gray-400 pixel-text mb-4 text-center border-b border-gray-700 pb-2">
 								PART CONDITION
 							</h3>
-							<div className="grid grid-cols-2 gap-4">
+							<div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
 								{inventory
 									.filter(
 										(i) =>
@@ -1866,7 +1866,9 @@ const GameCanvas: React.FC = () => {
 					)}
 					{raceResult === 'LOSS' && (
 						<div className="text-2xl text-red-400 font-mono mb-8">
-							+
+							{playerFinishTime - opponentFinishTime > 0
+								? '+'
+								: ''}
 							{(playerFinishTime - opponentFinishTime).toFixed(3)}
 							s
 						</div>

@@ -128,7 +128,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 						<div className="flex justify-between text-[9px] text-gray-600 mt-0.5 font-mono">
 							<span>0</span>
 							<span>{Math.round(redline / 2)}</span>
-							<span className="text-red-500">{redline}</span>
+							<span className="text-red-500">
+								{redline.toFixed(0)}
+							</span>
 						</div>
 					</div>
 

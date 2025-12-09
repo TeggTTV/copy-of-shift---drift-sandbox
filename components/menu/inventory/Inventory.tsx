@@ -16,6 +16,7 @@ interface InventoryProps {
 	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
 	onRepairAll: (items: InventoryItem[], cost: number) => void;
 	onMergeAll: () => void;
+	onRemoveAll: () => void;
 	money: number;
 }
 
@@ -31,6 +32,7 @@ export const Inventory: React.FC<InventoryProps> = ({
 	onMerge,
 	onRepairAll,
 	onMergeAll,
+	onRemoveAll,
 	money,
 }) => {
 	const [mergeSourceItem, setMergeSourceItem] =
@@ -44,6 +46,8 @@ export const Inventory: React.FC<InventoryProps> = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false);
 
 	const calculateRepairCost = (item: InventoryItem) => {
 		if (!item.condition || item.condition >= 100) return 0;
@@ -292,7 +296,10 @@ export const Inventory: React.FC<InventoryProps> = ({
 					</button>
 
 					<button
-						onClick={() => onMergeAll()}
+						onClick={() => {
+							onMergeAll();
+							setCurrentPage(1);
+						}}
 						className="flex-1 py-2 text-xs font-bold font-pixel border-2 bg-purple-900/50 border-purple-600 text-purple-400 hover:bg-purple-800 hover:text-white transition-all cursor-pointer"
 					>
 						MERGE ALL (RECURSIVE)
@@ -374,6 +381,18 @@ export const Inventory: React.FC<InventoryProps> = ({
 							installedItems
 						).toLocaleString()}
 						)
+					</button>
+
+					<button
+						onClick={() => setShowRemoveAllConfirm(true)}
+						disabled={installedItems.length === 0}
+						className={`flex-1 py-1 text-[10px] font-bold font-pixel border transition-all ${
+							installedItems.length > 0
+								? 'bg-red-900/30 border-red-700 text-red-400 hover:bg-red-900 hover:text-white cursor-pointer'
+								: 'bg-gray-900/30 border-gray-800 text-gray-700 cursor-not-allowed'
+						}`}
+					>
+						REMOVE ALL
 					</button>
 				</div>
 
@@ -736,6 +755,48 @@ export const Inventory: React.FC<InventoryProps> = ({
 									setMergeTargetItem(null);
 									setMergeSourceItem(null);
 								}}
+								className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded pixel-text"
+							>
+								CANCEL
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Remove All Confirmation Modal */}
+			{showRemoveAllConfirm && (
+				<div
+					className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4 animate-in fade-in duration-200"
+					onClick={() => setShowRemoveAllConfirm(false)}
+				>
+					<div
+						className="bg-gray-900 border-2 border-red-600 rounded p-6 shadow-2xl max-w-sm w-full text-center"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3 className="text-xl font-bold text-red-500 mb-2 pixel-text">
+							REMOVE ALL PARTS?
+						</h3>
+						<p className="text-gray-300 mb-6 text-sm">
+							This will unequip all {installedItems.length} items
+							from your car and return them to your inventory.
+						</p>
+						<p className="text-gray-500 mb-6 text-xs italic">
+							Your car tuning stats will drop significantly.
+						</p>
+
+						<div className="flex gap-4">
+							<button
+								onClick={() => {
+									onRemoveAll();
+									setShowRemoveAllConfirm(false);
+								}}
+								className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded pixel-text"
+							>
+								REMOVE ALL
+							</button>
+							<button
+								onClick={() => setShowRemoveAllConfirm(false)}
 								className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded pixel-text"
 							>
 								CANCEL

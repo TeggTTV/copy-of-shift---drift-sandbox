@@ -300,6 +300,47 @@ export const GameMenu = () => {
 		}
 	};
 
+	const handleRemoveAll = () => {
+		const equippedItems = userInventory.filter((i) => i.equipped);
+		if (equippedItems.length === 0) return;
+
+		// We need to reverse the stats of all equipped items from playerTuning.
+		// Re-using the adjustStats logic from handleEquipItem would be ideal, but it's inside that function.
+		// Let's duplicate the adjust helper for now or move it out if used more.
+		// Actually, let's just implement the loop here.
+
+		setPlayerTuning((prev) => {
+			let next = { ...prev };
+			equippedItems.forEach((item) => {
+				// Reverse stats: factor -1
+				if (item.stats) {
+					Object.entries(item.stats).forEach(([key, val]) => {
+						if (typeof val === 'number') {
+							(next as any)[key] =
+								((next as any)[key] || 0) - val;
+						}
+						// If precise value was set (factor 1 logic in adjustStats says: if not number, set value)
+						// But for Removal, we only care about subtracting numeric bonuses.
+						// Non-numeric stats might need reset to base?
+						// Assuming stats are additive numbers for now based on typical RPG logic here.
+					});
+				}
+			});
+			return next;
+		});
+
+		// Update Inventory: Set all to equipped=false
+		setUserInventory((prev) =>
+			prev.map((i) => (i.equipped ? { ...i, equipped: false } : i))
+		);
+
+		showToast(
+			`Removed all ${equippedItems.length} installed parts`,
+			'INFO'
+		);
+		play('unequip'); // Assuming 'unequip' sound exists, or fallback
+	};
+
 	// Auction Logic
 	const handleListItem = (item: InventoryItem, price: number) => {
 		// 1. Remove from Inventory
@@ -644,6 +685,7 @@ export const GameMenu = () => {
 							onMerge={onMerge}
 							onRepairAll={handleRepairAll}
 							onMergeAll={handleMergeAll}
+							onRemoveAll={handleRemoveAll}
 						/>
 					)}
 				</div>

@@ -51,6 +51,7 @@ interface GarageProps {
 	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
 	onRepairAll: (items: InventoryItem[], cost: number) => void;
 	onMergeAll: () => void;
+	onRemoveAll: () => void;
 }
 
 export const Garage: React.FC<GarageProps> = ({
@@ -85,6 +86,7 @@ export const Garage: React.FC<GarageProps> = ({
 	onMerge,
 	onRepairAll,
 	onMergeAll,
+	onRemoveAll,
 }) => {
 	const [activeTab, setActiveTab] = useState<'TUNING' | 'DYNO' | 'CARS'>(
 		'TUNING'
@@ -544,6 +546,7 @@ export const Garage: React.FC<GarageProps> = ({
 							onMerge={onMerge}
 							onRepairAll={onRepairAll}
 							onMergeAll={onMergeAll}
+							onRemoveAll={onRemoveAll}
 							money={money}
 						/>
 					</div>

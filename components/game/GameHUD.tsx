@@ -1,7 +1,7 @@
 import React from 'react';
 import Dashboard from '../Dashboard';
-import { TopBar } from '../menu/TopBar';
-import { CarState, TuningState, Mission } from '../../types';
+import { TopBar } from '@/components/menu/shared/TopBar';
+import { CarState, TuningState, Mission } from '@/types';
 
 interface GameHUDProps {
 	phase: string;
