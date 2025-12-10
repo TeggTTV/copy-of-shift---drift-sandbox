@@ -21,6 +21,7 @@ import Dashboard from './Dashboard';
 import { SoundProvider } from '../contexts/SoundContext';
 import { GameProvider } from '../contexts/GameContext';
 import { useToast } from '../contexts/ToastContext';
+import { useParty } from '../contexts/PartyContext'; // Import useParty
 import {
 	BASE_TUNING,
 	INITIAL_MONEY,
@@ -54,6 +55,7 @@ type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 const GameCanvas: React.FC = () => {
 	const { showToast } = useToast();
 	const music = useMusic();
+	const { party } = useParty();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	// Audio Refs
@@ -207,6 +209,71 @@ const GameCanvas: React.FC = () => {
 			refreshDailyShop();
 		}
 	}, [lastDailyRefresh, dailyShopItems.length, refreshDailyShop]);
+
+	// Online Race Trigger
+	useEffect(() => {
+		if (party?.activeRaceId && phase !== 'ONLINE_RACE') {
+			console.log('🏎️ Starting Online Race!');
+			setPhase('ONLINE_RACE');
+
+			// Setup dummy mission for renderer
+			missionRef.current = {
+				id: party.activeRaceId,
+				name: 'ONLINE RACE',
+				description: 'PvP Drag Race',
+				payout: 500, // Small participation reward?
+				difficulty: 'HARD',
+				distance: 400, // Standard 1/4 mile
+				opponent: {
+					name: 'Opponent',
+					difficulty: 5,
+					color: '#ff0000',
+					tuning: BASE_TUNING,
+				},
+			};
+
+			// Reset Cars
+			playerRef.current = {
+				y: 0,
+				velocity: 0,
+				rpm: 1000,
+				gear: 0,
+				finished: false,
+				finishTime: 0,
+			};
+			opponentRef.current = {
+				y: 0,
+				velocity: 0,
+				rpm: 1000,
+				gear: 0,
+				finished: false,
+				finishTime: 0,
+			};
+
+			setRaceStatus('COUNTDOWN');
+			setCountdownNum(3);
+
+			// Simple Local Countdown (Sync comes later)
+			let count = 3;
+			const timer = setInterval(() => {
+				count--;
+				if (count > 0) setCountdownNum(count);
+				else if (count === 0) {
+					setCountdownNum('GO!');
+					setRaceStatus('RACING');
+					raceStartTimeRef.current = performance.now() / 1000;
+				} else {
+					setCountdownNum('');
+					clearInterval(timer);
+				}
+			}, 1000);
+
+			return () => clearInterval(timer);
+		} else if (!party?.activeRaceId && phase === 'ONLINE_RACE') {
+			setPhase('MAP');
+			setRaceStatus('IDLE');
+		}
+	}, [party?.activeRaceId, phase]);
 
 	const buyJunkyardCar = useCallback(
 		(car: JunkyardCar) => {
@@ -620,7 +687,7 @@ const GameCanvas: React.FC = () => {
 				audioInitializedRef.current = true;
 			}
 
-			if (phase !== 'RACE') return;
+			if (phase !== 'RACE' && phase !== 'ONLINE_RACE') return;
 
 			// Prevent repeated keydown events when key is held
 			if (keysPressed.current.has(e.key)) return;
@@ -675,9 +742,8 @@ const GameCanvas: React.FC = () => {
 	}, [phase]);
 
 	// Stop audio when leaving race phase
-	// Stop audio when leaving race phase
 	useEffect(() => {
-		if (phase !== 'RACE') {
+		if (phase !== 'RACE' && phase !== 'ONLINE_RACE') {
 			audioRef.current.stop();
 			opponentAudioRef.current.stop();
 		} else {
@@ -700,7 +766,11 @@ const GameCanvas: React.FC = () => {
 			) {
 				// console.log('[GameCanvas] Starting menu music');
 				music.play('menu', 2.0);
-			} else if (phase === 'RACE' || phase === 'VERSUS') {
+			} else if (
+				phase === 'RACE' ||
+				phase === 'VERSUS' ||
+				phase === 'ONLINE_RACE'
+			) {
 				// console.log('[GameCanvas] Starting race music');
 				music.play('race', 1.5);
 			}
@@ -1071,6 +1141,8 @@ const GameCanvas: React.FC = () => {
 		const nextLevelThreshold = calculateNextLevelXp(level);
 		if (xp >= nextLevelThreshold) {
 			setLevel((l) => l + 1);
+			setXp((curr) => Math.max(0, curr - nextLevelThreshold));
+			showToast(`LEVEL UP! You are now Level ${level + 1}`, 'SUCCESS');
 		}
 	}, [xp, level, showToast]);
 
@@ -1714,34 +1786,35 @@ const GameCanvas: React.FC = () => {
 			/>
 
 			{/* HUD only in Race */}
-			{phase === 'RACE' && missionRef.current && (
-				<>
-					<Dashboard
-						carState={uiState.player}
-						tuning={playerTuning}
-						opponentState={uiState.opponent}
-						raceDistance={missionRef.current.distance}
-						missedGear={missedGearAlert}
-					/>
-					{/* Countdown Overlay */}
-					{countdownNum !== '' && (
-						<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-							<div
-								className={`text-9xl font-black italic tracking-tighter ${
-									countdownNum === 'GO!'
-										? 'text-green-500 scale-150'
-										: 'text-white'
-								} transition-all duration-300 drop-shadow-2xl`}
-							>
-								{countdownNum}
+			{(phase === 'RACE' || phase === 'ONLINE_RACE') &&
+				missionRef.current && (
+					<>
+						<Dashboard
+							carState={uiState.player}
+							tuning={playerTuning}
+							opponentState={uiState.opponent}
+							raceDistance={missionRef.current.distance}
+							missedGear={missedGearAlert}
+						/>
+						{/* Countdown Overlay */}
+						{countdownNum !== '' && (
+							<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+								<div
+									className={`text-9xl font-black italic tracking-tighter ${
+										countdownNum === 'GO!'
+											? 'text-green-500 scale-150'
+											: 'text-white'
+									} transition-all duration-300 drop-shadow-2xl`}
+								>
+									{countdownNum}
+								</div>
 							</div>
-						</div>
-					)}
-				</>
-			)}
+						)}
+					</>
+				)}
 
 			{/* Race Results Overlay */}
-			{phase === 'RACE' && raceResult && (
+			{(phase === 'RACE' || phase === 'ONLINE_RACE') && raceResult && (
 				<div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-[100] animate-in fade-in duration-500">
 					{/* TopBar for XP/Level Animations */}
 					<div className="absolute top-0 left-0 right-0 z-50">
@@ -1779,69 +1852,78 @@ const GameCanvas: React.FC = () => {
 						TIME: {playerFinishTime.toFixed(3)}s
 					</div>
 
-					{wearResult && (
-						<div className="bg-gray-900/90 border-2 border-gray-700 p-6 rounded-lg mb-8 max-w-2xl w-full">
-							<h3 className="text-xl text-gray-400 pixel-text mb-4 text-center border-b border-gray-700 pb-2">
-								PART CONDITION
-							</h3>
-							<div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-								{inventory
-									.filter(
-										(i) =>
-											i.equipped &&
-											wearResult[i.instanceId]
-									)
-									.map((item) => {
-										const damage =
-											wearResult[item.instanceId]; // e.g. 0.5 (points)
-										const current = item.condition || 100;
-										const old = current + damage;
+					{wearResult &&
+						inventory.filter(
+							(i) => i.equipped && wearResult[i.instanceId]
+						).length > 0 && (
+							<div className="bg-gray-900/90 border-2 border-gray-700 p-6 rounded-lg mb-8 max-w-2xl w-full">
+								<h3 className="text-xl text-gray-400 pixel-text mb-4 text-center border-b border-gray-700 pb-2">
+									PART CONDITION
+								</h3>
+								<div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+									{inventory
+										.filter(
+											(i) =>
+												i.equipped &&
+												wearResult[i.instanceId]
+										)
+										.map((item) => {
+											const damage =
+												wearResult[item.instanceId]; // e.g. 0.5 (points)
+											const current =
+												item.condition || 100;
+											const old = current + damage;
 
-										// Determine color (using 50/80 scale)
-										const getColor = (val: number) => {
-											if (val > 80)
-												return 'text-green-400';
-											if (val > 50)
-												return 'text-yellow-400';
-											return 'text-red-500';
-										};
+											// Determine color (using 50/80 scale)
+											const getColor = (val: number) => {
+												if (val > 80)
+													return 'text-green-400';
+												if (val > 50)
+													return 'text-yellow-400';
+												return 'text-red-500';
+											};
 
-										return (
-											<div
-												key={item.instanceId}
-												className="flex justify-between items-center bg-black/40 p-2 rounded border border-gray-800"
-											>
-												<div className="text-sm text-gray-300 font-bold truncate w-1/2">
-													{item.name}
+											return (
+												<div
+													key={item.instanceId}
+													className="flex justify-between items-center bg-black/40 p-2 rounded border border-gray-800"
+												>
+													<div className="text-sm text-gray-300 font-bold truncate w-1/2">
+														{item.name}
+													</div>
+													<div className="flex items-center gap-2 font-mono text-xs">
+														<span
+															className={getColor(
+																old
+															)}
+														>
+															{Math.round(old)}%
+														</span>
+														<span className="text-gray-600">
+															➜
+														</span>
+														<span
+															className={`${getColor(
+																current
+															)} animate-pulse font-bold`}
+														>
+															{Math.round(
+																current
+															)}
+															%
+														</span>
+														<span className="text-red-500 text-[10px]">
+															(-
+															{damage.toFixed(1)}
+															%)
+														</span>
+													</div>
 												</div>
-												<div className="flex items-center gap-2 font-mono text-xs">
-													<span
-														className={getColor(
-															old
-														)}
-													>
-														{Math.round(old)}%
-													</span>
-													<span className="text-gray-600">
-														➜
-													</span>
-													<span
-														className={`${getColor(
-															current
-														)} animate-pulse font-bold`}
-													>
-														{Math.round(current)}%
-													</span>
-													<span className="text-red-500 text-[10px]">
-														(-{damage.toFixed(1)}%)
-													</span>
-												</div>
-											</div>
-										);
-									})}
+											);
+										})}
+								</div>
 							</div>
-						</div>
-					)}
+						)}
 					{raceResult === 'WIN' && (
 						<div className="text-2xl text-green-400 font-mono mb-8">
 							EARNED ${missionRef.current?.payout}

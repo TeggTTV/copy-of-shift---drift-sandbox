@@ -281,3 +281,16 @@
 .animate-float-fade-up {
 	animation: float-fade-up 1.5s ease-out forwards;
 }
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.animate-fade-in {
+	animation: fade-in 0.2s ease-out forwards;
+}

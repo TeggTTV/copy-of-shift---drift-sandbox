@@ -10,7 +10,8 @@ export type GamePhase =
 	| 'JUNKYARD'
 	| 'DEALERSHIP'
 	| 'SHOP'
-	| 'AUCTION';
+	| 'AUCTION'
+	| 'ONLINE_RACE';
 
 export interface InputState {
 	gas: boolean;

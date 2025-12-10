@@ -120,7 +120,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 					>
 						CAMPAIGN
 					</button>
-					<button
+					{/* <button
 						onClick={() => setActiveTab('DAILY')}
 						className={`text-lg pixel-text transition-colors ${
 							activeTab === 'DAILY'
@@ -129,8 +129,8 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						}`}
 					>
 						DAILY
-					</button>
-					<button
+					</button> */}
+					{/* <button
 						onClick={() => setActiveTab('UNDERGROUND')}
 						className={`text-lg pixel-text transition-colors ${
 							activeTab === 'UNDERGROUND'
@@ -149,10 +149,131 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						}`}
 					>
 						RIVALS
-					</button>
+					</button> */}
 				</div>
 
-				{activeTab === 'DAILY' ? (
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+					{missions.map((m) => {
+						const isBoss = !!m.rewardCar;
+						const isOwned =
+							isBoss &&
+							garage.some((car) => car.id === m.rewardCar?.id);
+
+						return (
+							<div
+								key={m.id}
+								className={`pixel-panel p-6 transition-all group relative overflow-hidden cursor-pointer bg-black ${
+									isBoss
+										? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]'
+										: 'hover:border-indigo-500'
+								}`}
+								onClick={() => onStartMission(m)}
+							>
+								{isBoss && (
+									<div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-bold px-2 py-1">
+										BOSS BATTLE
+									</div>
+								)}
+								<div className="relative z-10">
+									<div className="flex justify-between items-start mb-2">
+										<h3
+											className={`text-lg pixel-text ${
+												isBoss
+													? 'text-yellow-400'
+													: 'text-white'
+											}`}
+										>
+											{m.name}
+										</h3>
+										<span className="bg-green-900 text-green-300 px-2 py-1 text-[10px] rounded pixel-border">
+											${m.payout}
+										</span>
+									</div>
+									<p className="text-gray-400 text-xs mb-4 h-10 leading-relaxed">
+										{m.description}
+									</p>
+
+									{isBoss && m.rewardCar && (
+										<div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded flex items-center gap-3">
+											<div className="text-2xl">🚘</div>
+											<div>
+												<div className="text-[10px] text-yellow-500 uppercase font-bold">
+													Reward: Pink Slip
+												</div>
+												<div className="text-xs text-white">
+													{m.rewardCar.name}
+												</div>
+												{isOwned && (
+													<div className="text-[10px] text-green-400 font-bold mt-1">
+														(ALREADY OWNED)
+													</div>
+												)}
+											</div>
+										</div>
+									)}
+
+									<div className="flex justify-between items-end">
+										<div className="flex flex-col gap-1">
+											<div className="text-[10px] text-gray-500 uppercase">
+												Opponent
+											</div>
+											<div className="font-bold flex items-center gap-2 text-xs">
+												<div
+													className="w-3 h-3 pixel-border"
+													style={{
+														background:
+															m.opponent.color,
+													}}
+												></div>
+												{m.opponent.name}
+											</div>
+										</div>
+										<div className="text-right">
+											{m.bestTime ? (
+												<div className="text-yellow-500 text-xs">
+													Best:{' '}
+													{m.bestTime.toFixed(3)}s
+												</div>
+											) : (
+												<div className="text-gray-600 text-[10px]">
+													NO RECORD
+												</div>
+											)}
+											<div className="text-[10px] text-indigo-400">
+												{m.distance}m
+											</div>
+										</div>
+									</div>
+
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											onStartMission(m);
+										}}
+										className={`w-full mt-4 pixel-btn ${
+											isBoss
+												? 'bg-yellow-600 border-yellow-800 hover:bg-yellow-500'
+												: ''
+										}`}
+										style={
+											isBoss
+												? {
+														backgroundColor:
+															'#ca8a04',
+														borderColor: '#854d0e',
+												  }
+												: {}
+										}
+									>
+										RACE
+									</button>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+
+				{/* {activeTab === 'DAILY' ? (
 					<div className="flex flex-col gap-6 animate-in fade-in duration-500">
 						<div className="text-center mb-4">
 							<div className="text-yellow-500 text-xl pixel-text mb-1">
@@ -201,133 +322,9 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 							))}
 						</div>
 					</div>
-				) : activeTab === 'CAMPAIGN' ? (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-						{missions.map((m) => {
-							const isBoss = !!m.rewardCar;
-							const isOwned =
-								isBoss &&
-								garage.some(
-									(car) => car.id === m.rewardCar?.id
-								);
-
-							return (
-								<div
-									key={m.id}
-									className={`pixel-panel p-6 transition-all group relative overflow-hidden cursor-pointer bg-black ${
-										isBoss
-											? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]'
-											: 'hover:border-indigo-500'
-									}`}
-									onClick={() => onStartMission(m)}
-								>
-									{isBoss && (
-										<div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-bold px-2 py-1">
-											BOSS BATTLE
-										</div>
-									)}
-									<div className="relative z-10">
-										<div className="flex justify-between items-start mb-2">
-											<h3
-												className={`text-lg pixel-text ${
-													isBoss
-														? 'text-yellow-400'
-														: 'text-white'
-												}`}
-											>
-												{m.name}
-											</h3>
-											<span className="bg-green-900 text-green-300 px-2 py-1 text-[10px] rounded pixel-border">
-												${m.payout}
-											</span>
-										</div>
-										<p className="text-gray-400 text-xs mb-4 h-10 leading-relaxed">
-											{m.description}
-										</p>
-
-										{isBoss && m.rewardCar && (
-											<div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded flex items-center gap-3">
-												<div className="text-2xl">
-													🚘
-												</div>
-												<div>
-													<div className="text-[10px] text-yellow-500 uppercase font-bold">
-														Reward: Pink Slip
-													</div>
-													<div className="text-xs text-white">
-														{m.rewardCar.name}
-													</div>
-													{isOwned && (
-														<div className="text-[10px] text-green-400 font-bold mt-1">
-															(ALREADY OWNED)
-														</div>
-													)}
-												</div>
-											</div>
-										)}
-
-										<div className="flex justify-between items-end">
-											<div className="flex flex-col gap-1">
-												<div className="text-[10px] text-gray-500 uppercase">
-													Opponent
-												</div>
-												<div className="font-bold flex items-center gap-2 text-xs">
-													<div
-														className="w-3 h-3 pixel-border"
-														style={{
-															background:
-																m.opponent
-																	.color,
-														}}
-													></div>
-													{m.opponent.name}
-												</div>
-											</div>
-											<div className="text-right">
-												{m.bestTime ? (
-													<div className="text-yellow-500 text-xs">
-														Best:{' '}
-														{m.bestTime.toFixed(3)}s
-													</div>
-												) : (
-													<div className="text-gray-600 text-[10px]">
-														NO RECORD
-													</div>
-												)}
-												<div className="text-[10px] text-indigo-400">
-													{m.distance}m
-												</div>
-											</div>
-										</div>
-
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-												onStartMission(m);
-											}}
-											className={`w-full mt-4 pixel-btn ${
-												isBoss
-													? 'bg-yellow-600 border-yellow-800 hover:bg-yellow-500'
-													: ''
-											}`}
-											style={
-												isBoss
-													? {
-															backgroundColor:
-																'#ca8a04',
-															borderColor:
-																'#854d0e',
-													  }
-													: {}
-											}
-										>
-											RACE
-										</button>
-									</div>
-								</div>
-							);
-						})}
-					</div>
+				) :  */}
+				{/* {activeTab === 'CAMPAIGN' ? (
+					
 				) : activeTab === 'UNDERGROUND' ? (
 					// UNDERGROUND TAB
 					<div className="flex flex-col items-center justify-center py-12 animate-in fade-in duration-500">
@@ -346,7 +343,6 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 
 							<div className="flex flex-col items-center">
 								<div className="w-32 h-32 mb-6 relative">
-									{/* Silhouette or Icon */}
 									<div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
 									<svg
 										viewBox="0 0 24 24"
@@ -431,7 +427,7 @@ const MissionSelect: React.FC<MissionSelectProps> = ({
 						level={level}
 						onChallenge={onChallengeRival}
 					/>
-				)}
+				)} */}
 			</div>
 		</div>
 	);

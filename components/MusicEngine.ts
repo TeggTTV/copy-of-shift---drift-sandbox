@@ -203,7 +203,7 @@ export class MusicEngine {
 		track: MusicTrack,
 		fadeInDuration: number = 1.0,
 		isRetry: boolean = false
-	) {
+	): Promise<void> {
 		if (!this.ctx || !this.masterGain || !this.isInitialized) {
 			// console.warn('[MusicEngine] Not initialized, initializing now...');
 			await this.init();

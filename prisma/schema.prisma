@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // url      = env("DATABASE_URL")
+  provider = "mongodb"
+}
+
+model User {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  username String @unique
+  email    String @unique
+  password String
+  money    Float  @default(0)
+  level    Int    @default(1)
+  xp       Int    @default(0)
+
+  // Game Data
+  inventory String[]
+  garage    Json[]
+
+  // Social
+  friendCode             String   @unique @default(cuid())
+  friends                String[] @db.ObjectId
+  friendRequestsSent     String[] @db.ObjectId
+  friendRequestsReceived String[] @db.ObjectId
+  partyInvites           String[] @db.ObjectId // List of Party IDs
+
+  // Auth
+  resetCode String?
+  lastLogin DateTime? @default(now())
+
+  // Party
+  partyId String? @db.ObjectId
+  party   Party?  @relation(fields: [partyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Party {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId     String   @unique @db.ObjectId
+  members    String[] @db.ObjectId
+  users      User[]
+  isOpen     Boolean  @default(true)
+  activeRace Race?
+  createdAt  DateTime @default(now())
+}
+
+model Race {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  partyId   String    @unique @db.ObjectId
+  party     Party     @relation(fields: [partyId], references: [id])
+  status    String    @default("PENDING") // PENDING, COUNTDOWN, RACING, FINISHED
+  startTime DateTime?
+  betAmount Float     @default(0)
+  winnerId  String?
+
+  // Player States: { userId, progress, speed, finished, time, placement }
+  playerStates Json[]
+
+  createdAt DateTime @default(now())
+}

@@ -1,6 +1,12 @@
 import React from 'react';
 
-export const LevelBadge = ({ level }: { level: number }) => {
+export const LevelBadge = ({
+	level,
+	scale,
+}: {
+	level: number;
+	scale?: number;
+}) => {
 	let tierClass = 'border-gray-600 text-gray-400';
 	let bgClass = 'bg-gray-800';
 	let wings = false;
@@ -26,7 +32,10 @@ export const LevelBadge = ({ level }: { level: number }) => {
 	}
 
 	return (
-		<div className="relative flex items-center justify-center group">
+		<div
+			className="relative flex items-center justify-center group"
+			style={{ transform: `scale(${scale || 1})` }}
+		>
 			{/* Wings for max level */}
 			{wings && (
 				<>
@@ -39,13 +48,20 @@ export const LevelBadge = ({ level }: { level: number }) => {
 				className={`
                 relative w-12 h-12 flex items-center justify-center 
                 border-4 ${tierClass} ${bgClass} 
-                transform rotate-45 transition-transform duration-300 group-hover:rotate-0
-            `}
+				transform rotate-45 
+				`}
+				// transition-transform
+				// duration-300
+				// group-hover:rotate-0
 			>
 				{/* Animated Border Fill for Level Up (Optional, requires more complex CSS or SVG) */}
 				{/* For now, we rely on the tier class change */}
 
-				<div className="transform -rotate-45 group-hover:rotate-0 transition-transform duration-300 flex flex-col items-center h-full w-full justify-center">
+				<div
+					className="transform -rotate-45 
+				flex flex-col items-center h-full w-full justify-center"
+				>
+					{/* group-hover:rotate-0 transition-transform duration-300  */}
 					<span className="text-[8px] uppercase tracking-widest opacity-70 mb-1">
 						LVL
 					</span>

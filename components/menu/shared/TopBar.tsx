@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { calculateLevelProgress } from '@/utils/progression';
 import { LevelBadge } from './LevelBadge';
+import { FriendsSidepanel } from '../social/FriendsSidepanel';
+import { useAuth } from '../../../contexts/AuthContext';
+import { LoginModal } from '../../auth/LoginModal';
 
 export const TopBar = ({
 	level,
@@ -40,6 +43,10 @@ export const TopBar = ({
 	const prevXpRef = React.useRef(initialXp ?? xp);
 	const prevMoneyRef = React.useRef(initialMoney ?? money);
 
+	const { isOnline } = useAuth();
+	const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+	const [isLoginOpen, setIsLoginOpen] = useState(false);
+
 	// Effect to trigger animation from initial values to current values on mount
 	useEffect(() => {
 		if (initialXp !== undefined && initialXp !== xp) {
@@ -67,15 +74,7 @@ export const TopBar = ({
 	useEffect(() => {
 		if (initialMoney !== undefined && initialMoney !== money) {
 			setTimeout(() => {
-				// Trigger money animation logic (handled by the main money effect below if we update state, but here we need to force it)
-				// Actually, the main effect watches `money` prop.
-				// But since we initialized `displayMoney` to `initialMoney`, we just need to update `displayMoney` to `money` smoothly.
-				// The main effect compares `money` prop to `prevMoneyRef`.
-				// `prevMoneyRef` is `initialMoney`. `money` is `money`. They differ.
-				// So the main effect SHOULD fire.
-				// However, the main effect runs on every render.
-				// Let's rely on the main effect, but we need to ensure `prevMoneyRef` is set correctly.
-				// It is set to `initialMoney`.
+				// Trigger money animation logic
 			}, 2000);
 		}
 	}, [initialMoney, money]);
@@ -105,33 +104,11 @@ export const TopBar = ({
 			}, 500); // Wait for bar fill animation
 		} else if (xp !== prevXpRef.current) {
 			// Normal XP Gain
-			// If we are animating from initialXp, we handled the gain text in the mount effect.
-			// But we need to update displayXp.
-			// If this is a subsequent update (not the initial one), we handle it here.
-			// If it IS the initial update (triggered by the timeout above setting displayXp?), wait.
-			// Actually, `setDisplayXp` triggers re-render.
-			// We need to differentiate between "prop update" and "internal animation".
-
-			// Simplified: Just watch props.
 			if (!isLevelingUp) {
 				setDisplayXp(xp);
 			}
 
-			// Add Floating Text (only if not handled by initial mount logic)
-			// If initialXp was provided, we handled it there.
-			// We can check if `prevXpRef.current` matches `initialXp` and we are just mounting?
-			// No, simpler: Just check if we already added a gain for this?
-			// Or just let this logic handle it if we update `prevXpRef` correctly.
-
 			const gain = xp - prevXpRef.current;
-			// Only show gain if it's a new update, NOT if it's the initial animation which we might have handled manually?
-			// Actually, if we use the timeout to setDisplayXp, that doesn't change props.
-			// This effect runs when `xp` PROP changes.
-			// If `xp` prop is constant (e.g. on result screen), this effect runs once.
-			// If `prevXpRef` was initialized to `initialXp`, then `xp !== prevXpRef` is true.
-			// So this block runs.
-			// So we don't need the separate `useEffect` for `initialXp` to trigger text?
-			// We DO need the delay though.
 
 			if (gain > 0) {
 				// If we have a delay, we want to delay this text too.
@@ -210,6 +187,15 @@ export const TopBar = ({
 
 	return (
 		<div className="sticky top-0 left-0 right-0 h-16 bg-gray-900 border-b-4 border-gray-800 grid grid-cols-[1fr_2fr_1fr] items-center px-4 z-[100] shadow-xl">
+			<FriendsSidepanel
+				isOpen={isFriendsOpen}
+				onClose={() => setIsFriendsOpen(false)}
+			/>
+			<LoginModal
+				isOpen={isLoginOpen}
+				onClose={() => setIsLoginOpen(false)}
+			/>
+
 			{/* Left: Back Button */}
 			<div className="flex items-center gap-4">
 				{onBack && (
@@ -271,13 +257,6 @@ export const TopBar = ({
 
 			{/* Right: Money & Title */}
 			<div className="flex items-center justify-end relative">
-				{/* Title (hidden on mobile, small overlay on desktop if needed, but grid makes it tricky to centering absolutely. 
-				    The user request emphasizes XP UI fix. Title is optional. Let's put title in the 'Left' or 'Right' or remove it to avoid clutter?) 
-				    Actually, I'll keep title hidden for now or overlay it if strictly requested. 
-				    The user said: "XP UI always in one spot... first and 3rd spots have set width". 
-				    So I'll focus on Money being Right. 
-				*/}
-
 				<div className="flex items-center">
 					<span className="text-green-400 text-xl font-bold pixel-text mr-1">
 						$
@@ -304,6 +283,33 @@ export const TopBar = ({
 						))}
 					</div>
 				</div>
+
+				{/* Friends Icon or Login */}
+				{isOnline ? (
+					<button
+						onClick={() => setIsFriendsOpen(!isFriendsOpen)}
+						className="ml-4 text-white hover:text-cyan-400 transition-colors"
+						title="Friends List"
+					>
+						{/* Pixel Art Friend Icon (Simple Group) */}
+						<svg
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							className="pixel-antialiased"
+						>
+							<path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+						</svg>
+					</button>
+				) : (
+					<button
+						onClick={() => setIsLoginOpen(true)}
+						className="ml-4 pixel-btn text-[10px] py-1 px-2 bg-blue-700 text-white border-blue-900"
+					>
+						LOGIN
+					</button>
+				)}
 			</div>
 		</div>
 	);

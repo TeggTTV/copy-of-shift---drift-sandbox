@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 \Save Data.json
+/generated/prisma
+.next
