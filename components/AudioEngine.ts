@@ -565,7 +565,17 @@ export class AudioEngine {
 
 	// UI Sounds
 	async playUISound(
-		type: 'click' | 'hover' | 'confirm' | 'back' | 'error' | 'purchase'
+		type:
+			| 'click'
+			| 'hover'
+			| 'confirm'
+			| 'back'
+			| 'error'
+			| 'purchase'
+			| 'upgrade'
+			| 'unequip'
+			| 'ui_click'
+			| 'ui_select'
 	) {
 		// console.log(`[AudioEngine] playUISound called: ${type}`);
 
@@ -609,6 +619,7 @@ export class AudioEngine {
 
 		switch (type) {
 			case 'click':
+			case 'ui_click':
 				osc.type = 'sine';
 				osc.frequency.setValueAtTime(600, now);
 				osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
@@ -619,6 +630,7 @@ export class AudioEngine {
 				break;
 
 			case 'confirm':
+			case 'ui_select':
 				osc.type = 'sine';
 				osc.frequency.setValueAtTime(400, now);
 				osc.frequency.linearRampToValueAtTime(800, now + 0.1);
@@ -649,6 +661,7 @@ export class AudioEngine {
 				break;
 
 			case 'purchase':
+			case 'upgrade':
 				// Ka-ching!
 				const osc2 = this.ctx.createOscillator();
 				const gain2 = this.ctx.createGain();
@@ -669,6 +682,16 @@ export class AudioEngine {
 				osc.stop(now + 0.4);
 				osc2.start(now);
 				osc2.stop(now + 0.5);
+				break;
+
+			case 'unequip':
+				osc.type = 'square';
+				osc.frequency.setValueAtTime(200, now);
+				osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+				gain.gain.setValueAtTime(0.05, now);
+				gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+				osc.start(now);
+				osc.stop(now + 0.1);
 				break;
 		}
 	}

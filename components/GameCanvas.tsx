@@ -2030,7 +2030,23 @@ const GameCanvas: React.FC = () => {
 							onRefreshDealership: refreshDealership,
 							onBuyShopItem: buyShopItem,
 							onRefreshDailyShop: refreshDailyShop,
-							onManualTuningChange,
+							dailyShopItems,
+							onManualTuningChange: (tuning) => {
+								if (garage[currentCarIndex]) {
+									const updatedCar = {
+										...garage[currentCarIndex],
+										manualTuning: {
+											...garage[currentCarIndex]
+												.manualTuning,
+											...tuning,
+										},
+									};
+									const newGarage = [...garage];
+									newGarage[currentCarIndex] = updatedCar;
+									setGarage(newGarage);
+									// Pending tuning ref update handled by effect
+								}
+							},
 							settings,
 							setSettings,
 						}}

@@ -9,9 +9,7 @@ interface TuningTabProps {
 	ownedMods: string[];
 	disabledMods: string[];
 	modSettings: Record<string, Record<string, number>>;
-	setModSettings: React.Dispatch<
-		React.SetStateAction<Record<string, Record<string, number>>>
-	>;
+	setModSettings: (settings: Record<string, Record<string, number>>) => void;
 	playerTuning: TuningState;
 	setPlayerTuning: React.Dispatch<React.SetStateAction<TuningState>>;
 	onLoadTune: (tune: SavedTune) => void;
@@ -157,14 +155,15 @@ const TuningTab: React.FC<TuningTabProps> = ({
 												step={option.step}
 												value={currentValue}
 												onChange={(val) => {
-													setModSettings((prev) => ({
-														...prev,
+													setModSettings({
+														...modSettings,
 														[mod.id]: {
-															...(prev[mod.id] ||
-																{}),
+															...(modSettings[
+																mod.id
+															] || {}),
 															[option.id]: val,
 														},
-													}));
+													});
 												}}
 												color="indigo"
 											/>
@@ -337,7 +336,11 @@ const TuningTab: React.FC<TuningTabProps> = ({
 						<input
 							type="text"
 							value={tuneName}
-							onChange={(e) => setTuneName(e.target.value)}
+							onChange={(e) =>
+								setTuneName(
+									(e.target as HTMLInputElement).value
+								)
+							}
 							placeholder="Tune Name..."
 							className="flex-1 bg-black/50 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-pixel"
 						/>

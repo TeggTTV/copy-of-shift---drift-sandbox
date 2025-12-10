@@ -6,7 +6,11 @@ export type SoundType =
 	| 'confirm'
 	| 'back'
 	| 'error'
-	| 'purchase';
+	| 'purchase'
+	| 'upgrade'
+	| 'unequip'
+	| 'ui_click'
+	| 'ui_select';
 
 interface SoundContextType {
 	play: (type: SoundType) => void;

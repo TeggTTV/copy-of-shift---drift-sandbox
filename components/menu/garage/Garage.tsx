@@ -32,7 +32,7 @@ interface GarageProps {
 	disabledMods: string[];
 	setDisabledMods: React.Dispatch<React.SetStateAction<string[]>>;
 	modSettings: ModSettings;
-	setModSettings: React.Dispatch<React.SetStateAction<ModSettings>>;
+	setModSettings: (settings: ModSettings) => void;
 	dynoHistory: any[];
 	setDynoHistory: React.Dispatch<React.SetStateAction<any[]>>;
 	previousDynoHistory: any[];

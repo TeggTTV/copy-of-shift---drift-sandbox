@@ -10,10 +10,12 @@ interface VersusScreenProps {
 	ownedMods: string[];
 	dynoHistory: { rpm: number; torque: number; hp: number }[];
 	money: number;
-	weather: { type: 'SUNNY' | 'RAIN'; intensity: number };
-	setWeather: React.Dispatch<
-		React.SetStateAction<{ type: 'SUNNY' | 'RAIN'; intensity: number }>
-	>;
+	weather: { type: 'SUNNY' | 'RAIN'; intensity: number; season: any };
+	setWeather: (w: {
+		type: 'SUNNY' | 'RAIN';
+		intensity: number;
+		season: any;
+	}) => void;
 	userInventory?: InventoryItem[];
 	onApplyWear?: (amount: number) => void;
 }
@@ -357,7 +359,11 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 						<div className="flex gap-2">
 							<button
 								onClick={() => {
-									setWeather({ type: 'SUNNY', intensity: 0 });
+									setWeather({
+										type: 'SUNNY',
+										intensity: 0,
+										season: weather.season,
+									});
 									play('ui_click');
 								}}
 								className={`pixel-btn px-6 py-2 transition-all ${
@@ -373,6 +379,7 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 									setWeather({
 										type: 'RAIN',
 										intensity: 0.8,
+										season: weather.season,
 									});
 									play('ui_click');
 								}}
@@ -453,7 +460,11 @@ const VersusScreen: React.FC<VersusScreenProps> = ({
 											0,
 											Math.min(
 												money,
-												parseInt(e.target.value) || 0
+												parseInt(
+													(
+														e.target as HTMLInputElement
+													).value
+												) || 0
 											)
 										);
 										setWager(val);

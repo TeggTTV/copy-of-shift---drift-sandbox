@@ -31,8 +31,12 @@ export interface GameContextType {
 	modSettings: Record<string, Record<string, number>>;
 	setModSettings: (settings: Record<string, Record<string, number>>) => void;
 	onLoadTune: (tune: SavedTune) => void;
-	weather: { type: 'SUNNY' | 'RAIN'; intensity: number };
-	setWeather: (w: { type: 'SUNNY' | 'RAIN'; intensity: number }) => void;
+	weather: { type: 'SUNNY' | 'RAIN'; intensity: number; season: any }; // using any to avoid circular dep with Season type if not imported
+	setWeather: (w: {
+		type: 'SUNNY' | 'RAIN';
+		intensity: number;
+		season: any;
+	}) => void;
 	showToast: (msg: string, type: any) => void; // Using any for toast type to match usage
 	dynoHistory: { rpm: number; torque: number; hp: number }[];
 	setDynoHistory: React.Dispatch<

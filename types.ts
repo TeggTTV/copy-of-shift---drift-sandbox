@@ -246,7 +246,7 @@ export interface Mission {
 	distance: number; // meters
 	opponent: Opponent;
 	bestTime?: number; // Persisted best time
-	bestGhost?: number[]; // Recorded ghost data
+	bestGhost?: GhostFrame[]; // Recorded ghost data
 	rewardCar?: SavedTune; // Car awarded for winning
 	xpReward?: number;
 }
