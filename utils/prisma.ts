@@ -21,7 +21,16 @@ export type ApiRoute =
 	| '/api/auth/login'
 	| '/api/auth/refresh'
 	| '/api/auth/logout'
-	| '/api/friends';
+	| '/api/friends'
+	| '/api/party/challenge'
+	| '/api/party/challenge-respond'
+	| '/api/party/ready'
+	| '/api/auction'
+	| '/api/auction?action=create'
+	| '/api/auction?action=buy'
+	| '/api/auction?action=claim'
+	| '/api/transactions/money'
+	| '/api/shop/crates';
 
 export const getFullUrl = (route: ApiRoute, query?: string): string => {
 	const fullUrl = `${protocol}${domain}${route}${query ? `?${query}` : ''}`;

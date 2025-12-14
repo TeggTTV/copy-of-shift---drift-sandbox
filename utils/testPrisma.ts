@@ -5,7 +5,7 @@
  * Or import and call testPrismaConnection() from your app
  */
 
-import { prisma } from '../utils/prisma';
+import prisma from '../utils/prisma';
 
 export async function testPrismaConnection() {
 	try {

@@ -50,6 +50,7 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 	}, []);
 
 	const handleBuy = (crate: Crate) => {
+		console.log('[CrateShop] handleBuy clicked for:', crate.name);
 		if (money < crate.price * buyAmount) return;
 
 		// If Auto-Open is enabled, start the loop
@@ -77,6 +78,7 @@ export const CrateShop: React.FC<CrateShopProps> = ({
 				for (let i = 0; i < buyAmount; i++) {
 					newItems.push(ItemGenerator.openCrate(crate));
 				}
+
 				onItemReveal(newItems);
 			}, 200);
 		} else {

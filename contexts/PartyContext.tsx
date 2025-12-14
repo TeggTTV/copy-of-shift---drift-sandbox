@@ -21,6 +21,7 @@ export interface Party {
 	members: PartyMember[];
 	activeRaceId?: string;
 	status?: string; // e.g. 'COUNTDOWN', 'RACING'
+	readyMemberIds: string[];
 }
 
 interface PartyContextType {
@@ -70,6 +71,7 @@ export const PartyProvider: React.FC<{ children: React.ReactNode }> = ({
 						{ id: 'p3', username: 'DriftQueen', level: 12 },
 					],
 					activeRaceId: undefined as string | undefined, // Explicit type for TS
+					readyMemberIds: [],
 				};
 
 				// Simulate race state if needed (can add mock logic here later to toggle activeRaceId)

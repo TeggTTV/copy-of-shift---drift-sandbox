@@ -10,7 +10,8 @@ export type SoundType =
 	| 'upgrade'
 	| 'unequip'
 	| 'ui_click'
-	| 'ui_select';
+	| 'ui_select'
+	| 'cash';
 
 interface SoundContextType {
 	play: (type: SoundType) => void;

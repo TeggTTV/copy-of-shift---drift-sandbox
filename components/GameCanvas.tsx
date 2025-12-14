@@ -15,6 +15,7 @@ import { CarGenerator } from '../utils/CarGenerator';
 import { calculateNextLevelXp } from '../utils/progression';
 import { useGamePersistence } from '../hooks/useGamePersistence';
 import { ItemMerge } from '../utils/ItemMerge';
+import { getFullUrl } from '../utils/prisma';
 import { ItemGenerator } from '../utils/ItemGenerator';
 import { TopBar } from '@/components/menu/shared/TopBar';
 import Dashboard from './Dashboard';
@@ -22,6 +23,8 @@ import { SoundProvider } from '../contexts/SoundContext';
 import { GameProvider } from '../contexts/GameContext';
 import { useToast } from '../contexts/ToastContext';
 import { useParty } from '../contexts/PartyContext'; // Import useParty
+import { useAuth } from '../contexts/AuthContext';
+import { processMoneyTransaction } from '../utils/transactions';
 import {
 	BASE_TUNING,
 	INITIAL_MONEY,
@@ -55,7 +58,8 @@ type RaceStatus = 'IDLE' | 'COUNTDOWN' | 'RACING' | 'FINISHED';
 const GameCanvas: React.FC = () => {
 	const { showToast } = useToast();
 	const music = useMusic();
-	const { party } = useParty();
+	const { party, leaveParty } = useParty();
+	const { token, user } = useAuth();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	// Audio Refs
@@ -67,7 +71,7 @@ const GameCanvas: React.FC = () => {
 	const particleSystemRef = useRef<ParticleSystem>(new ParticleSystem());
 
 	// Game Persistence State
-	const [money, setMoney] = useState(0);
+	const [money, setRawMoney] = useState(0);
 	const [phase, setPhase] = useState<GamePhase>('MAP');
 
 	// New Inventory System (Array of owned Mod IDs)
@@ -117,6 +121,14 @@ const GameCanvas: React.FC = () => {
 
 	// Music Logic handled in the phased delay effect below
 
+	// State declarations moved up to fix ReferenceError
+	const [raceResult, setRaceResult] = useState<'WIN' | 'LOSS' | null>(null);
+	const [wearResult, setWearResult] = useState<Record<string, number> | null>(
+		null
+	);
+	const [showConditionTab, setShowConditionTab] = useState(false);
+	const [inventory, setInventory] = useState<InventoryItem[]>([]);
+
 	// Dyno History State
 	const [dynoHistory, setDynoHistory] = useState<
 		{ rpm: number; torque: number; hp: number }[]
@@ -125,10 +137,6 @@ const GameCanvas: React.FC = () => {
 		{ rpm: number; torque: number; hp: number }[]
 	>([]);
 
-	const [wearResult, setWearResult] = useState<Record<string, number> | null>(
-		null
-	);
-
 	const handleDynoRunStart = useCallback(() => {
 		if (dynoHistory.length > 0) {
 			setPreviousDynoHistory(dynoHistory);
@@ -136,8 +144,6 @@ const GameCanvas: React.FC = () => {
 	}, [dynoHistory]);
 
 	// Current Tuning (Calculated from Base + Mods)
-	// Use CarBuilder to calculate initial tuning if needed, or default to BASE_TUNING
-	// We'll update it in useEffect when garage/mods change
 	const [playerTuning, setPlayerTuning] = useState<TuningState>(BASE_TUNING);
 	const tuningRef = useRef<TuningState>(BASE_TUNING);
 	const pendingTuningRef = useRef<Partial<TuningState> | null>(null);
@@ -155,6 +161,59 @@ const GameCanvas: React.FC = () => {
 	// Daily Shop State
 	const [dailyShopItems, setDailyShopItems] = useState<InventoryItem[]>([]);
 	const [lastDailyRefresh, setLastDailyRefresh] = useState<number>(0);
+
+	// Underground State
+	const [undergroundLevel, setUndergroundLevel] = useState(1);
+	const [defeatedRivals, setDefeatedRivals] = useState<string[]>([]);
+	const [xp, setXp] = useState(0);
+	const [level, setLevel] = useState(1);
+
+	// Persistence Hook
+	const {
+		loaded: isGameLoaded,
+		notifyMoneyUpdate,
+		saveGame,
+	} = useGamePersistence(
+		money,
+		setRawMoney,
+		ownedMods,
+		setOwnedMods,
+		disabledMods,
+		setDisabledMods,
+		modSettings,
+		setModSettings,
+		missions,
+		setMissions,
+		dailyChallenges,
+		setDailyChallenges,
+		playerTuning,
+		setPlayerTuning,
+		dynoHistory,
+		setDynoHistory,
+		previousDynoHistory,
+		setPreviousDynoHistory,
+		garage,
+		setGarage,
+		currentCarIndex,
+		setCurrentCarIndex,
+		undergroundLevel,
+		setUndergroundLevel,
+		xp,
+		setXp,
+		level,
+		setLevel,
+		inventory,
+		setInventory,
+		phase
+	);
+
+	const setMoney = useCallback(
+		(value: React.SetStateAction<number>) => {
+			setRawMoney(value);
+			notifyMoneyUpdate();
+		},
+		[notifyMoneyUpdate]
+	);
 
 	const generateJunkyardCars = useCallback(() => {
 		const cars: JunkyardCar[] = [];
@@ -250,37 +309,342 @@ const GameCanvas: React.FC = () => {
 				finishTime: 0,
 			};
 
-			setRaceStatus('COUNTDOWN');
-			setCountdownNum(3);
+			// Set Dummy Mission for Online Race (Required for Physics/HUD)
+			missionRef.current = {
+				id: 'online_race',
+				name: 'Online Race',
+				description: 'Multiplayer Drag Race',
+				payout: 0, // Handled by betting
+				difficulty: 'HARD',
+				distance: 402, // 1/4 mile
+				opponent: {
+					name: 'Opponent',
+					difficulty: 5,
+					color: '#ff0000',
+					tuning: BASE_TUNING,
+				},
+			};
 
-			// Simple Local Countdown (Sync comes later)
-			let count = 3;
-			const timer = setInterval(() => {
-				count--;
-				if (count > 0) setCountdownNum(count);
-				else if (count === 0) {
-					setCountdownNum('GO!');
-					setRaceStatus('RACING');
-					raceStartTimeRef.current = performance.now() / 1000;
-				} else {
-					setCountdownNum('');
-					clearInterval(timer);
+			// --- Setup Environment for Online Race (Same as missions) ---
+			const onlineRaceDistance = 402; // 1/4 mile
+			const seasons: Season[] = ['SPRING', 'SUMMER', 'FALL', 'WINTER'];
+			const randomSeason =
+				seasons[Math.floor(Math.random() * seasons.length)];
+
+			// Weather Logic
+			const isRain = Math.random() < 0.2 && randomSeason !== 'WINTER';
+			setWeather({
+				type: isRain ? 'RAIN' : 'SUNNY',
+				intensity: isRain ? 0.5 + Math.random() * 0.5 : 0,
+				season: randomSeason,
+			});
+
+			// Generate Trees
+			const newTrees: { x: number; y: number; scale: number }[] = [];
+			const treeCount = Math.floor(onlineRaceDistance * 8); // High density: ~1 tree per 2m
+			for (let i = 0; i < treeCount; i++) {
+				const side = Math.random() > 0.5 ? 1 : -1;
+				const x = side * (5 + Math.random() * 30);
+				const y = -20 + Math.random() * (onlineRaceDistance + 100);
+				const scale = 0.8;
+				newTrees.push({ x, y, scale });
+			}
+			newTrees.sort((a, b) => b.y - a.y);
+			setBgTrees(newTrees);
+			// Wait for server start time
+			const checkStart = setInterval(async () => {
+				if (
+					(phase as string) !== 'ONLINE_RACE' ||
+					!party?.activeRaceId
+				) {
+					clearInterval(checkStart);
+					return;
 				}
-			}, 1000);
+				try {
+					// 1. Send Ready Signal (Auto-ready on load)
+					// We only do this once, but polling is fine as it's idempotent-ish or we can check status
+					// Actually, let's just poll status. If status is WAITING, we send ready.
 
-			return () => clearInterval(timer);
+					const res = await fetch(
+						getFullUrl('/api/race', `partyId=${party.id}`),
+						{
+							headers: { Authorization: `Bearer ${token}` },
+						}
+					);
+					if (res.ok) {
+						const race = await res.json();
+						console.log('Race Poll:', race.status, race.startTime);
+
+						if (race.status === 'WAITING_FOR_PLAYERS') {
+							setRaceStatus('IDLE'); // Or a new local status 'WAITING'
+							setCountdownNum('WAITING FOR PLAYERS...');
+
+							// Send Ready Signal
+							await fetch(
+								getFullUrl('/api/race', 'action=ready'),
+								{
+									method: 'POST',
+									headers: {
+										'Content-Type': 'application/json',
+										Authorization: `Bearer ${token}`,
+									},
+									body: JSON.stringify({ raceId: race.id }),
+								}
+							);
+						} else if (
+							race.status === 'COUNTDOWN' &&
+							race.startTime
+						) {
+							const serverStartTime = new Date(
+								race.startTime
+							).getTime();
+							const now = Date.now();
+							const diff = serverStartTime - now;
+							// console.log('Countdown Diff:', diff);
+
+							// Sync race start time to local performance.now()
+							// raceStartTimeRef will be the FUTURE time when race starts
+							raceStartTimeRef.current = performance.now() + diff;
+
+							if (diff > 0) {
+								setRaceStatus('COUNTDOWN');
+								// Render loop will handle the countdown update
+							} else {
+								// Race already started
+								setRaceStatus('RACING');
+								setCountdownNum('GO!');
+								setTimeout(() => setCountdownNum(''), 1000);
+							}
+						}
+					}
+				} catch (e) {}
+			}, 500); // Poll faster for responsiveness
+
+			// Reset Player State explicitly when entering ONLINE_RACE
+			playerRef.current = {
+				y: 0,
+				velocity: 0,
+				rpm: 1000,
+				gear: 0,
+				finished: false,
+				finishTime: 0,
+			};
+			opponentRef.current = {
+				y: 0,
+				velocity: 0,
+				rpm: 1000,
+				gear: 0,
+				finished: false,
+				finishTime: 0,
+			};
+			setPlayerFinishTime(0);
+			setOpponentFinishTime(0);
+
+			return () => clearInterval(checkStart);
 		} else if (!party?.activeRaceId && phase === 'ONLINE_RACE') {
-			setPhase('MAP');
-			setRaceStatus('IDLE');
+			// Only exit if we don't have results yet
+			if (!raceResult) {
+				setPhase('MAP');
+				setRaceStatus('IDLE');
+			}
 		}
-	}, [party?.activeRaceId, phase]);
+	}, [party?.activeRaceId, phase, raceResult]);
+
+	// Online Sync
+	useEffect(() => {
+		if (
+			phase !== 'ONLINE_RACE' ||
+			!party?.activeRaceId ||
+			!token ||
+			!party?.id
+		)
+			return;
+
+		const sync = async () => {
+			const p = playerRef.current;
+			try {
+				// 1. Send State
+				const postRes = await fetch(
+					getFullUrl('/api/race', 'action=sync'),
+					{
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({
+							raceId: party.activeRaceId,
+							progress: p.y,
+							speed: p.velocity,
+							finished: p.finished,
+							time: p.finishTime,
+						}),
+					}
+				);
+
+				if (postRes.ok) {
+					const data = await postRes.json();
+					// Check if race finished via POST response (it might be deleted now)
+					if (data.status === 'FINISHED' && !raceResult) {
+						if (data.winnerId === user?.id) {
+							setRaceResult('WIN');
+						} else {
+							setRaceResult('LOSS');
+						}
+						setRaceStatus('FINISHED');
+
+						// Trigger Wear Logic
+						if (!wearResult) {
+							const calculatedWear: Record<string, number> = {};
+							const wearBase = 0.5;
+							const wearVariance = 1.0;
+							inventory.forEach((item) => {
+								if (item.equipped) {
+									const wear =
+										wearBase + Math.random() * wearVariance;
+									calculatedWear[item.instanceId] = wear;
+								}
+							});
+							setInventory((prev) =>
+								prev.map((item) => {
+									if (calculatedWear[item.instanceId]) {
+										const current =
+											item.condition !== undefined
+												? item.condition
+												: 100;
+										return {
+											...item,
+											condition: Math.max(
+												0,
+												current -
+													calculatedWear[
+														item.instanceId
+													]
+											),
+										};
+									}
+									return item;
+								})
+							);
+							setWearResult(calculatedWear);
+						}
+						// Return early since race is likely deleted
+						return;
+					}
+				}
+
+				// 2. Get State (Only if not finished/deleted)
+				const res = await fetch(
+					getFullUrl('/api/race', `partyId=${party.id}`),
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				if (res.ok) {
+					const race = await res.json();
+					if (race) {
+						if (race.betAmount !== undefined) {
+							currentWagerRef.current = race.betAmount;
+						}
+
+						// Check for race finish (Global or Local)
+						const isRaceOver =
+							race.status === 'FINISHED' ||
+							(race.winnerId && p.finished);
+
+						if (isRaceOver && !raceResult) {
+							// Determine winner
+							if (race.winnerId === user?.id) {
+								setRaceResult('WIN');
+							} else {
+								setRaceResult('LOSS');
+							}
+							if (race.status === 'FINISHED') {
+								setRaceStatus('FINISHED');
+							}
+
+							// Trigger Wear Logic locally if not already done
+							if (!wearResult) {
+								const calculatedWear: Record<string, number> =
+									{};
+								const wearBase = 0.5;
+								const wearVariance = 1.0;
+								inventory.forEach((item) => {
+									if (item.equipped) {
+										const wear =
+											wearBase +
+											Math.random() * wearVariance;
+										calculatedWear[item.instanceId] = wear;
+									}
+								});
+								setInventory((prev) =>
+									prev.map((item) => {
+										if (calculatedWear[item.instanceId]) {
+											const current =
+												item.condition !== undefined
+													? item.condition
+													: 100;
+											return {
+												...item,
+												condition: Math.max(
+													0,
+													current -
+														calculatedWear[
+															item.instanceId
+														]
+												),
+											};
+										}
+										return item;
+									})
+								);
+								setWearResult(calculatedWear);
+							}
+						}
+
+						if (race.playerStates) {
+							// Find opponent
+							const opponentState = race.playerStates.find(
+								(s: any) => s.userId !== user?.id
+							);
+							if (opponentState) {
+								// Update Opponent Ref
+								opponentRef.current.y = opponentState.progress;
+								opponentRef.current.velocity =
+									opponentState.speed;
+								opponentRef.current.finished =
+									opponentState.finished;
+								opponentRef.current.finishTime =
+									opponentState.time;
+							}
+						}
+					}
+				}
+			} catch (e) {
+				console.error('Sync error', e);
+			}
+		};
+
+		const interval = setInterval(sync, 1000);
+		sync(); // Initial call
+		return () => clearInterval(interval);
+	}, [
+		phase,
+		party?.activeRaceId,
+		token,
+		user?.id,
+		party?.id,
+		raceResult,
+		wearResult,
+		inventory,
+	]);
 
 	const buyJunkyardCar = useCallback(
 		(car: JunkyardCar) => {
 			if (money >= car.price) {
 				setMoney((m) => m - car.price);
-				setGarage((prev) => [
-					...prev,
+				const newGarage = [
+					...garage,
 					{
 						id: car.id,
 						name: car.name,
@@ -295,7 +659,9 @@ const GameCanvas: React.FC = () => {
 						rarityMultiplier: car.rarityMultiplier,
 						installedItems: car.installedItems || [],
 					},
-				]);
+				];
+				setGarage(newGarage);
+				saveGame({ money: money - car.price, garage: newGarage }); // Immediate Save
 				setJunkyardCars((prev) => prev.filter((c) => c.id !== car.id));
 				showToast(`Bought ${car.name} for $${car.price}`, 'SUCCESS');
 			} else {
@@ -322,13 +688,15 @@ const GameCanvas: React.FC = () => {
 		(car: JunkyardCar) => {
 			if (money >= car.price) {
 				setMoney((m) => m - car.price);
-				setGarage((prev) => [
-					...prev,
+				const newGarage = [
+					...garage,
 					{
 						...car, // Already formatted by generator
 						date: Date.now(),
 					},
-				]);
+				];
+				setGarage(newGarage);
+				saveGame({ money: money - car.price, garage: newGarage }); // Immediate Save
 				// Remove bought car from stock
 				setDealershipCars((prev) =>
 					prev.filter((c) => c.id !== car.id)
@@ -354,10 +722,12 @@ const GameCanvas: React.FC = () => {
 			const price = item.value; // Shop price = estimated value
 			if (money >= price) {
 				setMoney((m) => m - price);
-				setInventory((prev) => [...prev, item]);
+				const newInventory = [...inventory, item];
+				setInventory(newInventory);
 				setDailyShopItems((prev) =>
 					prev.filter((i) => i.instanceId !== item.instanceId)
 				);
+				saveGame({ money: money - price, inventory: newInventory }); // Immediate Save
 				showToast(`Bought ${item.name}!`, 'SUCCESS');
 			} else {
 				showToast('Not enough money!', 'ERROR');
@@ -388,14 +758,13 @@ const GameCanvas: React.FC = () => {
 
 			if (money >= cost) {
 				setMoney((m) => m - cost);
-				setGarage((prev) => {
-					const newGarage = [...prev];
-					newGarage[carIndex] = {
-						...newGarage[carIndex],
-						condition: 100,
-					};
-					return newGarage;
-				});
+				const newGarage = [...garage];
+				newGarage[carIndex] = {
+					...newGarage[carIndex],
+					condition: 100,
+				};
+				setGarage(newGarage);
+				saveGame({ money: money - cost, garage: newGarage }); // Immediate Save
 				showToast(`Restored ${car.name} for $${cost}`, 'SUCCESS');
 			} else {
 				showToast(`Need $${cost} to restore!`, 'ERROR');
@@ -433,10 +802,9 @@ const GameCanvas: React.FC = () => {
 			// Add Money
 			setMoney((m) => m + scrapValue);
 			// Remove from Garage
-			setGarage((prev) => {
-				const newGarage = prev.filter((_, i) => i !== carIndex);
-				return newGarage;
-			});
+			const newGarage = garage.filter((_, i) => i !== carIndex);
+			setGarage(newGarage);
+			saveGame({ money: money + scrapValue, garage: newGarage }); // Immediate Save
 
 			// Adjust current index if needed (if we removed a car before the current one)
 			if (carIndex < currentCarIndex) {
@@ -477,48 +845,7 @@ const GameCanvas: React.FC = () => {
 		[showToast]
 	);
 
-	// Underground State
-	const [undergroundLevel, setUndergroundLevel] = useState(1);
-	const [defeatedRivals, setDefeatedRivals] = useState<string[]>([]);
-	const [xp, setXp] = useState(0);
-	const [level, setLevel] = useState(1);
-
-	// Inventory State
-	const [inventory, setInventory] = useState<any[]>([]);
-
-	// Persistence Hook
-	const isGameLoaded = useGamePersistence(
-		money,
-		setMoney,
-		ownedMods,
-		setOwnedMods,
-		disabledMods,
-		setDisabledMods,
-		modSettings,
-		setModSettings,
-		missions,
-		setMissions,
-		dailyChallenges,
-		setDailyChallenges,
-		playerTuning,
-		setPlayerTuning,
-		dynoHistory,
-		setDynoHistory,
-		previousDynoHistory,
-		setPreviousDynoHistory,
-		garage,
-		setGarage,
-		currentCarIndex,
-		setCurrentCarIndex,
-		undergroundLevel,
-		setUndergroundLevel,
-		xp,
-		setXp,
-		level,
-		setLevel,
-		inventory,
-		setInventory
-	);
+	// Inventory State moved up
 
 	// Sync active car state to garage whenever it changes
 	useEffect(() => {
@@ -668,7 +995,7 @@ const GameCanvas: React.FC = () => {
 		opponent: opponentRef.current,
 	});
 	const [raceStatus, setRaceStatus] = useState<RaceStatus>('IDLE');
-	const [raceResult, setRaceResult] = useState<'WIN' | 'LOSS' | null>(null);
+	// raceResult moved up
 	const [playerFinishTime, setPlayerFinishTime] = useState<number>(0);
 	const [opponentFinishTime, setOpponentFinishTime] = useState<number>(0);
 	const [countdownNum, setCountdownNum] = useState<number | string>('');
@@ -766,11 +1093,7 @@ const GameCanvas: React.FC = () => {
 			) {
 				// console.log('[GameCanvas] Starting menu music');
 				music.play('menu', 2.0);
-			} else if (
-				phase === 'RACE' ||
-				phase === 'VERSUS' ||
-				phase === 'ONLINE_RACE'
-			) {
+			} else if (phase === 'RACE' || phase === 'ONLINE_RACE') {
 				// console.log('[GameCanvas] Starting race music');
 				music.play('race', 1.5);
 			}
@@ -909,12 +1232,26 @@ const GameCanvas: React.FC = () => {
 
 			if (money >= totalCost && newModIds.length > 0) {
 				setMoney((m) => m - totalCost);
-				setOwnedMods((prev) => {
-					const filtered = prev.filter(
-						(id) => !conflictsToRemove.includes(id)
-					);
-					return [...filtered, ...newModIds];
-				});
+
+				// Calculate new owned mods
+				const currentOwned = [...ownedMods];
+				const filtered = currentOwned.filter(
+					(id) => !conflictsToRemove.includes(id)
+				);
+				const finalOwnedMods = [...filtered, ...newModIds];
+
+				setOwnedMods(finalOwnedMods);
+
+				// Update Garage immediately for save
+				const newGarage = [...garage];
+				if (newGarage[currentCarIndex]) {
+					newGarage[currentCarIndex] = {
+						...newGarage[currentCarIndex],
+						ownedMods: finalOwnedMods,
+					};
+				}
+				setGarage(newGarage);
+				saveGame({ money: money - totalCost, garage: newGarage }); // Immediate Save
 
 				if (conflictsToRemove.length > 0) {
 					showToast(
@@ -933,7 +1270,7 @@ const GameCanvas: React.FC = () => {
 				showToast('Not enough money to buy parts!', 'ERROR');
 			}
 		},
-		[money, ownedMods, showToast]
+		[money, ownedMods, showToast, garage, currentCarIndex, saveGame]
 	);
 
 	// --- Toast Logic ---
@@ -1004,34 +1341,13 @@ const GameCanvas: React.FC = () => {
 	// 	prevOwnedModsRef.current = ownedMods;
 	// }, [money, ownedMods, showToast, isGameLoaded, seenAffordableMods]);
 
-	const startMission = (m: Mission) => {
-		missionRef.current = m;
-		setRaceResult(null); // Reset result
-		// Load ghost if available
-		if (m.bestGhost) {
-			activeGhost.current = m.bestGhost;
-		} else {
-			activeGhost.current = null;
-		}
-		setPhase('VERSUS');
-	};
+	// Challenge Logic Removed
+	// const handleChallengeRival = ...
 
-	const handleChallengeRival = useCallback(
-		(rival: Rival) => {
-			const mission: Mission = {
-				id: `rival_${rival.id}`,
-				name: `Rival Challenge: ${rival.name}`,
-				description: rival.bio,
-				payout: rival.rewards.money,
-				difficulty: 'BOSS',
-				distance: 402,
-				opponent: rival,
-				rewardCar: rival.rewards.car,
-			};
-			startMission(mission);
-		},
-		[startMission]
-	);
+	const startMission = (mission: Mission) => {
+		missionRef.current = mission;
+		confirmStartRace();
+	};
 
 	const confirmStartRace = (wager: number = 0) => {
 		const mission = missionRef.current;
@@ -1072,8 +1388,6 @@ const GameCanvas: React.FC = () => {
 		setPhase('RACE');
 		setRaceStatus('COUNTDOWN');
 		setCountdownNum(3);
-		countdownStartRef.current = performance.now();
-		raceStartTimeRef.current = 0;
 		setCountdownNum(3);
 		countdownStartRef.current = performance.now();
 		raceStartTimeRef.current = 0;
@@ -1141,10 +1455,12 @@ const GameCanvas: React.FC = () => {
 		const nextLevelThreshold = calculateNextLevelXp(level);
 		if (xp >= nextLevelThreshold) {
 			setLevel((l) => l + 1);
-			setXp((curr) => Math.max(0, curr - nextLevelThreshold));
+			const newXp = Math.max(0, xp - nextLevelThreshold);
+			setXp(newXp);
+			saveGame({ level: level + 1, xp: newXp }); // Immediate Save
 			showToast(`LEVEL UP! You are now Level ${level + 1}`, 'SUCCESS');
 		}
-	}, [xp, level, showToast]);
+	}, [xp, level, showToast, saveGame]);
 
 	// --- Main Loop ---
 	useEffect(() => {
@@ -1160,13 +1476,31 @@ const GameCanvas: React.FC = () => {
 			const dt = Math.min((time - lastTimeRef.current) / 1000, 0.05);
 			lastTimeRef.current = time;
 
-			if (phase === 'RACE' && missionRef.current) {
+			if (
+				(phase === 'RACE' || phase === 'ONLINE_RACE') &&
+				missionRef.current
+			) {
 				const p = playerRef.current;
 				const o = opponentRef.current;
 				const m = missionRef.current;
 
 				// Countdown Logic
-				if (raceStatus === 'COUNTDOWN') {
+				if (phase === 'ONLINE_RACE' && raceStatus === 'COUNTDOWN') {
+					// Online: raceStartTimeRef is the Target Start Time
+					const remaining = raceStartTimeRef.current - time;
+					if (remaining <= 0) {
+						setRaceStatus('RACING');
+						setCountdownNum('GO!');
+						setTimeout(() => setCountdownNum(''), 1000);
+
+						// Unmute audio
+						audioRef.current.setVolume(0.4);
+						opponentAudioRef.current.setVolume(0.4);
+					} else {
+						setCountdownNum(Math.ceil(remaining / 1000));
+					}
+				} else if (raceStatus === 'COUNTDOWN') {
+					// Local: countdownStartRef is Start of Countdown (3s duration)
 					const elapsed = time - countdownStartRef.current;
 					const remaining = 3000 - elapsed;
 					if (remaining <= 0) {
@@ -1214,53 +1548,72 @@ const GameCanvas: React.FC = () => {
 							}
 						}
 					}
-
-					updateCarPhysics(
-						p,
-						tuningRef.current,
-						inputsRef.current,
-						dt,
-						false,
-						audioRef.current,
-						raceStatus,
-						raceStartTimeRef.current,
-						currentGhostRecording,
-						undefined,
-						weather.type === 'RAIN' ? 0.6 : 1.0
-					);
-
-					// Reset shift inputs after processing (they should only trigger once per key press)
-					inputsRef.current.shiftUp = false;
-					inputsRef.current.shiftDown = false;
-
-					if (p.y >= m.distance) {
+					if (
+						p.y >= m.distance
+						// raceStartTimeRef.current > 0
+						// &&
+						// !p.finished
+					) {
+						console.log('✅ FINISH LINE CROSSED!');
 						p.finished = true;
 						p.finishTime = (time - raceStartTimeRef.current) / 1000;
 						setPlayerFinishTime(p.finishTime);
+						p.velocity = 0;
+						p.rpm = 1000;
+					}
+					// Only update physics if not finished
+					if (!p.finished) {
+						updateCarPhysics(
+							p,
+							tuningRef.current,
+							inputsRef.current,
+							dt,
+							false,
+							audioRef.current,
+							raceStatus,
+							raceStartTimeRef.current,
+							currentGhostRecording,
+							undefined,
+							weather.type === 'RAIN' ? 0.6 : 1.0
+						);
+
+						// Reset shift inputs after processing
+						inputsRef.current.shiftUp = false;
+						inputsRef.current.shiftDown = false;
+					} else {
+						// Keep car stopped at finish line
+						p.y = Math.min(p.y, m.distance);
+						p.velocity = 0;
+						audioRef.current.setVolume(0);
 					}
 				} else {
 					audioRef.current.setVolume(0);
 				}
 
 				if (!o.finished) {
-					updateCarPhysics(
-						o,
-						m.opponent.tuning,
-						{
-							gas: true,
-							shiftUp: false,
-							shiftDown: false,
-							clutch: false,
-						},
-						dt,
-						true,
-						opponentAudioRef.current,
-						raceStatus,
-						raceStartTimeRef.current,
-						undefined,
-						m.opponent,
-						weather.type === 'RAIN' ? 0.6 : 1.0
-					);
+					if (phase === 'ONLINE_RACE') {
+						// TODO: Update from network/socket
+						// For now, opponent is static or controlled by external events
+					} else {
+						updateCarPhysics(
+							o,
+							m.opponent.tuning,
+							{
+								gas: true,
+								shiftUp: false,
+								shiftDown: false,
+								clutch: false,
+							},
+							dt,
+							true,
+							opponentAudioRef.current,
+							raceStatus,
+							raceStartTimeRef.current,
+							undefined,
+							m.opponent,
+							weather.type === 'RAIN' ? 0.6 : 1.0
+						);
+					}
 					if (o.y >= m.distance) {
 						o.finished = true;
 						o.finishTime = (time - raceStartTimeRef.current) / 1000;
@@ -1324,57 +1677,129 @@ const GameCanvas: React.FC = () => {
 						setRaceResult('WIN');
 						setRaceStatus('FINISHED');
 
-						// Calculate Wager Winnings based on difficulty
-						const difficultyMultiplier =
-							m.difficulty === 'EASY'
-								? 0.5
-								: m.difficulty === 'MEDIUM'
-								? 1.0
-								: m.difficulty === 'HARD'
-								? 2.0
-								: m.difficulty === 'EXTREME'
-								? 3.0
-								: m.difficulty === 'IMPOSSIBLE'
-								? 4.0
-								: m.difficulty === 'BOSS'
-								? 5.0
-								: m.difficulty === 'UNDERGROUND'
-								? 3.0
-								: 3.0;
+						if (phase === 'ONLINE_RACE') {
+							// Online Payout: Pot = 2 * wager using secure API
+							// Online Payout: Pot = 2 * wager using secure API
+							const onlinePayout = currentWagerRef.current * 2;
 
-						const wagerWinnings = Math.floor(
-							currentWagerRef.current * difficultyMultiplier
-						);
-						const totalPayout =
-							m.payout + currentWagerRef.current + wagerWinnings;
+							if (token) {
+								// Use secure transaction API
+								processMoneyTransaction(
+									token,
+									'RACE_WIN',
+									onlinePayout,
+									{
+										raceType: 'ONLINE',
+										wager: currentWagerRef.current,
+									}
+								)
+									.then((result) => {
+										setMoney(result.newBalance);
+									})
+									.catch((err) => {
+										console.error(
+											'Transaction failed:',
+											err
+										);
+										showToast(
+											'Failed to process race payout',
+											'ERROR'
+										);
+										setMoney((prev) => prev + onlinePayout);
+									});
+							} else {
+								setMoney((prev) => prev + onlinePayout);
+							}
+							const newXp = xp + 200;
+							setXp(newXp);
+							saveGame({ xp: newXp }); // Immediate Save
+						} else {
+							// Calculate Wager Winnings based on difficulty
+							const difficultyMultiplier =
+								m.difficulty === 'EASY'
+									? 0.5
+									: m.difficulty === 'MEDIUM'
+									? 1.0
+									: m.difficulty === 'HARD'
+									? 2.0
+									: m.difficulty === 'EXTREME'
+									? 4.0
+									: m.difficulty === 'IMPOSSIBLE'
+									? 4.0
+									: m.difficulty === 'BOSS'
+									? 3.0
+									: 1.0;
 
-						setMoney((prev) => prev + totalPayout);
-						setXp((prev) => prev + (m.xpReward || 100));
+							const wagerWinnings = Math.floor(
+								currentWagerRef.current * difficultyMultiplier
+							);
+							const totalPayout =
+								m.payout +
+								currentWagerRef.current +
+								wagerWinnings;
 
-						if (m.rewardCar) {
-							setGarage((prev) => {
-								const exists = prev.some(
+							// Use API to update money if user is logged in
+							if (token) {
+								processMoneyTransaction(
+									token,
+									'RACE_WIN',
+									totalPayout,
+									{
+										raceType: 'MISSION',
+										missionId: m.id,
+										difficulty: m.difficulty,
+										wager: currentWagerRef.current,
+									}
+								)
+									.then((result) => {
+										setMoney(result.newBalance);
+									})
+									.catch((err) => {
+										console.error(
+											'Transaction failed:',
+											err
+										);
+										showToast(
+											'Failed to process race payout',
+											'ERROR'
+										);
+										// Fallback to local update
+										setMoney((prev) => prev + totalPayout);
+									});
+							} else {
+								// Offline mode: update local state only
+								setMoney((prev) => prev + totalPayout);
+							}
+							const newXp = xp + 50;
+							setXp(newXp); // Grant XP for offline race win
+							saveGame({ xp: newXp }); // Immediate Save (Money saved by processMoneyTransaction or local update needs separate handling if not using saveGame there, but processMoneyTransaction might not save other stats)
+
+							// Reward Car Logic
+							if (m.rewardCar) {
+								setGarage((prev) => {
+									return [...prev, m.rewardCar!];
+								});
+
+								// Check current state for toast (approximation)
+								const alreadyOwned = garage.some(
 									(c) => c.id === m.rewardCar!.id
 								);
-								if (exists) return prev;
-								return [...prev, m.rewardCar!];
-							});
 
-							// Check current state for toast (approximation)
-							const alreadyOwned = garage.some(
-								(c) => c.id === m.rewardCar!.id
-							);
-
-							if (!alreadyOwned) {
-								showToast(
-									`YOU WON A NEW CAR: ${m.rewardCar!.name}!`,
-									'UNLOCK'
-								);
-							} else {
-								showToast(
-									`You already own the ${m.rewardCar!.name}.`,
-									'INFO'
-								);
+								if (!alreadyOwned) {
+									showToast(
+										`YOU WON A NEW CAR: ${
+											m.rewardCar!.name
+										}!`,
+										'UNLOCK'
+									);
+								} else {
+									showToast(
+										`You already own the ${
+											m.rewardCar!.name
+										}.`,
+										'INFO'
+									);
+								}
 							}
 						}
 
@@ -1426,9 +1851,42 @@ const GameCanvas: React.FC = () => {
 					) {
 						setRaceResult('LOSS');
 						setRaceStatus('FINISHED');
-						setMoney((prev) =>
-							Math.max(0, prev - currentWagerRef.current)
-						);
+
+						// Use API to deduct wager if user is logged in
+						if (token && currentWagerRef.current > 0) {
+							processMoneyTransaction(
+								token,
+								'RACE_LOSS',
+								-currentWagerRef.current, // Negative for loss
+								{
+									raceType: 'MISSION',
+									missionId: m.id,
+									wager: currentWagerRef.current,
+								}
+							)
+								.then((result) => {
+									setMoney(result.newBalance);
+								})
+								.catch((err) => {
+									console.error('Transaction failed:', err);
+									showToast(
+										'Failed to process race loss',
+										'ERROR'
+									);
+									// Fallback to local update
+									setMoney((prev) =>
+										Math.max(
+											0,
+											prev - currentWagerRef.current
+										)
+									);
+								});
+						} else {
+							// Offline mode or no wager
+							setMoney((prev) =>
+								Math.max(0, prev - currentWagerRef.current)
+							);
+						}
 						audioRef.current.stop();
 						opponentAudioRef.current.stop();
 					}
@@ -1800,10 +2258,12 @@ const GameCanvas: React.FC = () => {
 						{countdownNum !== '' && (
 							<div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
 								<div
-									className={`text-9xl font-black italic tracking-tighter ${
+									className={`font-black italic tracking-tighter ${
 										countdownNum === 'GO!'
-											? 'text-green-500 scale-150'
-											: 'text-white'
+											? 'text-9xl text-green-500 scale-150'
+											: typeof countdownNum === 'string'
+											? 'text-4xl text-yellow-400 animate-pulse' // Waiting text
+											: 'text-9xl text-white'
 									} transition-all duration-300 drop-shadow-2xl`}
 								>
 									{countdownNum}
@@ -1852,7 +2312,168 @@ const GameCanvas: React.FC = () => {
 						TIME: {playerFinishTime.toFixed(3)}s
 					</div>
 
-					{wearResult &&
+					{/* Online Race Results Tabs */}
+					{phase === 'ONLINE_RACE' ? (
+						<div className="bg-gray-900/90 border-2 border-gray-700 p-6 rounded-lg mb-8 max-w-2xl w-full">
+							{/* Tabs Header */}
+							<div className="flex border-b border-gray-700 mb-4">
+								<button
+									className={`flex-1 py-2 text-center font-pixel text-sm ${
+										!showConditionTab
+											? 'text-white bg-gray-800 border-b-2 border-cyan-500'
+											: 'text-gray-400 hover:text-white'
+									}`}
+									onClick={() => setShowConditionTab(false)}
+								>
+									SCOREBOARD
+								</button>
+								<button
+									className={`flex-1 py-2 text-center font-pixel text-sm ${
+										showConditionTab
+											? 'text-white bg-gray-800 border-b-2 border-cyan-500'
+											: 'text-gray-400 hover:text-white'
+									}`}
+									onClick={() => setShowConditionTab(true)}
+								>
+									PART CONDITION
+								</button>
+							</div>
+
+							{/* Tab Content */}
+							{!showConditionTab ? (
+								<div className="space-y-2">
+									<div className="flex justify-between text-gray-500 text-xs px-2 mb-2">
+										<span>RACER</span>
+										<span>TIME</span>
+									</div>
+									{/* Player */}
+									<div className="flex justify-between items-center bg-black/40 p-3 border border-gray-700">
+										<div className="flex items-center gap-2">
+											<span className="text-yellow-400 font-bold">
+												1.
+											</span>
+											<span className="text-white">
+												YOU
+											</span>
+										</div>
+										<span className="font-mono text-cyan-400">
+											{playerFinishTime.toFixed(3)}s
+										</span>
+									</div>
+									{/* Opponent (Static for now, should be dynamic list) */}
+									<div
+										className={`flex justify-between items-center p-3 border border-gray-800 ${
+											opponentRef.current.finished
+												? 'bg-black/40'
+												: 'bg-black/20 opacity-50'
+										}`}
+									>
+										<div className="flex items-center gap-2">
+											<span className="text-gray-500 font-bold">
+												2.
+											</span>
+											<span className="text-gray-300">
+												OPPONENT
+											</span>
+										</div>
+										<span className="font-mono text-gray-400">
+											{opponentRef.current.finished
+												? `${opponentRef.current.finishTime.toFixed(
+														3
+												  )}s`
+												: '--.--'}
+										</span>
+									</div>
+								</div>
+							) : (
+								<div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+									{inventory
+										.filter(
+											(i) =>
+												i.equipped &&
+												wearResult &&
+												wearResult[i.instanceId]
+										)
+										.map((item) => {
+											const damage =
+												wearResult![item.instanceId];
+											const current =
+												item.condition || 100;
+											const old = current + damage;
+											const getColor = (val: number) => {
+												if (val > 80)
+													return 'text-green-400';
+												if (val > 50)
+													return 'text-yellow-400';
+												return 'text-red-500';
+											};
+											return (
+												<div
+													key={item.instanceId}
+													className="flex justify-between items-center bg-black/40 p-2 rounded border border-gray-800"
+												>
+													<div className="text-sm text-gray-300 font-bold truncate w-1/2">
+														{item.name}
+													</div>
+													<div className="flex items-center gap-2 font-mono text-xs">
+														<span
+															className={getColor(
+																old
+															)}
+														>
+															{Math.round(old)}%
+														</span>
+														<span className="text-gray-600">
+															➜
+														</span>
+														<span
+															className={`${getColor(
+																current
+															)} animate-pulse font-bold`}
+														>
+															{Math.round(
+																current
+															)}
+															%
+														</span>
+														<span className="text-red-500 text-[10px]">
+															(-
+															{damage.toFixed(1)}
+															%)
+														</span>
+													</div>
+												</div>
+											);
+										})}
+								</div>
+							)}
+
+							{/* Navigation Button */}
+							<div className="mt-6 flex justify-end">
+								{!showConditionTab ? (
+									<button
+										onClick={() =>
+											setShowConditionTab(true)
+										}
+										className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 font-pixel text-sm"
+									>
+										NEXT &gt;
+									</button>
+								) : (
+									<button
+										onClick={() =>
+											setShowConditionTab(false)
+										}
+										className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 font-pixel text-sm mr-auto"
+									>
+										&lt; BACK
+									</button>
+								)}
+							</div>
+						</div>
+					) : (
+						// Standard Single Player Wear Results
+						wearResult &&
 						inventory.filter(
 							(i) => i.equipped && wearResult[i.instanceId]
 						).length > 0 && (
@@ -1923,10 +2544,14 @@ const GameCanvas: React.FC = () => {
 										})}
 								</div>
 							</div>
-						)}
+						)
+					)}
 					{raceResult === 'WIN' && (
 						<div className="text-2xl text-green-400 font-mono mb-8">
-							EARNED ${missionRef.current?.payout}
+							EARNED $
+							{phase === 'ONLINE_RACE'
+								? currentWagerRef.current * 2
+								: missionRef.current?.payout}
 						</div>
 					)}
 					{raceResult === 'LOSS' && (
@@ -1939,22 +2564,54 @@ const GameCanvas: React.FC = () => {
 						</div>
 					)}
 					<div className="flex gap-4 mt-8">
-						<button
-							onClick={() => startMission(missionRef.current!)}
-							className="px-8 py-4 bg-white text-black font-bold text-xl hover:bg-gray-200 uppercase"
-						>
-							{raceResult === 'WIN' ? 'Race Again' : 'Retry'}
-						</button>
+						{phase !== 'ONLINE_RACE' && (
+							<button
+								onClick={() => {
+									// startMission(missionRef.current!) // Removed
+									// For now, just go back to lobby
+									audioRef.current.stop();
+									opponentAudioRef.current.stop();
+									setRaceResult(null);
+									setPhase('MAP');
+								}}
+								className="px-8 py-4 bg-white text-black font-bold text-xl hover:bg-gray-200 uppercase"
+							>
+								{raceResult === 'WIN'
+									? 'Back to Map'
+									: 'Back to Map'}
+							</button>
+						)}
 						<button
 							onClick={() => {
 								audioRef.current.stop();
 								opponentAudioRef.current.stop();
 								setRaceResult(null);
-								setPhase('MISSION_SELECT');
+								if (phase === 'ONLINE_RACE') {
+									// Leave race (and delete if host/last)
+									fetch(
+										getFullUrl(
+											'/api/race',
+											`partyId=${party?.id}`
+										),
+										{
+											method: 'DELETE',
+											headers: {
+												Authorization: `Bearer ${token}`,
+											},
+										}
+									).then(() => {
+										setPhase('MAP');
+										setRaceStatus('IDLE');
+									});
+								} else {
+									setPhase('MISSION_SELECT');
+								}
 							}}
 							className="px-8 py-4 bg-gray-800 text-white font-bold text-xl hover:bg-gray-700 uppercase"
 						>
-							Back to Menu
+							{phase === 'ONLINE_RACE'
+								? 'Back to Lobby'
+								: 'Back to Menu'}
 						</button>
 					</div>
 				</div>
@@ -1967,8 +2624,7 @@ const GameCanvas: React.FC = () => {
 				phase === 'MISSION_SELECT' ||
 				phase === 'JUNKYARD' ||
 				phase === 'SHOP' ||
-				phase === 'AUCTION' ||
-				phase === 'VERSUS') && (
+				phase === 'AUCTION') && (
 				<SoundProvider
 					play={(type) => audioRef.current.playUISound(type)}
 				>
@@ -2021,7 +2677,7 @@ const GameCanvas: React.FC = () => {
 							xp,
 							level,
 							defeatedRivals,
-							onChallengeRival: handleChallengeRival,
+							// onChallengeRival: handleChallengeRival, // Removed
 							userInventory: inventory,
 							setUserInventory: setInventory,
 							onMerge: handleMerge,
@@ -2049,6 +2705,7 @@ const GameCanvas: React.FC = () => {
 							},
 							settings,
 							setSettings,
+							saveGame,
 						}}
 					>
 						<GameMenu />

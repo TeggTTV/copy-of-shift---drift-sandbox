@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { calculateLevelProgress } from '@/utils/progression';
 import { LevelBadge } from './LevelBadge';
 import { FriendsSidepanel } from '../social/FriendsSidepanel';
+import { PartyInviteOverlay } from '../social/PartyInviteOverlay';
 import { useAuth } from '../../../contexts/AuthContext';
 import { LoginModal } from '../../auth/LoginModal';
 
@@ -191,6 +192,7 @@ export const TopBar = ({
 				isOpen={isFriendsOpen}
 				onClose={() => setIsFriendsOpen(false)}
 			/>
+			<PartyInviteOverlay friendsPanelOpen={isFriendsOpen} />
 			<LoginModal
 				isOpen={isLoginOpen}
 				onClose={() => setIsLoginOpen(false)}

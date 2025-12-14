@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  // url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
   provider = "mongodb"
 }
 
@@ -23,7 +23,7 @@ model User {
   xp       Int    @default(0)
 
   // Game Data
-  inventory String[]
+  inventory Json[]
   garage    Json[]
 
   // Social
@@ -46,13 +46,14 @@ model User {
 }
 
 model Party {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  hostId     String   @unique @db.ObjectId
-  members    String[] @db.ObjectId
-  users      User[]
-  isOpen     Boolean  @default(true)
-  activeRace Race?
-  createdAt  DateTime @default(now())
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId         String   @unique @db.ObjectId
+  members        String[] @db.ObjectId
+  readyMemberIds String[] @db.ObjectId
+  users          User[]
+  isOpen         Boolean  @default(true)
+  activeRace     Race?
+  createdAt      DateTime @default(now())
 }
 
 model Race {
@@ -67,5 +68,39 @@ model Race {
   // Player States: { userId, progress, speed, finished, time, placement }
   playerStates Json[]
 
+  createdAt DateTime @default(now())
+}
+
+model Challenge {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  challengerId String   @db.ObjectId
+  targetId     String   @db.ObjectId
+  wager        Float
+  status       String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt    DateTime @default(now())
+}
+
+model AuctionListing {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sellerId  String   @db.ObjectId
+  item      Json
+  price     Float
+  status    String   @default("ACTIVE") // ACTIVE, SOLD, EXPIRED
+  createdAt DateTime @default(now())
+}
+
+model GlobalStats {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique // e.g., "total_races", "rare_crate_drops"
+  value     Float    @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  type      String // CRATE_PURCHASE, ITEM_SALE, ITEM_PURCHASE, RACE_WIN, RACE_LOSS, etc.
+  amount    Float // Negative for expenses, positive for income
+  metadata  Json? // Additional data like crateId, itemId, etc.
   createdAt DateTime @default(now())
 }

@@ -17,7 +17,7 @@ import {
 import { MOD_TREE, BASE_TUNING } from '../constants';
 import MissionSelect from './menu/race/MissionSelect';
 import Junkyard from './menu/junkyard/Junkyard';
-import VersusScreen from './menu/race/VersusScreen';
+// VersusScreen removed
 import SettingsModal from './menu/settings/SettingsModal';
 import { CarBuilder } from '../utils/CarBuilder';
 import { CarGenerator } from '../utils/CarGenerator';
@@ -34,6 +34,9 @@ import { ItemGenerator } from '../utils/ItemGenerator';
 import { ItemMerge } from '../utils/ItemMerge';
 
 import { useGame } from '../contexts/GameContext';
+import { useAuth } from '../contexts/AuthContext';
+import { getFullUrl } from '../utils/prisma';
+import { processMoneyTransaction } from '../utils/transactions';
 
 export const GameMenu = () => {
 	const {
@@ -79,23 +82,43 @@ export const GameMenu = () => {
 		xp,
 		level,
 		defeatedRivals,
-		onChallengeRival,
+		// onChallengeRival, // Removed
 		userInventory,
 		setUserInventory,
 		onMerge,
+		saveGame,
 	} = useGame();
 
 	const { play } = useSound();
 	const [showSettings, setShowSettings] = useState(false);
 	const [activeListings, setActiveListings] = useState<AuctionListing[]>([]);
 
-	const handleBuyCrate = (crate: Crate, amount: number) => {
-		// Logic moved to CrateShop component generally, but we verify money there
-		if (money >= crate.price * amount) {
-			setMoney((prev) => prev - crate.price * amount);
-			play('purchase');
-		} else {
+	const handleBuyCrate = async (crate: Crate, amount: number) => {
+		const cost = crate.price * amount;
+		if (money < cost) {
 			play('error');
+			return;
+		}
+
+		if (token) {
+			try {
+				const result = await processMoneyTransaction(
+					token,
+					'SHOP_PURCHASE',
+					-cost,
+					{ crateId: crate.id, count: amount }
+				);
+				setMoney(result.newBalance);
+				play('purchase');
+			} catch (e) {
+				console.error('Crate purchase failed:', e);
+				showToast('Transaction failed', 'ERROR');
+			}
+		} else {
+			// Offline fallback
+			setMoney((prev) => prev - cost);
+			saveGame({ money: money - cost });
+			play('purchase');
 		}
 	};
 
@@ -170,26 +193,175 @@ export const GameMenu = () => {
 		showToast(`Equipped ${item.name}`, 'SUCCESS');
 	};
 
-	const handleSellItem = (item: InventoryItem, price: number) => {
-		// Remove from inventory
-		setUserInventory((prev) =>
-			prev.filter((i) => i.instanceId !== item.instanceId)
-		);
-		// Add fake money (TODO: Prop)
-		showToast(`Sold ${item.name} for $${price}`, 'SUCCESS');
+	// --- Auction Logic ---
+	const { token, user } = useAuth(); // Need auth for API calls
+
+	// Fetch Listings on Mount/Phase Change and Poll
+	useEffect(() => {
+		let interval: NodeJS.Timeout;
+
+		const fetchListings = () => {
+			fetch(getFullUrl('/api/auction'))
+				.then((res) => res.json())
+				.then((data) => {
+					if (Array.isArray(data)) {
+						setActiveListings(data);
+					}
+				})
+				.catch((e) => console.error('Failed to fetch listings', e));
+		};
+
+		if (phase === 'AUCTION') {
+			fetchListings(); // Initial fetch
+			interval = setInterval(fetchListings, 1000); // Poll every 1 second
+		}
+
+		return () => {
+			if (interval) clearInterval(interval);
+		};
+	}, [phase]);
+
+	const handleListItem = async (item: InventoryItem, price: number) => {
+		if (!token) return;
+		try {
+			const res = await fetch(getFullUrl('/api/auction?action=create'), {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ item, price }),
+			});
+
+			if (res.ok) {
+				const newListing = await res.json();
+				setActiveListings((prev) => [newListing, ...prev]);
+				// Remove from local inventory immediately (optimistic)
+				setUserInventory((prev) =>
+					prev.filter((i) => i.instanceId !== item.instanceId)
+				);
+				showToast(`Listed ${item.name} for $${price}`, 'SUCCESS');
+			} else {
+				showToast('Failed to list item', 'ERROR');
+			}
+		} catch (e) {
+			console.error(e);
+			showToast('Error listing item', 'ERROR');
+		}
 	};
 
-	const handleBuyItem = (item: InventoryItem, price: number) => {
+	const handleBuyItem = async (item: InventoryItem, price: number) => {
+		// Note: item here is from the listing, price is listing price
+		// We need the listing ID, but the current AuctionHouse interface passes item & price.
+		// We might need to adjust AuctionHouse to pass the listing object or ID.
+		// For now, let's find the listing in activeListings that matches this item instanceId
+		const listing = activeListings.find(
+			(l) => l.item.instanceId === item.instanceId
+		);
+
+		if (!listing) {
+			showToast('Listing not found', 'ERROR');
+			return;
+		}
+
 		if (money < price) {
 			showToast('Not enough money!', 'ERROR');
 			return;
 		}
-		setMoney((m) => m - price);
-		setUserInventory((prev) => [...prev, item]);
-		showToast(
-			`Bought ${item.name} for $${price.toLocaleString()}`,
-			'SUCCESS'
-		);
+
+		if (!token) return;
+
+		try {
+			const res = await fetch(getFullUrl('/api/auction?action=buy'), {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ listingId: listing.id }),
+			});
+
+			if (res.ok) {
+				setMoney((m) => m - price);
+				setUserInventory((prev) => [...prev, item]);
+				setActiveListings((prev) =>
+					prev.filter((l) => l.id !== listing.id)
+				);
+				showToast(`Bought ${item.name}!`, 'SUCCESS');
+			} else {
+				const err = await res.json();
+				showToast(err.message || 'Purchase failed', 'ERROR');
+			}
+		} catch (e) {
+			console.error(e);
+			showToast('Transaction failed', 'ERROR');
+		}
+	};
+
+	const handleCancelListing = async (listingId: string) => {
+		if (!token) return;
+		try {
+			const res = await fetch(getFullUrl('/api/auction'), {
+				method: 'DELETE',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ listingId }),
+			});
+
+			if (res.ok) {
+				// Find item to add back
+				const listing = activeListings.find((l) => l.id === listingId);
+				if (listing) {
+					setUserInventory((prev) => [...prev, listing.item]);
+				}
+				setActiveListings((prev) =>
+					prev.filter((l) => l.id !== listingId)
+				);
+				showToast('Listing cancelled', 'INFO');
+			} else {
+				showToast('Failed to cancel', 'ERROR');
+			}
+		} catch (e) {
+			showToast('Error cancelling', 'ERROR');
+		}
+	};
+
+	const handleCollectListing = async (listingId: string) => {
+		if (!token) return;
+		try {
+			const res = await fetch(getFullUrl('/api/auction?action=claim'), {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ listingId }),
+			});
+
+			if (res.ok) {
+				// Find the listing to get the price for toast
+				const listing = activeListings.find((l) => l.id === listingId);
+				if (listing) {
+					setMoney((m) => m + listing.price);
+					showToast(
+						`Collected $${listing.price.toLocaleString()}`,
+						'SUCCESS'
+					);
+					play('cash');
+				}
+				// Remove from listings
+				setActiveListings((prev) =>
+					prev.filter((l) => l.id !== listingId)
+				);
+			} else {
+				const err = await res.json();
+				showToast(err.message || 'Failed to collect', 'ERROR');
+			}
+		} catch (e) {
+			showToast('Error collecting funds', 'ERROR');
+		}
 	};
 
 	const handleDestroyItem = (item: InventoryItem) => {
@@ -211,6 +383,14 @@ export const GameMenu = () => {
 				i.instanceId === item.instanceId ? { ...i, condition: 100 } : i
 			)
 		);
+
+		// Track Stat
+		fetch('/api/stats', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ key: 'item_repairs', amount: 1 }),
+		}).catch(() => {}); // Fire-and-forget
+
 		showToast(`Repaired ${item.name} for $${cost}`, 'SUCCESS');
 	};
 
@@ -341,74 +521,6 @@ export const GameMenu = () => {
 		play('unequip'); // Assuming 'unequip' sound exists, or fallback
 	};
 
-	// Auction Logic
-	const handleListItem = (item: InventoryItem, price: number) => {
-		// 1. Remove from Inventory
-		setUserInventory((prev) =>
-			prev.filter((i) => i.instanceId !== item.instanceId)
-		);
-		// 2. Add to Listings
-		const newListing: AuctionListing = {
-			id: Math.random().toString(36).substr(2, 9),
-			item,
-			price,
-			listedAt: Date.now(),
-			status: 'ACTIVE',
-		};
-		setActiveListings((prev) => [...prev, newListing]);
-		showToast(
-			`Listed ${item.name} for $${price.toLocaleString()}`,
-			'SUCCESS'
-		);
-	};
-
-	const handleCancelListing = (listingId: string) => {
-		const listing = activeListings.find((l) => l.id === listingId);
-		if (!listing) return;
-
-		// 1. Remove from Listings
-		setActiveListings((prev) => prev.filter((l) => l.id !== listingId));
-		// 2. Return to Inventory
-		setUserInventory((prev) => [...prev, listing.item]);
-		showToast(`Listing cancelled`, 'INFO');
-	};
-
-	const handleCollectListing = (listingId: string) => {
-		const listing = activeListings.find((l) => l.id === listingId);
-		if (!listing || listing.status !== 'SOLD') return;
-
-		// 1. Remove from Listings
-		setActiveListings((prev) => prev.filter((l) => l.id !== listingId));
-		// 2. Add Money
-		setMoney((m) => m + listing.price);
-		showToast(`Collected $${listing.price.toLocaleString()}`, 'SUCCESS');
-	};
-
-	// Mock Auction Economy Loop
-	useEffect(() => {
-		const interval = setInterval(() => {
-			setActiveListings((prev) => {
-				let changed = false;
-				const next = prev.map((listing) => {
-					if (listing.status !== 'ACTIVE') return listing;
-
-					// Simple chance to sell based on value vs price?
-					// For now, random 10% chance every 3 seconds per item
-					if (Math.random() < 0.1) {
-						changed = true;
-						return { ...listing, status: 'SOLD' as const };
-					}
-					return listing;
-				});
-				if (changed) {
-					// showToast('An item has sold!', 'SUCCESS'); // Maybe too spammy?
-				}
-				return changed ? next : prev;
-			});
-		}, 3000);
-		return () => clearInterval(interval);
-	}, []);
-
 	// Escape key navigation
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -416,7 +528,6 @@ export const GameMenu = () => {
 				if (
 					phase === 'GARAGE' ||
 					phase === 'MISSION_SELECT' ||
-					phase === 'VERSUS' ||
 					phase === 'SHOP' ||
 					phase === 'AUCTION'
 				) {
@@ -429,42 +540,6 @@ export const GameMenu = () => {
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [phase, setPhase, play]);
-
-	if (phase === 'VERSUS' && selectedMission && onConfirmRace) {
-		return (
-			<VersusScreen
-				playerTuning={effectiveTuning} // Use effective tuning for versus stats
-				mission={selectedMission}
-				onConfirmRace={(wager) => {
-					// play('confirm');
-					if (onConfirmRace) onConfirmRace(wager);
-				}}
-				onBack={() => {
-					// play('back');
-					setPhase('MAP');
-				}}
-				ownedMods={ownedMods}
-				dynoHistory={dynoHistory}
-				money={money}
-				weather={weather}
-				setWeather={setWeather}
-				userInventory={userInventory}
-				onApplyWear={(wearAmount) => {
-					// Degrade all EQUIPPED items
-					setUserInventory((prev) =>
-						prev.map((item) => {
-							if (!item.equipped) return item;
-							const newCondition = Math.max(
-								0,
-								(item.condition ?? 1.0) - wearAmount
-							);
-							return { ...item, condition: newCondition };
-						})
-					);
-				}}
-			/>
-		);
-	}
 
 	// Persistent TopBar for Menu Phases
 	const isMenuPhase = [
@@ -591,7 +666,7 @@ export const GameMenu = () => {
 							setActiveTab={setMissionSelectTab}
 							defeatedRivals={defeatedRivals}
 							level={level}
-							onChallengeRival={onChallengeRival}
+							onChallengeRival={(r) => {}} // No-op
 						/>
 					)}
 
@@ -611,10 +686,12 @@ export const GameMenu = () => {
 								money={money}
 								onBuyCrate={handleBuyCrate}
 								onItemReveal={(items) => {
-									setUserInventory((prev) => [
-										...prev,
+									const newInventory = [
+										...userInventory,
 										...items,
-									]);
+									];
+									setUserInventory(newInventory);
+									saveGame({ inventory: newInventory });
 								}}
 							/>
 						</div>
@@ -638,6 +715,7 @@ export const GameMenu = () => {
 									onCollectListing={handleCollectListing}
 									playerTuning={effectiveTuning}
 									ownedMods={[]}
+									currentUserId={user?.id}
 								/>
 							</div>
 						</div>

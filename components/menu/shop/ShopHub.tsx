@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { CrateShop } from './CrateShop';
 import { DailyPartsShop } from './DailyPartsShop';
 import Dealership from './Dealership';
 import { Crate, InventoryItem } from '@/types';
+import { getFullUrl } from '@/utils/prisma';
 
 type ShopTab = 'CRATES' | 'DAILY' | 'CARS';
 
@@ -19,15 +21,69 @@ export const ShopHub: React.FC = () => {
 		onBuyShopItem,
 		onRefreshDailyShop,
 		setPhase,
+		showToast,
 	} = useGame();
 
+	const { token } = useAuth();
+
 	const [activeTab, setActiveTab] = useState<ShopTab>('CRATES');
+	const [isPurchasing, setIsPurchasing] = useState(false);
 
 	// Crate Handlers
-	const handleBuyCrate = (crate: Crate, amount: number) => {
-		// Validation check again just in case (though filtered in component)
-		if (money >= crate.price * amount) {
-			setMoney((prev) => prev - crate.price * amount);
+	const handleBuyCrate = async (crate: Crate, amount: number) => {
+		console.log('[SHOP] handleBuyCrate called for:', crate.name);
+		// Validation check
+		if (money < crate.price * amount) {
+			showToast?.('Not enough money!', 'ERROR');
+			return;
+		}
+
+		if (!token) {
+			showToast?.('Please log in to make purchases', 'ERROR');
+			return;
+		}
+
+		// Prevent double purchases
+		if (isPurchasing) return;
+
+		setIsPurchasing(true);
+
+		try {
+			console.log('[SHOP] Purchasing crate:', crate.id, 'x', amount);
+
+			const response = await fetch(getFullUrl('/api/shop/crates'), {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					crateId: crate.id,
+					crateName: crate.name,
+					cratePrice: crate.price,
+					quantity: amount,
+				}),
+			});
+
+			const data = await response.json();
+			console.log('[SHOP] Purchase response:', data);
+
+			if (response.ok) {
+				// Update local money state with the new balance from the server
+				setMoney(data.newBalance);
+				console.log(
+					'[SHOP] Purchase successful! New balance:',
+					data.newBalance
+				);
+			} else {
+				console.error('[SHOP] Purchase failed:', data);
+				showToast?.(data.message || 'Purchase failed', 'ERROR');
+			}
+		} catch (error) {
+			console.error('Error purchasing crate:', error);
+			showToast?.('Network error. Please try again.', 'ERROR');
+		} finally {
+			setIsPurchasing(false);
 		}
 	};
 

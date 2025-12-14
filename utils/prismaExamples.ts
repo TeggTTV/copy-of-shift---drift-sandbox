@@ -5,7 +5,7 @@
  * You can adapt these patterns for your own use cases.
  */
 
-import { prisma } from './prisma';
+import prisma from './prisma';
 
 // ============================================
 // CREATE - Creating new users

@@ -27,6 +27,7 @@ export const FriendsSidepanel: React.FC<{
 		x: number;
 		y: number;
 	} | null>(null);
+	// Challenges removed
 
 	// Poll friends list and user data (for invites) when open
 	useEffect(() => {
@@ -109,7 +110,35 @@ export const FriendsSidepanel: React.FC<{
 		}
 	};
 
-	const handleAction = async (action: 'INVITE' | 'CHALLENGE' | 'REMOVE') => {
+	const handleFriendRequest = async (
+		requesterId: string,
+		accept: boolean
+	) => {
+		try {
+			const res = await fetch(getFullUrl('/api/friends'), {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ requesterId, accept }),
+			});
+
+			if (res.ok) {
+				showToast(
+					accept ? 'Friend Request Accepted' : 'Request Declined',
+					'SUCCESS'
+				);
+				if (refreshUser) refreshUser();
+			} else {
+				showToast('Failed to process request', 'ERROR');
+			}
+		} catch (e) {
+			showToast('Network error', 'ERROR');
+		}
+	};
+
+	const handleAction = async (action: 'INVITE' | 'REMOVE') => {
 		if (!selectedFriend) return;
 
 		if (action === 'REMOVE') {
@@ -149,6 +178,7 @@ export const FriendsSidepanel: React.FC<{
 				const data = (await res.json()) as any;
 				if (res.ok) {
 					showToast('Invite sent', 'SUCCESS');
+					onClose();
 				} else {
 					showToast(data.message || 'Failed to invite', 'ERROR');
 				}
@@ -209,6 +239,50 @@ export const FriendsSidepanel: React.FC<{
 
 				{/* List */}
 				<div className="flex-1 overflow-y-auto p-4 space-y-2">
+					{/* Friend Requests Section */}
+					{user?.friendRequestsReceived &&
+						user.friendRequestsReceived.length > 0 && (
+							<div className="mb-4 bg-yellow-900/30 p-2 border border-yellow-500 rounded">
+								<div className="text-yellow-300 text-xs mb-2">
+									FRIEND REQUESTS
+								</div>
+								{user.friendRequestsReceived.map((reqId) => (
+									<div
+										key={reqId}
+										className="flex justify-between items-center bg-black/50 p-2 mb-1"
+									>
+										<span className="text-white text-xs">
+											User #{reqId.slice(-4)}
+										</span>
+										<div className="flex gap-1">
+											<button
+												onClick={() =>
+													handleFriendRequest(
+														reqId,
+														true
+													)
+												}
+												className="text-green-400 hover:text-white text-[10px] border border-green-500 px-1"
+											>
+												YES
+											</button>
+											<button
+												onClick={() =>
+													handleFriendRequest(
+														reqId,
+														false
+													)
+												}
+												className="text-red-400 hover:text-white text-[10px] border border-red-500 px-1"
+											>
+												NO
+											</button>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+
 					{/* Invites Section */}
 					{user?.partyInvites && user.partyInvites.length > 0 && (
 						<div className="mb-4 bg-blue-900/30 p-2 border border-blue-500 rounded">
@@ -404,12 +478,7 @@ export const FriendsSidepanel: React.FC<{
 							>
 								INVITE TO PARTY
 							</button>
-							<button
-								onClick={() => handleAction('CHALLENGE')}
-								className="w-full text-left px-2 py-1 bg-orange-900/50 hover:bg-orange-800 text-orange-200 text-xs"
-							>
-								CHALLENGE
-							</button>
+
 							<button
 								onClick={() => handleAction('REMOVE')}
 								className="w-full text-left px-2 py-1 bg-red-900/50 hover:bg-red-800 text-red-300 text-xs border-t border-gray-800 mt-2"

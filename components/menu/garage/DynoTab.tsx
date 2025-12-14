@@ -25,7 +25,7 @@ export default function DynoTab({
 		quarterMileSpeed: number;
 	} | null>(null);
 
-	const animationRef = useRef<number>();
+	const animationRef = useRef<number | null>(null);
 	const startTimeRef = useRef<number>(0);
 	const historyRef = useRef<{ rpm: number; torque: number; hp: number }[]>(
 		[]

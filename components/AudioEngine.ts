@@ -576,6 +576,7 @@ export class AudioEngine {
 			| 'unequip'
 			| 'ui_click'
 			| 'ui_select'
+			| 'cash'
 	) {
 		// console.log(`[AudioEngine] playUISound called: ${type}`);
 
@@ -662,6 +663,7 @@ export class AudioEngine {
 
 			case 'purchase':
 			case 'upgrade':
+			case 'cash':
 				// Ka-ching!
 				const osc2 = this.ctx.createOscillator();
 				const gain2 = this.ctx.createGain();

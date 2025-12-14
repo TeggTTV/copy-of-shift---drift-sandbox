@@ -28,6 +28,7 @@ export default async function handler(
 
 	if (req.method === 'GET') {
 		try {
+			const isSelf = requesterId === id;
 			const user = await prisma.user.findUnique({
 				where: { id },
 				select: {
@@ -40,7 +41,9 @@ export default async function handler(
 					inventory: true,
 					friendCode: true,
 					createdAt: true,
-					// Hide sensitive data
+					friendRequestsReceived: isSelf,
+					partyInvites: isSelf,
+					partyId: true,
 				},
 			});
 			if (!user)
@@ -57,22 +60,28 @@ export default async function handler(
 			return res.status(403).json({ message: 'Forbidden' });
 		}
 
-		const { money, garage, inventory, level, xp } = req.body;
+		// SECURITY: Only accept garage, inventory, level, xp updates
+		// Money updates must go through secure transaction endpoints
+		const { garage, inventory, level, xp, money } = req.body;
+
+		const updateData: any = {};
+		if (garage !== undefined) updateData.garage = garage;
+		if (inventory !== undefined) updateData.inventory = inventory;
+		if (level !== undefined) updateData.level = Math.floor(Number(level));
+		if (xp !== undefined) updateData.xp = Math.floor(Number(xp));
+		if (money !== undefined) updateData.money = Number(money);
 
 		try {
 			const updatedUser = await prisma.user.update({
 				where: { id },
-				data: {
-					money,
-					garage,
-					inventory,
-					level,
-					xp,
-				},
+				data: updateData,
 			});
 			return res.status(200).json(updatedUser);
 		} catch (err) {
-			return res.status(500).json({ message: 'Error updating user' });
+			console.error('[API] Error updating user:', err);
+			return res
+				.status(500)
+				.json({ message: 'Error updating user', error: String(err) });
 		}
 	}
 

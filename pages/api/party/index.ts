@@ -72,6 +72,10 @@ export default async function handler(
 			});
 
 			if (newMembers.length === 0) {
+				// Delete active race if exists
+				await prisma.race.deleteMany({
+					where: { partyId: party.id },
+				});
 				// Delete party
 				await prisma.party.delete({ where: { id: party.id } });
 				return res.status(200).json({ message: 'Party dissolved' });
@@ -112,7 +116,20 @@ export default async function handler(
 				select: { id: true, username: true, level: true },
 			});
 
-			return res.status(200).json({ ...party, members });
+			// Get active race
+			const activeRace = await prisma.race.findFirst({
+				where: {
+					partyId: party.id,
+					status: { not: 'FINISHED' },
+				},
+				orderBy: { startTime: 'desc' },
+			});
+
+			return res.status(200).json({
+				...party,
+				members,
+				activeRaceId: activeRace?.id,
+			});
 		} catch (err) {
 			return res.status(500).json({ message: 'Error fetching party' });
 		}

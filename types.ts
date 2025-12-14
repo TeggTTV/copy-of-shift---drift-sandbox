@@ -3,10 +3,9 @@ export type GamePhase =
 	| 'GARAGE'
 	| 'MAP'
 	| 'MISSION_SELECT'
-	| 'VERSUS'
+	// | 'VERSUS' // Removed
 	| 'RACE'
 	| 'RESULTS'
-	| 'JUNKYARD'
 	| 'JUNKYARD'
 	| 'DEALERSHIP'
 	| 'SHOP'
@@ -286,6 +285,7 @@ export interface WeatherState {
 
 export interface AuctionListing {
 	id: string;
+	sellerId: string;
 	item: InventoryItem;
 	price: number;
 	listedAt: number;

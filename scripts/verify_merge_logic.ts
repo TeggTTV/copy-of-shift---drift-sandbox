@@ -10,7 +10,7 @@ const mockItem = (rarity: any, statVal: number): InventoryItem =>
 		type: 'ENGINE',
 		rarity: rarity,
 		value: 100,
-		stats: { speed: statVal },
+		stats: { maxTorque: statVal },
 		condition: 100,
 	} as any);
 
@@ -31,13 +31,13 @@ item2.instanceId = '2';
 
 const merged = ItemMerge.mergeItems(item1, item2);
 if (merged) {
-	console.log(`0.10 + 0.10 = ${merged.stats.speed}`);
+	console.log(`0.10 + 0.10 = ${merged.stats.maxTorque}`);
 	const expected = (0.1 + 0.1) / 1.25; // 0.20 / 1.25 = 0.16
-	if (Math.abs((merged.stats.speed as number) - expected) < 0.0001) {
+	if (Math.abs((merged.stats.maxTorque as number) - expected) < 0.0001) {
 		console.log('PASS: Stats merged correctly (boosted).');
 	} else {
 		console.error(
-			`FAIL: Stats not boosted smoothly. Got ${merged.stats.speed}, Expected ${expected}`
+			`FAIL: Stats not boosted smoothly. Got ${merged.stats.maxTorque}, Expected ${expected}`
 		);
 	}
 } else {

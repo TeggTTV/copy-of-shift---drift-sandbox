@@ -63,7 +63,7 @@ export interface GameContextType {
 	xp: number;
 	level: number;
 	defeatedRivals: string[];
-	onChallengeRival: (rival: Rival) => void;
+	// onChallengeRival: (rival: Rival) => void; // Removed
 	userInventory: InventoryItem[];
 	setUserInventory: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
 	onMerge: (item1: InventoryItem, item2: InventoryItem) => void;
@@ -76,6 +76,15 @@ export interface GameContextType {
 	onManualTuningChange: (tuning: Partial<TuningState>) => void;
 	settings: GameSettings;
 	setSettings: React.Dispatch<React.SetStateAction<GameSettings>>;
+	saveGame: (
+		overrides?: Partial<{
+			garage: SavedTune[];
+			inventory: any[];
+			level: number;
+			xp: number;
+			money: number;
+		}>
+	) => Promise<void>;
 }
 
 export interface GameSettings {

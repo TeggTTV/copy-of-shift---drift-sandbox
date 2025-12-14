@@ -113,6 +113,80 @@ export default async function handler(
 		}
 	}
 
+	if (req.method === 'PUT') {
+		// Accept/Decline Friend Request
+		const { requesterId, accept } = req.body;
+		if (!requesterId)
+			return res.status(400).json({ message: 'Requester ID required' });
+
+		try {
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+			const requester = await prisma.user.findUnique({
+				where: { id: requesterId },
+			});
+
+			if (!user || !requester)
+				return res.status(404).json({ message: 'User not found' });
+
+			// Remove request from both sides
+			const updates: any[] = [
+				prisma.user.update({
+					where: { id: userId },
+					data: {
+						friendRequestsReceived: {
+							set: user.friendRequestsReceived.filter(
+								(id) => id !== requesterId
+							),
+						},
+					},
+				}),
+				prisma.user.update({
+					where: { id: requesterId },
+					data: {
+						friendRequestsSent: {
+							set: requester.friendRequestsSent.filter(
+								(id) => id !== userId
+							),
+						},
+					},
+				}),
+			];
+
+			if (accept) {
+				// Add to friends lists
+				updates.push(
+					prisma.user.update({
+						where: { id: userId },
+						data: {
+							friends: { push: requesterId },
+						},
+					})
+				);
+				updates.push(
+					prisma.user.update({
+						where: { id: requesterId },
+						data: {
+							friends: { push: userId },
+						},
+					})
+				);
+			}
+
+			await prisma.$transaction(updates);
+
+			return res
+				.status(200)
+				.json({ message: accept ? 'Accepted' : 'Declined' });
+		} catch (e) {
+			console.error(e);
+			return res
+				.status(500)
+				.json({ message: 'Error processing request' });
+		}
+	}
+
 	if (req.method === 'DELETE') {
 		const { friendId } = req.body;
 		if (!friendId)

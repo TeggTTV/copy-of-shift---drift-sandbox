@@ -6,7 +6,7 @@ import { useGame } from '@/contexts/GameContext';
 
 interface ItemCardProps {
 	item: InventoryItem | null;
-	onClick?: () => void;
+	onClick?: (e?: React.MouseEvent) => void;
 	onMouseEnter?: () => void;
 	onMouseLeave?: () => void;
 	isSelected?: boolean;

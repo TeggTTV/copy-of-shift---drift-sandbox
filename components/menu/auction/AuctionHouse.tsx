@@ -15,6 +15,7 @@ interface AuctionHouseProps {
 	onCollectListing: (id: string) => void;
 	playerTuning: TuningState;
 	ownedMods: string[];
+	currentUserId?: string;
 }
 
 export const AuctionHouse: React.FC<AuctionHouseProps> = ({
@@ -27,6 +28,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 	onCollectListing,
 	playerTuning,
 	ownedMods,
+	currentUserId,
 }) => {
 	const [marketItems, setMarketItems] = useState<InventoryItem[]>([]);
 
@@ -72,21 +74,31 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 		return (val > 0 ? '+' : '') + val;
 	};
 
-	// Generate Market Items on Mount
+	// Use listings prop for Market Items
 	useEffect(() => {
-		const items: InventoryItem[] = [];
-		for (let i = 0; i < 20; i++) {
-			const rand = Math.random();
-			let rarity: ItemRarity = 'COMMON';
-			if (rand > 0.95) rarity = 'LEGENDARY';
-			else if (rand > 0.85) rarity = 'EPIC';
-			else if (rand > 0.7) rarity = 'RARE';
-			else if (rand > 0.4) rarity = 'UNCOMMON';
+		// Filter out my own listings? Or show all?
+		// For now, show all active listings that are NOT mine (handled by parent or API?)
+		// Actually, the parent passes 'listings' which are ALL active listings.
+		// We should probably filter out our own listings in the 'Buy' view if we want,
+		// but usually you can see your own listings too.
+		// However, for the "Market Items" view (Buy Tab), we want to see what others are selling.
+		// The 'listings' prop contains AuctionListing objects.
+		// We need to map them to InventoryItems but keep the price from the listing.
+		// Wait, the UI expects InventoryItem for display, but we need the price.
+		// Let's map listings to a structure that works.
+		// Actually, let's just use the listings directly for the Buy view instead of 'marketItems'.
+		// But 'marketItems' is currently InventoryItem[].
+		// Let's update 'marketItems' to be derived from 'listings'.
 
-			items.push(ItemGenerator.generateItem(rarity));
-		}
+		const items = listings
+			.filter((l) => l.status === 'ACTIVE')
+			.map((l) => ({
+				...l.item,
+				value: l.price, // Override value with listing price for display
+				sellerId: l.sellerId,
+			}));
 		setMarketItems(items);
-	}, []);
+	}, [listings]);
 
 	// Helper for Icons
 	const getItemIcon = (type: string) => {
@@ -284,96 +296,41 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 							gridTemplateColumns: `repeat(auto-fill, minmax(130px, 1fr))`,
 						}}
 					>
-						{filteredMarketItems.map((item) => (
-							// <div
-							// 	key={item.instanceId}
-							// 	onClick={() => setSelectedBuyItem(item)}
-							// 	onMouseEnter={() => setHoveredMarketItem(item)}
-							// 	onMouseLeave={() => setHoveredMarketItem(null)}
-							// 	className={`
-							//         relative group cursor-pointer bg-gray-800 border-2 rounded p-2 flex flex-col gap-1 transition-all h-28
-							//         ${
-							// 			selectedBuyItem?.instanceId ===
-							// 			item.instanceId
-							// 				? 'border-yellow-500 bg-gray-700 ring-2 ring-yellow-500/50'
-							// 				: 'border-gray-700 hover:border-gray-500 hover:-translate-y-1'
-							// 		}
-							//     `}
-							// 	style={{
-							// 		borderColor:
-							// 			selectedBuyItem?.instanceId ===
-							// 			item.instanceId
-							// 				? undefined
-							// 				: ItemGenerator.getRarityColor(
-							// 						item.rarity
-							// 				  ),
-							// 	}}
-							// >
-							// 	<div className="flex justify-between items-start pointer-events-none">
-							// 		<div
-							// 			className="w-8 h-8 rounded flex items-center justify-center text-lg border bg-black/20 overflow-hidden relative"
-							// 			style={{ borderColor: 'transparent' }}
-							// 		>
-							// 			{item.spriteIndex !== undefined ? (
-							// 				<div
-							// 					className="absolute inset-0 bg-no-repeat"
-							// 					style={{
-							// 						backgroundImage:
-							// 							'url(/icons/parts.png)',
-							// 						backgroundSize: '500% 500%',
-							// 						backgroundPosition: `${
-							// 							(item.spriteIndex % 5) *
-							// 							25
-							// 						}% ${
-							// 							Math.floor(
-							// 								item.spriteIndex / 5
-							// 							) * 25
-							// 						}%`,
-							// 						imageRendering: 'pixelated',
-							// 						width: '100%',
-							// 						height: '100%',
-							// 						transform: 'scale(0.8)', // Scale down slightly to fit nicely
-							// 						transformOrigin: 'center',
-							// 					}}
-							// 				/>
-							// 			) : (
-							// 				getItemIcon(item.type)
-							// 			)}
-							// 		</div>
-							// 		<div className="text-right">
-							// 			<div className="text-yellow-400 font-mono font-bold text-xs">
-							// 				${item.value.toLocaleString()}
-							// 			</div>
-							// 		</div>
-							// 	</div>
-							// 	<div
-							// 		className="font-bold text-gray-200 text-xs truncate pointer-events-none mt-auto"
-							// 		style={{
-							// 			color: ItemGenerator.getRarityColor(
-							// 				item.rarity
-							// 			),
-							// 		}}
-							// 	>
-							// 		{item.name}
-							// 	</div>
-							// 	<div className="text-[9px] text-gray-500 uppercase">
-							// 		{item.rarity}
-							// 	</div>
-							// </div>
-							<ItemCard
-								key={item.instanceId}
-								item={item}
-								onClick={(e) =>
-									item && setSelectedBuyItem(item)
-								}
-								onMouseEnter={() =>
-									item && setHoveredMarketItem(item)
-								}
-								onMouseLeave={() => setHoveredMarketItem(null)}
-								isSelected={selectedBuyItem === item}
-								showCondition={true}
-							/>
-						))}
+						{filteredMarketItems.map((item) => {
+							const isMine =
+								currentUserId &&
+								(item as any).sellerId === currentUserId;
+							return (
+								<div
+									key={item.instanceId}
+									className={`relative rounded ${
+										isMine
+											? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900'
+											: ''
+									}`}
+								>
+									<ItemCard
+										item={item}
+										onClick={() =>
+											item && setSelectedBuyItem(item)
+										}
+										onMouseEnter={() =>
+											item && setHoveredMarketItem(item)
+										}
+										onMouseLeave={() =>
+											setHoveredMarketItem(null)
+										}
+										isSelected={selectedBuyItem === item}
+										showCondition={true}
+									/>
+									{isMine && (
+										<div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm z-10 pointer-events-none">
+											YOU
+										</div>
+									)}
+								</div>
+							);
+						})}
 						{filteredMarketItems.length === 0 && (
 							<div className="col-span-full text-center text-gray-500 py-10">
 								No items match your search.
@@ -394,7 +351,11 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 						>
 							<div className="text-center">
 								<h3 className="text-xl font-bold text-white mb-1">
-									Buy Item?
+									{currentUserId &&
+									(selectedBuyItem as any).sellerId ===
+										currentUserId
+										? 'Manage Listing'
+										: 'Buy Item?'}
 								</h3>
 								<div className="text-gray-400 text-sm">
 									{selectedBuyItem.name}
@@ -403,7 +364,11 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 
 							<div className="bg-black/40 rounded p-2 text-center">
 								<div className="text-xs text-gray-500 mb-1">
-									COST
+									{currentUserId &&
+									(selectedBuyItem as any).sellerId ===
+										currentUserId
+										? 'LISTED PRICE'
+										: 'COST'}
 								</div>
 								<div className="text-yellow-400 font-mono text-2xl font-bold">
 									${selectedBuyItem.value.toLocaleString()}
@@ -411,25 +376,51 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 							</div>
 
 							<div className="flex gap-2">
-								<button
-									onClick={handleBuy}
-									disabled={money < selectedBuyItem.value}
-									className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded pixel-text"
-								>
-									CONFIRM
-								</button>
+								{currentUserId &&
+								(selectedBuyItem as any).sellerId ===
+									currentUserId ? (
+									<button
+										onClick={() => {
+											// Find the listing ID for this item
+											const listing = listings.find(
+												(l) =>
+													l.item.instanceId ===
+													selectedBuyItem.instanceId
+											);
+											if (listing) {
+												onCancelListing(listing.id);
+												setSelectedBuyItem(null);
+											}
+										}}
+										className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded pixel-text"
+									>
+										CANCEL LISTING
+									</button>
+								) : (
+									<button
+										onClick={handleBuy}
+										disabled={money < selectedBuyItem.value}
+										className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded pixel-text"
+									>
+										CONFIRM
+									</button>
+								)}
+
 								<button
 									onClick={() => setSelectedBuyItem(null)}
 									className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded pixel-text"
 								>
-									CANCEL
+									CLOSE
 								</button>
 							</div>
-							{money < selectedBuyItem.value && (
-								<div className="text-red-500 text-xs text-center font-bold animate-pulse">
-									Insufficient Funds!
-								</div>
-							)}
+							{!currentUserId ||
+								((selectedBuyItem as any).sellerId !==
+									currentUserId &&
+									money < selectedBuyItem.value && (
+										<div className="text-red-500 text-xs text-center font-bold animate-pulse">
+											Insufficient Funds!
+										</div>
+									))}
 						</div>
 					</div>
 				)}
@@ -459,7 +450,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 								<ItemCard
 									key={item.instanceId}
 									item={item}
-									onClick={(e) =>
+									onClick={() =>
 										item && setSelectedSellItem(item)
 									}
 									onMouseEnter={() =>
@@ -489,60 +480,70 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({
 							</div>
 						</div>
 						<div className="flex-1 bg-gray-900/80 rounded-lg p-3 flex flex-col gap-2 overflow-y-auto border border-gray-700 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-							{listings.map((listing) => (
-								<div
-									key={listing.id}
-									className={`flex items-center gap-3 p-2 rounded border bg-gray-800 ${
-										listing.status === 'SOLD'
-											? 'border-green-500/50'
-											: 'border-gray-600'
-									}`}
-								>
-									{/* Mini Item Preview */}
-									<div className="w-12 h-12 relative shrink-0">
-										<ItemCard
-											item={listing.item}
-											className="w-full h-full text-[8px]" // Tiny card?
-											showCondition={false}
-											onClick={() => {}} // No action
-										/>
-									</div>
-
-									<div className="flex-1 min-w-0">
-										<div className="font-bold text-white truncate text-sm">
-											{listing.item.name}
+							{listings
+								.filter(
+									(l) =>
+										currentUserId &&
+										l.sellerId === currentUserId
+								)
+								.map((listing) => (
+									<div
+										key={listing.id}
+										className={`flex items-center gap-3 p-2 rounded border bg-gray-800 ${
+											listing.status === 'SOLD'
+												? 'border-green-500/50'
+												: 'border-gray-600'
+										}`}
+									>
+										{/* Mini Item Preview */}
+										<div className="w-12 h-12 relative shrink-0">
+											<ItemCard
+												item={listing.item}
+												className="w-full h-full text-[8px]" // Tiny card?
+												showCondition={false}
+												onClick={() => {}} // No action
+											/>
 										</div>
-										<div className="text-xs font-mono text-gray-400">
-											Listed: $
-											{listing.price.toLocaleString()}
-										</div>
-									</div>
 
-									{/* Status / Action */}
-									<div className="shrink-0">
-										{listing.status === 'SOLD' ? (
-											<button
-												onClick={() =>
-													onCollectListing(listing.id)
-												}
-												className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white font-bold text-xs rounded pixel-text animate-pulse"
-											>
-												COLLECT $
+										<div className="flex-1 min-w-0">
+											<div className="font-bold text-white truncate text-sm">
+												{listing.item.name}
+											</div>
+											<div className="text-xs font-mono text-gray-400">
+												Listed: $
 												{listing.price.toLocaleString()}
-											</button>
-										) : (
-											<button
-												onClick={() =>
-													onCancelListing(listing.id)
-												}
-												className="px-3 py-1 bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-800 font-bold text-xs rounded pixel-text"
-											>
-												CANCEL
-											</button>
-										)}
+											</div>
+										</div>
+
+										{/* Status / Action */}
+										<div className="shrink-0">
+											{listing.status === 'SOLD' ? (
+												<button
+													onClick={() =>
+														onCollectListing(
+															listing.id
+														)
+													}
+													className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white font-bold text-xs rounded pixel-text animate-pulse"
+												>
+													COLLECT $
+													{listing.price.toLocaleString()}
+												</button>
+											) : (
+												<button
+													onClick={() =>
+														onCancelListing(
+															listing.id
+														)
+													}
+													className="px-3 py-1 bg-red-900/50 hover:bg-red-800 text-red-200 border border-red-800 font-bold text-xs rounded pixel-text"
+												>
+													CANCEL
+												</button>
+											)}
+										</div>
 									</div>
-								</div>
-							))}
+								))}
 							{listings.length === 0 && (
 								<div className="text-center text-gray-500 py-10">
 									No active listings.

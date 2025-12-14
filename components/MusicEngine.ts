@@ -1,4 +1,10 @@
-export type MusicTrack = 'menu' | 'race' | 'victory' | 'defeat' | 'ambient';
+export type MusicTrack =
+	| 'menu'
+	| 'race'
+	| 'victory'
+	| 'defeat'
+	| 'ambient'
+	| 'cash';
 
 interface TrackConfig {
 	urls: string[]; // Multiple URLs for variety

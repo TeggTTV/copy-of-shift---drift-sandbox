@@ -48,6 +48,10 @@ export default async function POST(req: NextApiRequest, res: NextApiResponse) {
 			},
 		});
 
+		// Create player stats
+		const { createPlayerStats } = require('../../../utils/stats');
+		await createPlayerStats(user.id);
+
 		// Generate Token
 		const token = jwt.sign(
 			{ userId: user.id, username: user.username },

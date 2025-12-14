@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Mission, TuningState, SavedTune, DailyChallenge } from '../types';
 import { MISSIONS, BASE_TUNING } from '../constants';
 import { generateDailyChallenges } from '../utils/dailyChallengeUtils';
+import { useAuth } from '../contexts/AuthContext';
+import { getFullUrl } from '../utils/prisma';
 
 export const useGamePersistence = (
 	money: number,
@@ -37,21 +39,28 @@ export const useGamePersistence = (
 	level: number,
 	setLevel: (level: number) => void,
 	inventory: any[], // using any[] to avoid circular dependency if InventoryItem is not exported from types
-	setInventory: (items: any[]) => void
+	setInventory: (items: any[]) => void,
+	phase: string // Add phase to control sync behavior
 ) => {
 	const [loaded, setLoaded] = useState(false);
+	const lastMoneyUpdateRef = React.useRef(0);
+
+	const notifyMoneyUpdate = React.useCallback(() => {
+		lastMoneyUpdateRef.current = Date.now();
+	}, []);
 
 	// Load on mount
 	useEffect(() => {
 		const load = () => {
 			try {
 				const savedMoney = localStorage.getItem('shift_drift_money');
-				if (savedMoney) setMoney(parseInt(savedMoney));
+				if (savedMoney && savedMoney !== 'undefined')
+					setMoney(parseInt(savedMoney));
 
 				const savedMissions = localStorage.getItem(
 					'shift_drift_missions'
 				);
-				if (savedMissions) {
+				if (savedMissions && savedMissions !== 'undefined') {
 					const parsedSavedMissions: Mission[] =
 						JSON.parse(savedMissions);
 					// Merge saved progress with current mission definitions
@@ -74,13 +83,16 @@ export const useGamePersistence = (
 				const savedDynoHistory = localStorage.getItem(
 					'shift_drift_dynoHistory'
 				);
-				if (savedDynoHistory)
+				if (savedDynoHistory && savedDynoHistory !== 'undefined')
 					setDynoHistory(JSON.parse(savedDynoHistory));
 
 				const savedPreviousDynoHistory = localStorage.getItem(
 					'shift_drift_previousDynoHistory'
 				);
-				if (savedPreviousDynoHistory)
+				if (
+					savedPreviousDynoHistory &&
+					savedPreviousDynoHistory !== 'undefined'
+				)
 					setPreviousDynoHistory(
 						JSON.parse(savedPreviousDynoHistory)
 					);
@@ -89,22 +101,31 @@ export const useGamePersistence = (
 				const savedUndergroundLevel = localStorage.getItem(
 					'shift_drift_undergroundLevel'
 				);
-				if (savedUndergroundLevel) {
+				if (
+					savedUndergroundLevel &&
+					savedUndergroundLevel !== 'undefined'
+				) {
 					setUndergroundLevel(parseInt(savedUndergroundLevel));
 				}
 
 				// XP & Level
 				const savedXp = localStorage.getItem('shift_drift_xp');
-				if (savedXp) setXp(parseInt(savedXp));
+				if (savedXp && savedXp !== 'undefined') {
+					const parsed = parseInt(savedXp);
+					if (!isNaN(parsed)) setXp(parsed);
+				}
 
 				const savedLevel = localStorage.getItem('shift_drift_level');
-				if (savedLevel) setLevel(parseInt(savedLevel));
+				if (savedLevel && savedLevel !== 'undefined') {
+					const parsed = parseInt(savedLevel);
+					if (!isNaN(parsed)) setLevel(parsed);
+				}
 
 				// Inventory
 				const savedInventory = localStorage.getItem(
 					'shift_drift_inventory'
 				);
-				if (savedInventory) {
+				if (savedInventory && savedInventory !== 'undefined') {
 					setInventory(JSON.parse(savedInventory));
 				}
 
@@ -112,7 +133,7 @@ export const useGamePersistence = (
 				const savedDaily = localStorage.getItem(
 					'shift_drift_dailyChallenges'
 				);
-				if (savedDaily) {
+				if (savedDaily && savedDaily !== 'undefined') {
 					const parsedDaily: DailyChallenge[] =
 						JSON.parse(savedDaily);
 					// Check if expired (all expire at same time)
@@ -156,7 +177,7 @@ export const useGamePersistence = (
 					'shift_drift_manual_tuning'
 				);
 
-				if (savedGarage) {
+				if (savedGarage && savedGarage !== 'undefined') {
 					// Load Garage
 					const parsedGarage = JSON.parse(savedGarage);
 
@@ -186,7 +207,7 @@ export const useGamePersistence = (
 						setGarage(parsedGarage);
 
 						let activeIndex = 0;
-						if (savedCarIndex) {
+						if (savedCarIndex && savedCarIndex !== 'undefined') {
 							activeIndex = parseInt(savedCarIndex);
 						}
 
@@ -217,7 +238,7 @@ export const useGamePersistence = (
 					}
 				} else {
 					// Migration: Check for legacy single-car save
-					if (savedOwnedMods) {
+					if (savedOwnedMods && savedOwnedMods !== 'undefined') {
 						// Create initial car from legacy data
 						const initialCar: SavedTune = {
 							id: 'starter_car',
@@ -333,5 +354,166 @@ export const useGamePersistence = (
 		);
 	}, [inventory, loaded]);
 
-	return loaded;
+	// --- Server Sync Logic ---
+	// SECURITY NOTE: Money is NOT synced automatically from localStorage to prevent manipulation
+	// Money updates should only happen via secure API endpoints when earned through legitimate gameplay
+	const { token, user } = useAuth();
+	const lastSyncRef = React.useRef<number>(0);
+	const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+	// Fetch money from server for online users (server is source of truth)
+	useEffect(() => {
+		if (!loaded || !token || !user) return;
+
+		// Don't fetch during active gameplay
+		// Don't fetch during active gameplay
+		if (phase === 'RACE' || phase === 'ONLINE_RACE') return;
+
+		const fetchServerMoney = async () => {
+			try {
+				const res = await fetch(
+					getFullUrl('/api/users/:id').replace(':id', user.id) +
+						`?t=${Date.now()}`,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+							'Cache-Control':
+								'no-cache, no-store, must-revalidate',
+							Pragma: 'no-cache',
+							Expires: '0',
+						},
+					}
+				);
+				if (res.ok) {
+					const data = await res.json();
+					if (data.money !== undefined) {
+						// Server money is the source of truth for online users
+						// BUT: If we just updated money locally (e.g. bought something), ignore stale server data
+						// Increased window to 5s to be safe against latency/caching
+						const timeDiff =
+							Date.now() - lastMoneyUpdateRef.current;
+
+						if (timeDiff > 5000) {
+							setMoney(data.money);
+							// Also update localStorage to reflect server value
+							localStorage.setItem(
+								'shift_drift_money',
+								data.money.toString()
+							);
+						}
+					}
+				}
+			} catch (e) {
+				console.error('Failed to fetch money from server', e);
+			}
+		};
+
+		// Fetch immediately on login
+		fetchServerMoney();
+
+		// Periodically sync money from server (every 10 seconds)
+		const interval = setInterval(fetchServerMoney, 10000);
+		return () => clearInterval(interval);
+	}, [loaded, token, user, setMoney, phase]);
+
+	// Consolidated state object for sync comparison (EXCLUDING money for security)
+	const currentState = React.useMemo(
+		() => ({
+			garage,
+			inventory,
+			level,
+			xp,
+		}),
+		[garage, inventory, level, xp]
+	);
+
+	// Immediate Save Function
+	const saveGame = React.useCallback(
+		async (
+			overrides?: Partial<{
+				garage: SavedTune[];
+				inventory: any[];
+				level: number;
+				xp: number;
+				money: number;
+			}>
+		) => {
+			if (!token || !user) return;
+
+			const body = {
+				garage,
+				inventory,
+				level,
+				xp,
+				// money, // DO NOT include money by default. It overwrites server state with potentially stale local state.
+				...overrides,
+			};
+
+			try {
+				await fetch(
+					getFullUrl('/api/users/:id').replace(':id', user.id),
+					{
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify(body),
+					}
+				);
+				lastSyncRef.current = Date.now();
+				// console.log('Game saved immediately');
+			} catch (e) {
+				console.error('Failed to save game', e);
+			}
+		},
+		[garage, inventory, level, xp, money, token, user]
+	);
+
+	// Periodic Sync (Debounced) - Only when NOT racing
+	useEffect(() => {
+		if (!loaded || !token || !user) return;
+
+		// Don't sync during active gameplay to prevent stutter or conflicts
+		// Don't sync during active gameplay to prevent stutter or conflicts
+		if (phase === 'RACE' || phase === 'ONLINE_RACE') return;
+
+		// Debounce sync
+		if (syncTimeoutRef.current) {
+			clearTimeout(syncTimeoutRef.current);
+		}
+
+		syncTimeoutRef.current = setTimeout(async () => {
+			try {
+				// Sync only statistical/progress data (NOT money)
+				await fetch(
+					getFullUrl('/api/users/:id').replace(':id', user.id),
+					{
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${token}`,
+						},
+						body: JSON.stringify({
+							garage,
+							inventory,
+							level,
+							xp,
+						}),
+					}
+				);
+				lastSyncRef.current = Date.now();
+			} catch (e) {
+				console.error('Failed to sync to server', e);
+			}
+		}, 2000); // 2 second debounce
+
+		return () => {
+			if (syncTimeoutRef.current) {
+				clearTimeout(syncTimeoutRef.current);
+			}
+		};
+	}, [currentState, loaded, token, user, phase]);
+
+	return { loaded, notifyMoneyUpdate, saveGame };
 };
