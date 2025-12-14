@@ -43,6 +43,7 @@ export const useGamePersistence = (
 	phase: string // Add phase to control sync behavior
 ) => {
 	const [loaded, setLoaded] = useState(false);
+	const { token, user } = useAuth();
 	const lastMoneyUpdateRef = React.useRef(0);
 
 	const notifyMoneyUpdate = React.useCallback(() => {
@@ -50,8 +51,9 @@ export const useGamePersistence = (
 	}, []);
 
 	// Load on mount
+	// Load on mount or auth change
 	useEffect(() => {
-		const load = () => {
+		const loadFromLocalStorage = () => {
 			try {
 				const savedMoney = localStorage.getItem('shift_drift_money');
 				if (savedMoney && savedMoney !== 'undefined')
@@ -143,16 +145,10 @@ export const useGamePersistence = (
 					) {
 						setDailyChallenges(parsedDaily);
 					} else {
-						// Expired, generate new ones
-						// console.log(
-						// 	'Daily challenges expired, generating new ones'
-						// );
 						const newChallenges = generateDailyChallenges();
 						setDailyChallenges(newChallenges);
 					}
 				} else {
-					// First time generation
-					// console.log('Generating first set of daily challenges');
 					const newChallenges = generateDailyChallenges();
 					setDailyChallenges(newChallenges);
 				}
@@ -254,6 +250,10 @@ export const useGamePersistence = (
 							manualTuning: savedManualTuning
 								? JSON.parse(savedManualTuning)
 								: {},
+							condition: 100,
+							installedItems: [],
+							originalPrice: 5000,
+							rarity: 'COMMON',
 						};
 
 						setGarage([initialCar]);
@@ -263,7 +263,6 @@ export const useGamePersistence = (
 						setOwnedMods(initialCar.ownedMods);
 						setDisabledMods(initialCar.disabledMods);
 						setModSettings(initialCar.modSettings);
-						// Manual tuning is handled by GameCanvas via playerTuning state
 					} else {
 						// New Game
 						setGarage([]);
@@ -276,88 +275,154 @@ export const useGamePersistence = (
 				console.error('Failed to load game state', e);
 			}
 		};
-		load();
-	}, []);
+
+		const loadFromServer = async () => {
+			if (!user || !token) return;
+			try {
+				const res = await fetch(
+					getFullUrl('/api/users/:id').replace(':id', user.id) +
+						`?t=${Date.now()}`,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+							'Cache-Control':
+								'no-cache, no-store, must-revalidate',
+							Pragma: 'no-cache',
+							Expires: '0',
+						},
+					}
+				);
+				if (res.ok) {
+					const data = await res.json();
+
+					// Set Money
+					if (data.money !== undefined) setMoney(data.money);
+
+					// Set XP & Level
+					if (data.xp !== undefined) setXp(data.xp);
+					if (data.level !== undefined) setLevel(data.level);
+
+					// Set Inventory
+					if (data.inventory) setInventory(data.inventory);
+
+					// Set Garage
+					if (data.garage) {
+						setGarage(data.garage);
+						// Default to first car if garage exists
+						if (data.garage.length > 0) {
+							setCurrentCarIndex(0);
+							const activeCar = data.garage[0];
+							setOwnedMods(activeCar.ownedMods || []);
+							setDisabledMods(activeCar.disabledMods || []);
+							setModSettings(activeCar.modSettings || {});
+							setPlayerTuning((prev) => ({
+								...prev,
+								...(activeCar.manualTuning || {}),
+							}));
+						} else {
+							// Handle empty garage on server (shouldn't happen for established players but possible for new ones)
+							setGarage([]);
+							setCurrentCarIndex(0);
+						}
+					}
+
+					// Initialize Daily Challenges (Client-side generation for now, could be server-side later)
+					const newChallenges = generateDailyChallenges();
+					setDailyChallenges(newChallenges);
+
+					setLoaded(true);
+				}
+			} catch (e) {
+				console.error('Failed to load from server', e);
+				// Fallback? Or just stay in loading state?
+			}
+		};
+
+		if (user) {
+			loadFromServer();
+		} else {
+			loadFromLocalStorage();
+		}
+	}, [user, token]);
 
 	// Auto-save effects
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem('shift_drift_money', money.toString());
-	}, [money, loaded]);
+	}, [money, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem('shift_drift_missions', JSON.stringify(missions));
-	}, [missions, loaded]);
+	}, [missions, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_dynoHistory',
 			JSON.stringify(dynoHistory)
 		);
-	}, [dynoHistory, loaded]);
+	}, [dynoHistory, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_previousDynoHistory',
 			JSON.stringify(previousDynoHistory)
 		);
-	}, [previousDynoHistory, loaded]);
+	}, [previousDynoHistory, loaded, user]);
 
 	// Save Garage & Current Index
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem('shift_drift_garage', JSON.stringify(garage));
-	}, [garage, loaded]);
+	}, [garage, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_currentCarIndex',
 			currentCarIndex.toString()
 		);
-	}, [currentCarIndex, loaded]);
+	}, [currentCarIndex, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_undergroundLevel',
 			undergroundLevel.toString()
 		);
-	}, [undergroundLevel, loaded]);
+	}, [undergroundLevel, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_dailyChallenges',
 			JSON.stringify(dailyChallenges)
 		);
-	}, [dailyChallenges, loaded]);
+	}, [dailyChallenges, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem('shift_drift_xp', xp.toString());
-	}, [xp, loaded]);
+	}, [xp, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem('shift_drift_level', level.toString());
-	}, [level, loaded]);
+	}, [level, loaded, user]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (!loaded || user) return;
 		localStorage.setItem(
 			'shift_drift_inventory',
 			JSON.stringify(inventory)
 		);
-	}, [inventory, loaded]);
+	}, [inventory, loaded, user]);
 
 	// --- Server Sync Logic ---
 	// SECURITY NOTE: Money is NOT synced automatically from localStorage to prevent manipulation
 	// Money updates should only happen via secure API endpoints when earned through legitimate gameplay
-	const { token, user } = useAuth();
 	const lastSyncRef = React.useRef<number>(0);
 	const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -365,7 +430,6 @@ export const useGamePersistence = (
 	useEffect(() => {
 		if (!loaded || !token || !user) return;
 
-		// Don't fetch during active gameplay
 		// Don't fetch during active gameplay
 		if (phase === 'RACE' || phase === 'ONLINE_RACE') return;
 
@@ -407,9 +471,6 @@ export const useGamePersistence = (
 				console.error('Failed to fetch money from server', e);
 			}
 		};
-
-		// Fetch immediately on login
-		fetchServerMoney();
 
 		// Periodically sync money from server (every 10 seconds)
 		const interval = setInterval(fetchServerMoney, 10000);
